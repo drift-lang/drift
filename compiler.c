@@ -48,15 +48,15 @@ void free_list(list *l) {
 
 /* Types of all tokens */
 typedef enum {
-    EOH,	   LITERAL,   NUMBER,    STRING,  CHAR,      FLOAT,
+    EOH,       LITERAL,   NUMBER,    STRING,  CHAR,      FLOAT,
     ADD,       SUB,       MUL,       DIV,     SUR,       AS_ADD,
     AS_SUB,    AS_MUL,    AS_DIV,    AS_SUR,  R_ARROW,   L_ARROW,
-    DOT,	   COMMA,     COLON,     EQ,      SEMICOLON, GREATER,
-    LESS,      GR_EQ,     LE_EQ,     ADDR,	  OR,        BANG,
+    DOT,       COMMA,     COLON,     EQ,      SEMICOLON, GREATER,
+    LESS,      GR_EQ,     LE_EQ,     ADDR,    OR,        BANG,
     BANG_EQ,   EQ_EQ,     L_BRACE,   R_BRACE, L_PAREN,   R_PAREN,
-    L_BRACKET, R_BRACKET, UNDERLINE, DEF,     RET, 	     FOR,
-    AOP,       IF,        EF,        NF,      NEW, 	     OUT,
-    GO, 	   MOD,       USE
+    L_BRACKET, R_BRACKET, UNDERLINE, DEF,     RET,       FOR,
+    AOP,       IF,        EF,        NF,      NEW,       OUT,
+    GO,        MOD,       USE
 } token_kind;
 
 /* Keywords */
@@ -65,8 +65,12 @@ const char *keyword[12] = {
     "nf",  "new", "out", "go",  "mod", "use"
 };
 
+/* Keyword type */
+const token_kind item_keyword[12] = {
+    DEF, RET, FOR, AOP, IF, EF, NF, NEW, OUT, GO, MOD, USE };
+
 /* Token properties */
-typedef struct { token_kind kind; const char *literal; int line; int off; } token;
+typedef struct { token_kind kind; char *literal; int line; int off; } token;
 
 /* Whether the symbol is a space, carriage return, line feed, indent */
 bool is_space(char c) { return c == ' ' || c == '\t' || c == '\n' || c == '\r'; }
@@ -83,19 +87,14 @@ bool is_ident(char c) {
 token_kind to_keyword(const char *literal) {
     for (int i = 0; i < 12; i ++) {
         if (strcmp(literal, keyword[i]) == 0) {
-            if (i ==  0) return DEF; if (i ==  1) return RET;
-            if (i ==  2) return FOR; if (i ==  3) return AOP;
-            if (i ==  4) return IF;  if (i ==  5) return EF;
-            if (i ==  6) return NF;  if (i ==  7) return NEW;
-            if (i ==  8) return OUT; if (i ==  9) return GO;
-            if (i == 10) return MOD; if (i == 11) return USE;
+            return item_keyword[i];
         }
     }
     return LITERAL;
 }
 
 /* Build token */
-token *new_token(token_kind k, const char *literal, int line, int off) {
+token *new_token(token_kind k, char *literal, int line, int off) {
     token *tok = (token *) malloc(sizeof(token));
     tok->kind = k;
     tok->literal = literal;
@@ -333,29 +332,39 @@ void lexer(const char *buf, int fsize) {
  * Frame:
  *
  *   1. Bytecodes    byte
- *   2. Constants    object
+ *   2. Objects      object
  *   3. Names        string
  *   4. Offsets      int
  *   5. Types        type
  *
  * All bytecodes
  * 
- *   J: Object   N: Name    S: Const    F: Offset
+ *   J: Object   N: Name    F: Offset
  *   T: Type     P: Top     *: None
  */
 typedef enum {
-    LOAD_CONST,    // S
+    CONST_OF,      // J
     LOAD_OF,       // N
-    LOAD_ENUM,     // S
-    LOAD_WHOLE,    // S
-    LOAD_FUNC,     // S
+    LOAD_ENUM,     // J
+    LOAD_WHOLE,    // J
+    LOAD_FUNC,     // J
     ASSIGN_TO,     // N
     STORE_NAME,    // N T
-    INDEX_TO,      // *
-    REPLACE_TO,    // *
+    TO_INDEX,      // *
+    TO_REPLACE,    // *
     GET_OF,        // N
     SET_OF,        // N
     CALL_FUNC,     // F
+    ASS_ADD,       // N
+    ASS_SUB,       // N
+    ASS_MUL,       // N
+    ASS_DIV,       // N
+    ASS_SUR,       // N
+    TO_REP_ADD,    // *
+    TO_REP_SUB,    // *
+    TO_REP_MUL,    // *
+    TO_REP_DIV,    // *
+    TO_REP_SUR,    // *
     SET_NAME,      // N
     NEW_OBJ,       // N F
     SET_MODULE,    // N
@@ -381,9 +390,23 @@ typedef enum {
     JUMP_TO,       // F
     TRUE_JUMP_TO,  // F
     FALSE_JUMP_TO, // F
-    RET_NONE,      // *
-    RET_VAL,       // P
+    TO_RET,        // *
+    RET_OF,        // P
 } op_code;
+
+/* Output bytecode */
+const char *code_string[] = {
+    "CONST_OF",     "LOAD_OF",       "LOAD_ENUM",  "LOAD_WHOLE", "LOAD_FUNC",
+    "ASSIGN_TO",    "STORE_NAME",    "TO_INDEX",   "TO_REPLACE", "GET_OF",
+    "SET_OF",       "CALL_FUNC",     "ASS_ADD",    "ASS_SUB",    "ASS_MUL",
+    "ASS_DIV",      "ASS_SUR",       "TO_REP_ADD", "TO_REP_SUB", "TO_REP_MUL", 
+    "TO_REP_DIV",   "TO_REP_SUR",    "SET_NAME",   "NEW_OBJ",    "SET_MODULE",
+    "USE_MOD",      "BUILD_ARR",     "BUILD_TUP",  "BUILD_MAP",  "TO_ADD",
+    "TO_SUB",       "TO_MUL",        "TO_DIV",     "TO_SUR",     "TO_GR",
+    "TO_LE",        "TO_GR_EQ",      "TO_LE_EQ",   "TO_EQ_EQ",   "TO_NOT_EQ",
+    "TO_AND",       "TO_OR",         "TO_BANG",    "TO_NOT",     "JUMP_TO",
+    "TRUE_JUMP_TO", "FALSE_JUMP_TO", "TO_RET",     "RET_OF",
+};
 
 /* Type system */
 typedef enum {
@@ -415,32 +438,64 @@ typedef struct {
         struct type *T1, *T2; /* It contains two types */
         const char *name; /* Customer type */
         struct {
-            struct type *arg; /* Function arguments */
+            list *arg; /* Function arguments */
             struct type *ret; /* Function returns */
         } func;
     } inner; 
 } type;
 
-/* Constant system */
-typedef enum { C_INT, C_FLOAT, C_STRING, C_CHAR, C_BOOL } const_kind;
-
-/*
- * Constant:
- * 
- *   1. int    2. float
- *   3. string 4. char
- *   5. bool
- */
-typedef struct {
-    u_int8_t kind; /* Constant system */
-    union {
-        int integer; /* int */
-        double floating; /* float */
-        const char *str; /* string */
-        char ch; /* char */
-        bool boolean; /* bool */
-    } value;
-} constant;
+/* Output type */
+const char *type_string(type *t) {
+    char *str = (char *) malloc(sizeof(char) * 128);
+    switch (t->kind) {
+        case T_INT:    free(str); return "<int>";
+        case T_FLOAT:  free(str); return "<float>";
+        case T_CHAR:   free(str); return "<char>";
+        case T_STRING: free(str); return "<string>";
+        case T_BOOL:   free(str); return "<bool>";
+        case T_ARRAY:
+            sprintf(str, "<[]%s>", type_string((type *)t->inner.single));
+            return str;
+        case T_TUPLE:
+            sprintf(str, "<()%s>", type_string((type *)t->inner.single));
+            return str;
+        case T_MAP:
+            sprintf(str, "<{}<%s, %s>>",
+                type_string((type *)t->inner.T1), 
+                type_string((type *)t->inner.T2));
+            return str;
+        case T_FUNC:
+            if (t->inner.func.arg == NULL &&
+                t->inner.func.ret == NULL) {
+                    free(str);
+                    return "<|| -> None>";
+                }
+            if (t->inner.func.arg != NULL) {
+                sprintf(str, "<|");
+                for (int i = 0; i < t->inner.func.arg->len; i ++) {
+                    strcat(str, 
+                        type_string((type *) t->inner.func.arg->data[i]));
+                    if (i + 1 != t->inner.func.arg->len) {
+                        strcat(str, ", ");
+                    }
+                }
+                strcat(str, "|>");
+                if (t->inner.func.ret != NULL) {
+                    strcat(str, type_string((type *)t->inner.func.ret));
+                }
+                return str;
+            }
+            if (t->inner.func.arg == NULL &&
+                t->inner.func.ret != NULL) {
+                    sprintf(str, "<|| -> %s>", 
+                        type_string((type *)t->inner.func.ret));
+                    return str;
+                }
+        case T_USER:
+            sprintf(str, "<%s>", t->inner.name);
+            return str;
+    }
+}
 
 /* Generate object, subject data type. */
 typedef struct {
@@ -449,13 +504,69 @@ typedef struct {
     list *codes; /* Bytecode set */
     list *offsets; /* Offset set */
     list *types; /* Type set */
-    list *constants; /* Constant set */
+    list *objects; /* Objects set */
 } code_object;
+
+/* Object type */
+typedef enum {
+    OBJ_INT,  OBJ_FLOAT, OBJ_STRING, OBJ_CHAR,
+    OBJ_ENUM, OBJ_FUNC,  OBJ_WHOLE
+} obj_kind;
+
+/* Object system */
+typedef struct {
+    u_int8_t kind; /* Kind */
+    union {
+        int integer; /* int */
+        double floating; /* float */
+        char *string; /* string */
+        char ch; /* char */
+        struct {
+            char *name;
+            list *element;
+        } enumeration; /* enum */
+        struct {
+            char *name;
+            list *k;
+            list *v;
+            type *ret;
+            code_object *code;
+        } func; /* function */
+        struct {
+            char *name;
+            list *inherit;
+            code_object *code;
+        } whole; /* whole */
+    } value; /* Inner value */
+} object;
+
+/* Output object */
+const char *obj_string(object *obj) {
+    char *str = (char *) malloc(sizeof(char) * 128);
+    switch (obj->kind) {
+        case OBJ_INT:    sprintf(str, "int %d", obj->value.integer);       return str;
+        case OBJ_FLOAT:  sprintf(str, "float %f", obj->value.floating);    return str;
+        case OBJ_STRING: sprintf(str, "string \"%s\"", obj->value.string); return str;
+        case OBJ_CHAR:   sprintf(str, "char '%c'", obj->value.ch);         return str;
+        case OBJ_ENUM:
+            sprintf(str, "enum \"%s\"", obj->value.enumeration.name);
+            return str;
+        case OBJ_FUNC:
+            sprintf(str, "func \"%s\"", obj->value.func.name);
+            return str;
+        case OBJ_WHOLE:
+            sprintf(str, "whole \"%s\"", obj->value.whole.name);
+            return str;
+    }
+}
 
 /* Compilation status*/
 typedef struct {
-    token pre; /* last token */
-    token cur; /* current token */
+    token pre; /* Last token */
+    token cur; /* Current token */
+    u_int8_t iof; /* Offset of object */
+    u_int8_t inf; /* Offset of name */
+    u_int8_t itf; /* Offset of type */
 } compile_state;
 
 /* Global state of compiler */
@@ -464,22 +575,60 @@ compile_state state;
 /* Compiled object list */
 list *objs = NULL;
 
+/* Push new object to list */
+void push_obj_list(code_object *obj) { objs = append_list(objs, obj); }
+
+/* Offset */
+void emit_top_offset(u_int8_t off) {
+    code_object *obj = (code_object *) list_back(objs);
+    u_int8_t *f = (u_int8_t *) malloc(sizeof(u_int8_t));
+    *f = off;
+    obj->offsets = append_list(obj->offsets, f);
+}
+
+/* Name */
+void emit_top_name(char *name) {
+    code_object *obj = (code_object *) list_back(objs);
+    obj->names = append_list(obj->names, name);
+    emit_top_offset(state.inf ++);
+}
+
+/* Type */
+void emit_top_type(type *t) {
+    code_object *obj = (code_object *) list_back(objs);
+    obj->types = append_list(obj->types, t);
+    emit_top_offset(state.itf ++);
+}
+
+/* Object */
+void emit_top_obj(object *obj) {
+    code_object *code = (code_object *) list_back(objs);
+    code->objects = append_list(code->objects, obj);
+    emit_top_offset(state.iof ++);
+}
+
+/* Code */
+void emit_top_code(u_int8_t code) {
+    code_object *obj = (code_object *) list_back(objs);
+    op_code *c = (op_code *) malloc(sizeof(u_int8_t));
+    *c = code;
+    obj->codes = append_list(obj->codes, c);
+}
+
 /* Iterator of lexical list */
 void iter() {
     static int p = 0;
     state.pre = state.cur;
-    if (p == tokens->len) {
+    if (p == tokens->len)
         return;
-    }
     state.cur = *(token *) tokens->data[p++];
-    // printf("%s %s\n", state.pre.literal, state.cur.literal);
 }
 
 /* Operation expression priority
    Note: priority is next level processing */
 typedef enum {
     P_LOWEST,  // *
-/*     P_ASSIGN,  // =
+    // P_ASSIGN,  // =
     P_OR,      // |
     P_AND,     // &
     P_EQ,      // == !=
@@ -487,11 +636,7 @@ typedef enum {
     P_TERM,    // + -
     P_FACTOR,  // * / %
     P_UNARY,   // ! -
-    P_CALL,    // . () */
-    P_TERM,    // + -
-    P_FACTOR,  // * / %
-    P_UNARY,   // ! -
-    P_CALL,    // . ()
+    P_CALL,    // . () []
 } precedence;
 
 typedef void (* function)(); /* Prefix and infix handing functions */
@@ -511,35 +656,111 @@ void set_precedence(int prec);
 int get_pre_prec() { return get_rule(state.pre.kind).precedence; } /* Pre */
 int get_cur_prec() { return get_rule(state.cur.kind).precedence; } /* Cur */
 
-/* NUMBER */
-void number() {
-    printf("NUMBER %s\n", state.pre.literal);
+/* Find whether the future is an assignment operation */
+bool ass_operator() {
+    return state.cur.kind == AS_ADD || state.cur.kind == AS_SUB ||
+        state.cur.kind == AS_MUL || state.cur.kind == AS_DIV ||
+        state.cur.kind == AS_SUR;
+}
+
+/* Bytecode returned by assignment operation */
+u_int8_t get_ass_code(token_kind kind) {
+    if (kind == AS_ADD) return ASS_ADD; if (kind == AS_SUB) return ASS_SUB;
+    if (kind == AS_MUL) return ASS_MUL; if (kind == AS_DIV) return ASS_DIV;
+    return ASS_SUR;
+}
+
+/* Array assignment bytecode */
+u_int8_t get_rep_ass_code(token_kind kind) {
+    if (kind == AS_ADD) return TO_REP_ADD; if (kind == AS_SUB) return TO_REP_SUB;
+    if (kind == AS_MUL) return TO_REP_MUL; if (kind == AS_DIV) return TO_REP_DIV;
+    return TO_REP_SUR;
+}
+
+/* LITERAL */
+void literal() {
+    token tok = state.pre;
+    object *obj = (object *) malloc(sizeof(object));
+
+    switch (tok.kind) {
+        case NUMBER:
+            obj->kind = OBJ_INT;
+            obj->value.integer = atoi(tok.literal);
+            break;
+        case FLOAT:
+            obj->kind = OBJ_FLOAT;
+            obj->value.floating = atof(tok.literal);
+            break;
+        case CHAR:
+            obj->kind = OBJ_CHAR;
+            obj->value.ch = tok.literal[0];
+            break;
+        case STRING:
+            obj->kind = OBJ_STRING;
+            obj->value.string = tok.literal;
+            break;
+    }
+    emit_top_obj(obj);
+    emit_top_code(CONST_OF);
+}
+
+/* NAME: <IDENT> */
+void name() {
+    token name = state.pre;
+    if (state.cur.kind == EQ) { /* = */
+        iter();
+        iter();
+        set_precedence(P_LOWEST);
+        emit_top_code(ASSIGN_TO);
+    } else if (ass_operator()) { /* += -= *= /= %= */
+        token_kind operator = state.cur.kind;
+        iter();
+        iter();
+        set_precedence(P_LOWEST);
+        emit_top_code(get_ass_code(operator));
+    } else {
+        emit_top_code(LOAD_OF);
+    }
+    emit_top_name(name.literal);
 }
 
 /* UNARY: ! - */
 void unary() {
+    token_kind operator = state.pre.kind;
     iter();
     set_precedence(P_UNARY);
-    printf("UNARY\n");
+
+    if (operator == SUB)  emit_top_code(TO_NOT);  /* - */
+    if (operator == BANG) emit_top_code(TO_BANG); /* ! */
+    if (operator == SUR)  emit_top_code(TO_SUR);  /* % */
 }
 
 /* BINARY: + - * / % */
 void binary() {
     token_kind operator = state.pre.kind;
 
+    int prec = get_pre_prec();
     iter(); /* In order to resolve the next expression */
     /* Start again, parse from prefix.
        1. When the future expression is higher than the current one,
           the next infix is processed.
        2. A higher level starts after me for priority. */
-    set_precedence(
-        get_pre_prec() + 1);
+    set_precedence(prec);
 
     switch (operator) {
-        case ADD: printf("OP_ADD\n"); break;
-        case SUB: printf("OP_SUB\n"); break;
-        case MUL: printf("OP_MUL\n"); break;
-        case DIV: printf("OP_DIV\n"); break;
+        case ADD:     emit_top_code(TO_ADD);    break; /* + */
+        case SUB:     emit_top_code(TO_SUB);    break; /* - */
+        case MUL:     emit_top_code(TO_MUL);    break; /* * */
+        case DIV:     emit_top_code(TO_DIV);    break; /* / */
+        case SUR:     emit_top_code(TO_SUR);    break; /* % */
+        case OR:      emit_top_code(TO_OR);     break; /* | */
+        case ADDR:    emit_top_code(TO_AND);    break; /* & */
+        case EQ_EQ:   emit_top_code(TO_EQ_EQ);  break; /* == */
+        case BANG_EQ: emit_top_code(TO_NOT_EQ); break; /* != */
+        case GREATER: emit_top_code(TO_GR);     break; /* > */
+        case GR_EQ:   emit_top_code(TO_GR_EQ);  break; /* >= */
+        case LESS:    emit_top_code(TO_LE);     break; /* < */
+        case LE_EQ:   emit_top_code(TO_LE_EQ);  break; /* <= */
     }
 }
 
@@ -547,24 +768,110 @@ void binary() {
 void group() {
     iter();
     set_precedence(P_LOWEST);
-    iter();
-    if (state.pre.kind != R_PAREN) {
+    if (state.cur.kind != R_PAREN) {
         fprintf(stderr, 
-            "<compiler %d>: lost right paren symbol.\n", state.pre.line);
+            "<compiler %d>: lost right paren symbol.\n",
+            state.cur.line);
         exit(EXIT_FAILURE);
+    } else {
+        iter();
+    }
+}
+
+/* GET: X.Y */
+void get() {
+    iter();
+    token name = state.pre;
+    if (state.cur.kind == EQ) { /* = */
+        iter();
+        iter();
+        set_precedence(P_LOWEST);
+        emit_top_code(SET_OF);
+    } else if (ass_operator()) { /* += -= *= /= %= */
+        token_kind operator = state.cur.kind;
+        iter();
+        iter();
+        set_precedence(P_LOWEST);
+        emit_top_code(get_ass_code(operator));
+    } else {
+        emit_top_code(GET_OF);
+    }
+    emit_top_name(name.literal);
+}
+
+/* CALL: X(Y..) */
+void call() {
+    iter();
+    int count = 0;
+    while (state.pre.kind != R_PAREN) {
+        set_precedence(P_LOWEST);
+        count ++;
+        iter();
+        if (state.pre.kind == R_PAREN) {
+            break;
+        } else if (state.pre.kind != COMMA) {
+            fprintf(stderr,
+                "<compiler %d>: lost comma symbol in arguments.",
+                state.cur.line);
+            exit(EXIT_FAILURE);
+        }
+        iter();
+    }
+    emit_top_code(CALL_FUNC);
+    emit_top_offset(count);
+}
+
+/* INDEX: E[E] */
+void indexes() {
+    iter();
+    set_precedence(P_LOWEST);
+    if (state.cur.kind != R_BRACKET) {
+        fprintf(stderr,
+            "<compiler %d>: lost right bracket symbol.\n",
+            state.cur.line);
+        exit(EXIT_FAILURE);
+    }
+    iter();
+    if (state.cur.kind == EQ) { /* = */
+        iter();
+        iter();
+        set_precedence(P_LOWEST);
+        emit_top_code(TO_REPLACE);
+    } else if (ass_operator()) { /* += -= *= /= %= */
+        token_kind operator = state.cur.kind;
+        iter();
+        iter();
+        set_precedence(P_LOWEST);
+        emit_top_code(get_rep_ass_code(operator));
+    } else {
+        emit_top_code(TO_INDEX);
     }
 }
 
 /* Rules */
 rule rules[] = {
-    { EOH,     NULL,   NULL,   P_LOWEST },
-    { NUMBER,  number, NULL,   P_LOWEST },
-    { ADD,     NULL,   binary, P_TERM   },
-    { SUB,     unary,  binary, P_TERM   },
-    { MUL,     NULL,   binary, P_FACTOR },
-    { DIV,     NULL,   binary, P_FACTOR },
-    { SUR,     NULL,   binary, P_FACTOR },
-    { L_PAREN, group,  NULL,   P_CALL   },
+    { EOH,       NULL,    NULL,    P_LOWEST  },
+    { LITERAL,   name,    NULL,    P_LOWEST  },
+    { NUMBER,    literal, NULL,    P_LOWEST  },
+    { FLOAT,     literal, NULL,    P_LOWEST  },
+    { STRING,    literal, NULL,    P_LOWEST  },
+    { CHAR,      literal, NULL,    P_LOWEST  },
+    { ADD,       NULL,    binary,  P_TERM    }, // +
+    { SUB,       unary,   binary,  P_TERM    }, // -
+    { MUL,       NULL,    binary,  P_FACTOR  }, // *
+    { DIV,       NULL,    binary,  P_FACTOR  }, // /
+    { SUR,       NULL,    binary,  P_FACTOR  }, // %
+    { OR,        NULL,    binary,  P_OR      }, // |
+    { ADDR,      NULL,    binary,  P_AND     }, // &
+    { EQ_EQ,     NULL,    binary,  P_EQ      }, // ==
+    { BANG_EQ,   NULL,    binary,  P_EQ      }, // !=
+    { GREATER,   NULL,    binary,  P_COMPARE }, // >
+    { GR_EQ,     NULL,    binary,  P_COMPARE }, // >=
+    { LESS,      NULL,    binary,  P_COMPARE }, // <
+    { LE_EQ,     NULL,    binary,  P_COMPARE }, // <=
+    { L_PAREN,   group,   call,    P_CALL    }, // (
+    { DOT,       NULL,    get,     P_CALL    }, // .
+    { L_BRACKET, NULL,    indexes, P_CALL    }, // [
 };
 
 /* Search by dictionary type */
@@ -605,9 +912,54 @@ void compile() {
     /* Push global object */
     code_object *obj = (code_object *) malloc(sizeof(code_object));
     obj->description = "main";
-    objs = append_list(objs, obj);
+    push_obj_list(obj);
 
     set_precedence(P_LOWEST);
+
+    emit_top_code(TO_RET);
+}
+
+/* detailed information */
+void dissemble() {
+    for (int i = 0; i < objs->len; i ++) {
+        code_object *code 
+            = (code_object *) objs->data[i];
+        printf("<%s>: %d code, %d name, %d type, %d object, %d offset\n",
+            code->description,
+            code->codes == NULL ? 0 : code->codes->len,
+            code->names == NULL ? 0 : code->names->len,
+            code->types == NULL ? 0 : code->types->len,
+            code->objects == NULL ? 0 : code->objects->len,
+            code->offsets == NULL ? 0 : code->offsets->len);
+
+        for (int b = 0, p = 0; b < code->codes->len; b ++) {
+            op_code *inner
+                = (op_code *) code->codes->data[b];
+            printf("[%2d] %10s ", b + 1, code_string[*inner]);
+            switch (*inner) {
+                case CONST_OF: {
+                    u_int8_t *off = (u_int8_t *) code->offsets->data[p ++];
+                    object *obj = (object *) code->objects->data[*off];
+                    printf("%3d %3s\n", p - 1, obj_string(obj));
+                    break;
+                }
+                case LOAD_OF: case GET_OF:  case SET_OF:  case ASSIGN_TO:
+                case ASS_ADD: case ASS_SUB: case ASS_MUL: case ASS_DIV:
+                case ASS_SUR: {
+                    u_int8_t *off = (u_int8_t *) code->offsets->data[p ++];
+                    char *name = (char *) code->names->data[*off];
+                    printf("%3d '%s'\n", p - 1, name);
+                    break;
+                }
+                case CALL_FUNC: {
+                    u_int8_t *off = (u_int8_t *) code->offsets->data[p ++];
+                    printf("%3d\n", *off);
+                    break;
+                }
+                default: printf("\n");
+            }
+        }
+    }
 }
 
 /* ? */
@@ -617,6 +969,14 @@ int main(int argc, char **argv) {
         exit(EXIT_FAILURE);
     }
     const char *path = argv[1];
+    int len = strlen(path) - 1;
+    if (path[len] != 't'  || 
+        path[len - 1] != 'f' ||
+        path[len - 2] != '.') {
+            fprintf(stderr, 
+                "\033[0;31merror:\033[0m please load the source file with .ft sufix.\n");
+            exit(EXIT_FAILURE);
+    }
     FILE *fp = fopen(path, "r"); /* Open file of path */
     if (fp == NULL) {
         printf("<compiler>: failed to read buffer of file: %s.\n", path);
@@ -641,6 +1001,8 @@ int main(int argc, char **argv) {
 
     /* Compiler */
     compile();
+
+    dissemble();
     
     fclose(fp); /* Close file */
     free(buf); /* Close buffer */
