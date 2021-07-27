@@ -34,10 +34,26 @@ list *append_list(list *l, void *ptr) {
 }
 
 /* Tail data */
-void *list_back(list *l) { return l->data[l->len - 1]; }
+void *list_back(list *l) {
+    if (l->len == 0) return NULL;
+    return l->data[l->len - 1];
+}
 
 /* Pop up tail data */
 void *pop_list_back(list *l) { return l->data[-- l->len]; }
+
+/* Insert element at specified location */
+void insert_list(list *l, int p, void *ptr) {
+    if (p < 0) return;
+    if (p > l->len - 1) p = l->len - 1;
+    l = append_list(l, ptr);
+    for (int i = p, j = 1, m = 2; i < l->len - 1; i ++) {
+        l->data[l->len - j] = l->data[l->len - m];
+        j ++;
+        m ++;
+    }
+    l->data[p] = ptr;
+}
 
 /* Release the list elements and themselves */
 void free_list(list *l) {
@@ -59,15 +75,18 @@ typedef enum {
     GO,        MOD,       USE
 } token_kind;
 
-/* Keywords */
-const char *keyword[12] = {
-    "def", "ret", "for", "aop", "if",  "ef",
-    "nf",  "new", "out", "go",  "mod", "use"
+/* Token string */
+const char *token_string[] = {
+    "EOH", "LITERAL", "NUMBER", "STRING", "CHAR", "FLOAT",
+    "+",   "-",       "*",      "/",      "%",    "+=",
+    "-=",  "*=",      "/=",     "%=",     "->",   "<-",
+    ".",   ",",       ":",      "=",      ";",    ">",
+    "<",   ">=",      "<=",     "&",      "|",    "!",
+    "!=",  "==",      "{",      "}",      "(",    ")",
+    "[",   "]",       "_",      "def",    "ret",  "for",
+    "aop", "if",      "ef",     "nf",     "new",  "out",
+    "go",  "mod",     "use"
 };
-
-/* Keyword type */
-const token_kind item_keyword[12] = {
-    DEF, RET, FOR, AOP, IF, EF, NF, NEW, OUT, GO, MOD, USE };
 
 /* Token properties */
 typedef struct { token_kind kind; char *literal; int line; int off; } token;
@@ -85,9 +104,9 @@ bool is_ident(char c) {
 
 /* Analyze the types of strings */
 token_kind to_keyword(const char *literal) {
-    for (int i = 0; i < 12; i ++) {
-        if (strcmp(literal, keyword[i]) == 0) {
-            return item_keyword[i];
+    for (int i = 39; i < 51; i ++) {
+        if (strcmp(literal, token_string[i]) == 0) {
+            return i;
         }
     }
     return LITERAL;
@@ -142,11 +161,16 @@ void lexer(const char *buf, int fsize) {
                 off = -1;
                 new_line = true;
             }
+            if (i + 1 >= fsize) {
+                ++ i;
+                break;
+            }
             c = buf[++ i];
             /* If it's a new line,
              * And it's dealing with spaces, increase indent */
             if (new_line) off ++;
         }
+        if (i >= fsize) break;
         if (new_line) new_line = false; /* To catch indent */
         if (is_digit(c)) { /* Digit */
             int p = 0;
@@ -323,9 +347,13 @@ void lexer(const char *buf, int fsize) {
         push_token_list(new_token(t.kind, t.literal, t.line, t.off));
     }
     /* Terminator */
-    token *end = list_back(tokens);
-    token *eoh = new_token(EOH, "EOH", end->line + 1, 0);
-    push_token_list(eoh); /* End of handler */
+    if (tokens != NULL) {
+        token *end = list_back(tokens);
+        token *eoh = new_token(EOH, "EOH", end->line + 1, 0);
+        push_token_list(eoh); /* End of handler */
+    } else {
+        push_token_list(new_token(EOH, "EOH", 0, 0)); /* No token */
+    }
 }
 
 /* 
@@ -388,8 +416,8 @@ typedef enum {
     TO_BANG,       // !P
     TO_NOT,        // -P
     JUMP_TO,       // F
-    TRUE_JUMP_TO,  // F
-    FALSE_JUMP_TO, // F
+    T_JUMP_TO,     // F
+    F_JUMP_TO,     // F
     TO_RET,        // *
     RET_OF,        // P
 } op_code;
@@ -405,7 +433,7 @@ const char *code_string[] = {
     "TO_SUB",       "TO_MUL",        "TO_DIV",     "TO_SUR",     "TO_GR",
     "TO_LE",        "TO_GR_EQ",      "TO_LE_EQ",   "TO_EQ_EQ",   "TO_NOT_EQ",
     "TO_AND",       "TO_OR",         "TO_BANG",    "TO_NOT",     "JUMP_TO",
-    "TRUE_JUMP_TO", "FALSE_JUMP_TO", "TO_RET",     "RET_OF",
+    "T_JUMP_TO",    "F_JUMP_TO",     "TO_RET",     "RET_OF",
 };
 
 /* Type system */
@@ -435,12 +463,15 @@ typedef struct {
     u_int8_t kind; /* Type system */
     union {
         struct type *single; /* Contains a single type */
-        struct type *T1, *T2; /* It contains two types */
         const char *name; /* Customer type */
         struct {
             list *arg; /* Function arguments */
             struct type *ret; /* Function returns */
         } func;
+        struct {
+            struct type *T1;
+            struct type *T2;
+        } both; /* It contains two types */
     } inner; 
 } type;
 
@@ -454,15 +485,15 @@ const char *type_string(type *t) {
         case T_STRING: free(str); return "<string>";
         case T_BOOL:   free(str); return "<bool>";
         case T_ARRAY:
-            sprintf(str, "<[]%s>", type_string((type *)t->inner.single));
+            sprintf(str, "[%s]", type_string((type *)t->inner.single));
             return str;
         case T_TUPLE:
-            sprintf(str, "<()%s>", type_string((type *)t->inner.single));
+            sprintf(str, "(%s)", type_string((type *)t->inner.single));
             return str;
         case T_MAP:
-            sprintf(str, "<{}<%s, %s>>",
-                type_string((type *)t->inner.T1), 
-                type_string((type *)t->inner.T2));
+            sprintf(str, "{%s : %s}",
+                type_string((type *)t->inner.both.T1), 
+                type_string((type *)t->inner.both.T2));
             return str;
         case T_FUNC:
             if (t->inner.func.arg == NULL &&
@@ -567,6 +598,7 @@ typedef struct {
     u_int8_t iof; /* Offset of object */
     u_int8_t inf; /* Offset of name */
     u_int8_t itf; /* Offset of type */
+    int p; /* Read position */
 } compile_state;
 
 /* Global state of compiler */
@@ -577,6 +609,28 @@ list *objs = NULL;
 
 /* Push new object to list */
 void push_obj_list(code_object *obj) { objs = append_list(objs, obj); }
+
+/* Gets the current offset list length */
+int *get_top_offset_p() {
+    code_object *obj = (code_object *) list_back(objs);
+    int *p = (int *) malloc(sizeof(int));
+    *p = obj->offsets->len;
+    return p;
+}
+
+/* Gets the top bytecode list length */
+int get_top_code_len() {
+    code_object *obj = (code_object *) list_back(objs);
+    return obj->codes->len + 1; /* The offset used to insert the specified position */
+}
+
+/* Insert offset position new element */
+void insert_top_offset(int p, u_int8_t off) {
+    code_object *obj = (code_object *) list_back(objs);
+    u_int8_t *f = (u_int8_t *) malloc(sizeof(u_int8_t));
+    *f = off;
+    insert_list(obj->offsets, p, f);
+}
 
 /* Offset */
 void emit_top_offset(u_int8_t off) {
@@ -589,6 +643,15 @@ void emit_top_offset(u_int8_t off) {
 /* Name */
 void emit_top_name(char *name) {
     code_object *obj = (code_object *) list_back(objs);
+    if (obj->names != NULL) {
+        for (int i = 0; i < obj->names->len; i ++) {
+            if ( /* Duplicate reference to existing name */
+                strcmp((char *)obj->names->data[i], name) == 0) {
+                    emit_top_offset(i);
+                    return;
+                }
+        }
+    }
     obj->names = append_list(obj->names, name);
     emit_top_offset(state.inf ++);
 }
@@ -622,6 +685,7 @@ void iter() {
     if (p == tokens->len)
         return;
     state.cur = *(token *) tokens->data[p++];
+    state.p = p - 2; /* Always point to the current lexical subscript */
 }
 
 /* Operation expression priority
@@ -677,6 +741,33 @@ u_int8_t get_rep_ass_code(token_kind kind) {
     return TO_REP_SUR;
 }
 
+void both_iter() { iter(); iter(); } /* Skip two */
+
+/* Expected current lexical type */
+void expect_pre(token_kind kind) {
+    if (state.pre.kind != kind) {
+        fprintf(stderr, "\033[1;31m<compiler %d>:\033[0m unexpected '%s' but found '%s'.\n",
+            state.pre.line, token_string[kind], state.pre.literal);
+        exit(EXIT_FAILURE);
+    } else {
+        iter();
+    }
+}
+
+/* Expected next lexical type */
+void expect_cur(token_kind kind) {
+    if (state.cur.kind != kind) {
+        fprintf(stderr, "\033[1;31m<compiler %d>:\033[0m unexpected '%s' but found '%s'.\n",
+            state.cur.line, token_string[kind], state.cur.literal);
+        exit(EXIT_FAILURE);
+    } else {
+        iter();
+    }
+}
+
+/* Output debug information. */
+void debug() { printf("%s %s\n", state.pre.literal, state.cur.literal); }
+
 /* LITERAL */
 void literal() {
     token tok = state.pre;
@@ -708,14 +799,12 @@ void literal() {
 void name() {
     token name = state.pre;
     if (state.cur.kind == EQ) { /* = */
-        iter();
-        iter();
+        both_iter();
         set_precedence(P_LOWEST);
         emit_top_code(ASSIGN_TO);
     } else if (ass_operator()) { /* += -= *= /= %= */
         token_kind operator = state.cur.kind;
-        iter();
-        iter();
+        both_iter();
         set_precedence(P_LOWEST);
         emit_top_code(get_ass_code(operator));
     } else {
@@ -738,7 +827,7 @@ void unary() {
 /* BINARY: + - * / % */
 void binary() {
     token_kind operator = state.pre.kind;
-
+    
     int prec = get_pre_prec();
     iter(); /* In order to resolve the next expression */
     /* Start again, parse from prefix.
@@ -764,18 +853,26 @@ void binary() {
     }
 }
 
-/* GROUP: (E) */
+/* GROUP OR TUP: (E) */
 void group() {
     iter();
-    set_precedence(P_LOWEST);
-    if (state.cur.kind != R_PAREN) {
-        fprintf(stderr, 
-            "<compiler %d>: lost right paren symbol.\n",
-            state.cur.line);
-        exit(EXIT_FAILURE);
-    } else {
-        iter();
+    if (state.cur.kind == R_PAREN || state.cur.kind == COMMA) {
+        /* Tuple */
+        int count = 0;
+        while (state.pre.kind != R_PAREN) {
+            set_precedence(P_LOWEST);
+            count ++;
+            iter();
+            if (state.pre.kind == R_PAREN) break;
+            expect_pre(COMMA);
+        }
+        emit_top_code(BUILD_TUP);
+        emit_top_offset(count);
+        return;
     }
+    set_precedence(P_LOWEST); /* Group */
+    iter();
+    expect_pre(R_PAREN);
 }
 
 /* GET: X.Y */
@@ -783,14 +880,12 @@ void get() {
     iter();
     token name = state.pre;
     if (state.cur.kind == EQ) { /* = */
-        iter();
-        iter();
+        both_iter();
         set_precedence(P_LOWEST);
         emit_top_code(SET_OF);
     } else if (ass_operator()) { /* += -= *= /= %= */
         token_kind operator = state.cur.kind;
-        iter();
-        iter();
+        both_iter();
         set_precedence(P_LOWEST);
         emit_top_code(get_ass_code(operator));
     } else {
@@ -807,15 +902,8 @@ void call() {
         set_precedence(P_LOWEST);
         count ++;
         iter();
-        if (state.pre.kind == R_PAREN) {
-            break;
-        } else if (state.pre.kind != COMMA) {
-            fprintf(stderr,
-                "<compiler %d>: lost comma symbol in arguments.",
-                state.cur.line);
-            exit(EXIT_FAILURE);
-        }
-        iter();
+        if (state.pre.kind == R_PAREN) break;
+        expect_pre(COMMA);
     }
     emit_top_code(CALL_FUNC);
     emit_top_offset(count);
@@ -825,27 +913,52 @@ void call() {
 void indexes() {
     iter();
     set_precedence(P_LOWEST);
-    if (state.cur.kind != R_BRACKET) {
-        fprintf(stderr,
-            "<compiler %d>: lost right bracket symbol.\n",
-            state.cur.line);
-        exit(EXIT_FAILURE);
-    }
-    iter();
+    expect_cur(R_BRACKET);
     if (state.cur.kind == EQ) { /* = */
-        iter();
-        iter();
+        both_iter();
         set_precedence(P_LOWEST);
         emit_top_code(TO_REPLACE);
     } else if (ass_operator()) { /* += -= *= /= %= */
         token_kind operator = state.cur.kind;
-        iter();
-        iter();
+        both_iter();
         set_precedence(P_LOWEST);
         emit_top_code(get_rep_ass_code(operator));
     } else {
         emit_top_code(TO_INDEX);
     }
+}
+
+/* ARRAY: [E..] */
+void array() {
+    iter();
+    int count = 0;
+    while (state.pre.kind != R_BRACKET) {
+        set_precedence(P_LOWEST);
+        count ++;
+        iter();
+        if (state.pre.kind == R_BRACKET) break;
+        expect_pre(COMMA);
+    }
+    emit_top_code(BUILD_ARR);
+    emit_top_offset(count);
+}
+
+/* MAP: {K1: V2..} */
+void map() {
+    iter();
+    int count = 0;
+    while (state.pre.kind != R_BRACE) {
+        set_precedence(P_LOWEST);
+        iter();
+        expect_pre(COLON);
+        set_precedence(P_LOWEST);
+        iter();
+        count += 2;
+        if (state.pre.kind == R_BRACE) break;
+        expect_pre(COMMA);
+    }
+    emit_top_code(BUILD_MAP);
+    emit_top_offset(count);
 }
 
 /* Rules */
@@ -871,7 +984,8 @@ rule rules[] = {
     { LE_EQ,     NULL,    binary,  P_COMPARE }, // <=
     { L_PAREN,   group,   call,    P_CALL    }, // (
     { DOT,       NULL,    get,     P_CALL    }, // .
-    { L_BRACKET, NULL,    indexes, P_CALL    }, // [
+    { L_BRACKET, array,   indexes, P_CALL    }, // [
+    { L_BRACE,   map,     NULL,    P_CALL    }, // {
 };
 
 /* Search by dictionary type */
@@ -890,7 +1004,7 @@ void set_precedence(int precedence) {
     rule prefix = get_rule(state.pre.kind); /* Get prefix */
     if (prefix.prefix == NULL) {
         fprintf(stderr,
-            "<compiler %d>: not found prefix function of token '%s'.\n",
+            "\033[1;31m<compiler %d>:\033[0m not found prefix function of token '%s'.\n",
             state.pre.line,
             state.pre.literal
         );
@@ -904,18 +1018,173 @@ void set_precedence(int precedence) {
     }
 }
 
+/* Type system */
+type *set_type() {
+    token now = state.pre;
+    type *T = (type *) malloc(sizeof(type));
+    switch (now.kind) {
+        case LITERAL:
+            if (strcmp(now.literal, "int") == 0)         T->kind = T_INT;
+            else if (strcmp(now.literal, "float") == 0)  T->kind = T_FLOAT;
+            else if (strcmp(now.literal, "bool") == 0)   T->kind = T_BOOL;
+            else if (strcmp(now.literal, "string") == 0) T->kind = T_STRING;
+            else {
+                T->kind = T_USER;
+                T->inner.name = now.literal;
+            }
+            break;
+        case L_BRACKET: /* Array */
+            both_iter();
+            T->kind = T_ARRAY;
+            T->inner.single = (struct type *) set_type();
+            break;
+        case L_PAREN: /* Tuple */
+            both_iter();
+            T->kind = T_TUPLE;
+            T->inner.single = (struct type *) set_type();
+            break;
+        case L_BRACE: /* Map */
+            both_iter();
+            T->kind = T_MAP;
+            expect_pre(LESS);
+            T->inner.both.T1 = (struct type *) set_type();
+            iter();
+            expect_pre(COMMA);
+            T->inner.both.T2 = (struct type *) set_type();
+            expect_cur(GREATER);
+            break;
+    }
+    return T;
+}
+
+void block(); /* Placeholder */
+
+/* Statements */
+void stmt() {
+    switch (state.pre.kind) {
+        case DEF: {
+            iter();
+            token name = state.pre;
+            iter();
+            if (name.kind == L_PAREN) { /* Function */
+                printf("FUNCTION\n");
+            } else if (state.pre.kind == DEF ||
+                       state.pre.kind == L_ARROW) { /* Whole */
+                printf("WHOLE\n");
+            } else { /* Variable: def <name> <type> = <stmt> */
+                type *T = set_type();
+                iter();
+                expect_pre(EQ);
+
+                set_precedence(P_LOWEST); /* expression */
+
+                emit_top_type(T);
+                emit_top_code(STORE_NAME);
+                emit_top_name(name.literal);
+            }
+            break;
+        }
+        case IF: {
+            iter();
+            set_precedence(P_LOWEST); /* if condition */
+            iter();
+
+            emit_top_code(F_JUMP_TO);
+            int if_p = *get_top_offset_p(); /* TO: F_JUMP_TO */
+            block(); /* if body */
+
+            /* Used to cache JUMP_TO where the bytecode is inserted */
+            list *p = new_list();
+            
+            /* Conditional fetching is used to jump out of conditional statements */
+            if (state.cur.kind == EF || state.cur.kind == NF) {
+                p = append_list(p, get_top_offset_p());
+                emit_top_code(JUMP_TO);
+            }
+            /* TO: if condition(F_JUMP_TO) */
+            insert_top_offset(if_p, get_top_code_len());
+
+            /* ef nodes */
+            while (state.cur.kind == EF) {
+                both_iter();
+                set_precedence(P_LOWEST); /* ef condition */
+                iter();
+
+                emit_top_code(F_JUMP_TO);
+                int ef_p = *get_top_offset_p(); /* TO: F_JUMP_TO */
+                block();
+
+                /* Jump out the statements */
+                if (state.cur.kind == EF || state.cur.kind == NF) {
+                    p = append_list(p, get_top_offset_p());
+                    emit_top_code(JUMP_TO);
+                }
+                /* TO: ef condition(F_JUMP_TO) */
+                insert_top_offset(ef_p, get_top_code_len());
+            }
+
+            /* nf node, direct resolution */
+            if (state.cur.kind == NF) {
+                both_iter();
+                block();
+            }
+
+            /* The position of the jump out conditional statements is here */
+            for (int i = 0; i < p->len; i ++)
+                insert_top_offset(
+                    *(int *)(p->data[i]) + 1,
+                    /* Skip to the current bytecode position */
+                    get_top_code_len()
+                );
+            free_list(p); /* Release cache list */
+            break;
+        }
+        case AOP:
+        case FOR:
+        case OUT:
+        case GO:
+        case RET:
+        case NEW:
+        case MOD:
+        case USE:
+            break;
+        default: set_precedence(P_LOWEST); /* Expression */
+    }
+}
+
+/* Compile module code of the same level */
+void block() {
+    token *tok = (token *)tokens->data[state.p - 1];
+    int off = state.pre.off;
+
+    if (off <= tok->off) {
+        fprintf(stderr, "\033[1;31m<compiler %d>:\033[0m no block statement.\n",
+            state.pre.line);
+        exit(EXIT_FAILURE);
+    }
+    while (true) {
+        stmt(); /* Single statement */
+        if (state.cur.off == off) { /* Loop compilation multiple statements */
+            iter();
+        } else {
+            break;
+        }
+    }
+}
+
 /* Compiler */
 void compile() {
-    iter(); // x 1
-    iter(); // 1 2
+    both_iter();
 
     /* Push global object */
     code_object *obj = (code_object *) malloc(sizeof(code_object));
     obj->description = "main";
     push_obj_list(obj);
 
-    set_precedence(P_LOWEST);
-
+    while (state.pre.kind != EOH) {
+        stmt();
+        iter();
+    }
     emit_top_code(TO_RET);
 }
 
@@ -932,6 +1201,9 @@ void dissemble() {
             code->objects == NULL ? 0 : code->objects->len,
             code->offsets == NULL ? 0 : code->offsets->len);
 
+        // for (int i = 0; i < code->offsets->len; i ++)
+        //     printf("%d\n", *(u_int8_t *)code->offsets->data[i]);
+
         for (int b = 0, p = 0; b < code->codes->len; b ++) {
             op_code *inner
                 = (op_code *) code->codes->data[b];
@@ -940,7 +1212,7 @@ void dissemble() {
                 case CONST_OF: {
                     u_int8_t *off = (u_int8_t *) code->offsets->data[p ++];
                     object *obj = (object *) code->objects->data[*off];
-                    printf("%3d %3s\n", p - 1, obj_string(obj));
+                    printf("%3d %3s\n", *off, obj_string(obj));
                     break;
                 }
                 case LOAD_OF: case GET_OF:  case SET_OF:  case ASSIGN_TO:
@@ -948,12 +1220,29 @@ void dissemble() {
                 case ASS_SUR: {
                     u_int8_t *off = (u_int8_t *) code->offsets->data[p ++];
                     char *name = (char *) code->names->data[*off];
-                    printf("%3d '%s'\n", p - 1, name);
+                    printf("%3d #%s\n", *off, name);
                     break;
                 }
-                case CALL_FUNC: {
+                case CALL_FUNC:
+                case JUMP_TO:
+                case T_JUMP_TO:
+                case F_JUMP_TO: {
                     u_int8_t *off = (u_int8_t *) code->offsets->data[p ++];
                     printf("%3d\n", *off);
+                    break;
+                }
+                case STORE_NAME: {
+                    u_int8_t *x = (u_int8_t *) code->offsets->data[p];
+                    u_int8_t *y = (u_int8_t *) code->offsets->data[p + 1];
+                    printf("%3d %s %d '%s'\n", 
+                        *x, type_string((type *) code->types->data[*x]), *y,
+                        (char *) code->names->data[*y]);
+                    p += 2;
+                    break;
+                }
+                case BUILD_ARR: case BUILD_TUP: case BUILD_MAP: {
+                    u_int8_t *count = (u_int8_t *) code->offsets->data[p ++];
+                    printf("%3d\n", *count);
                     break;
                 }
                 default: printf("\n");
@@ -993,7 +1282,7 @@ int main(int argc, char **argv) {
 
     /* Lexical analysis */
     lexer(buf, fsize);
-/*     for (int i = 0; i < tokens->len; i ++) {
+    /* for (int i = 0; i < tokens->len; i ++) {
         token *t = tokens->data[i];
         printf("[%3d]\t%-5d %-20s %-20d %d\n", 
             i, t->kind, t->literal, t->line, t->off);

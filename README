@@ -17,7 +17,7 @@ license:
     - GNU General Public License v3.0
 
 build:
-    > gcc -std=gnu99 -Os compiler.c -o df
-    > ./df
+    > gcc -std=gnu99 -Os compiler.c -o drift
+    > ./drift
 
 Have a good time! and give star if you like.
