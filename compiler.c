@@ -57,6 +57,7 @@ void insert_list(list *l, int p, void *ptr) {
 
 /* Release the list elements and themselves */
 void free_list(list *l) {
+    if (l == NULL) return;
     for (int i = 0; i < l->len; i ++) free(l->data[i]);
     free(l->data);
     free(l);
@@ -255,7 +256,7 @@ void lexer(const char *buf, int fsize) {
                 c = buf[i];
                 if (c != '\'') {
                     fprintf(stderr,
-                        "<lexer %d>: missing single quotation mark to the right.\n",
+                        "\033[1;31mlexer %d:\033[0m missing single quotation mark to the right.\n",
                         line);
                     exit(EXIT_FAILURE);
                 } else {
@@ -272,7 +273,7 @@ void lexer(const char *buf, int fsize) {
                     p ++;
                     if (i == fsize) {
                         fprintf(stderr,
-                            "<lexer %d>: missing closing double quote.\n", line);
+                            "\033[1;31mlexer %d:\033[0m missing closing double quote.\n", line);
                         exit(EXIT_FAILURE);
                     }
                 }
@@ -339,7 +340,7 @@ void lexer(const char *buf, int fsize) {
                 t.kind = R_PAREN; t.literal = ")";
                 break;
             default:
-                fprintf(stderr, "<lexer %d>: unknown character '%c'.\n",
+                fprintf(stderr, "\033[1;31mlexer %d:\033[0m unknown character '%c'.\n",
                     line, c);
                 exit(EXIT_FAILURE);
         }
@@ -599,6 +600,7 @@ typedef struct {
     u_int8_t inf; /* Offset of name */
     u_int8_t itf; /* Offset of type */
     int p; /* Read position */
+    bool loop_handler; /* Is current handing loop statement? */
 } compile_state;
 
 /* Global state of compiler */
@@ -609,6 +611,21 @@ list *objs = NULL;
 
 /* Push new object to list */
 void push_obj_list(code_object *obj) { objs = append_list(objs, obj); }
+
+/* Replace placeholder in offset list */
+void replace_holder(int8_t place, int8_t off) {
+    code_object *obj = (code_object *) list_back(objs);
+    if (obj->offsets == NULL)
+        return;
+    for (int i = 0; i < obj->offsets->len; i ++) {
+        if (
+            *(int8_t *)(obj->offsets->data[i]) == place) {
+                int8_t *f = (int8_t *) malloc(sizeof(int8_t));
+                *f = off;
+                obj->offsets->data[i] = f;
+        }
+    }
+}
 
 /* Gets the current offset list length */
 int *get_top_offset_p() {
@@ -621,21 +638,23 @@ int *get_top_offset_p() {
 /* Gets the top bytecode list length */
 int get_top_code_len() {
     code_object *obj = (code_object *) list_back(objs);
-    return obj->codes->len + 1; /* The offset used to insert the specified position */
+    if (obj->codes == NULL)
+        return 0;
+    return obj->codes->len; /* The offset used to insert the specified position */
 }
 
 /* Insert offset position new element */
-void insert_top_offset(int p, u_int8_t off) {
+void insert_top_offset(int p, int8_t off) {
     code_object *obj = (code_object *) list_back(objs);
-    u_int8_t *f = (u_int8_t *) malloc(sizeof(u_int8_t));
+    int8_t *f = (int8_t *) malloc(sizeof(int8_t));
     *f = off;
     insert_list(obj->offsets, p, f);
 }
 
 /* Offset */
-void emit_top_offset(u_int8_t off) {
+void emit_top_offset(int8_t off) {
     code_object *obj = (code_object *) list_back(objs);
-    u_int8_t *f = (u_int8_t *) malloc(sizeof(u_int8_t));
+    int8_t *f = (int8_t *) malloc(sizeof(int8_t));
     *f = off;
     obj->offsets = append_list(obj->offsets, f);
 }
@@ -746,7 +765,7 @@ void both_iter() { iter(); iter(); } /* Skip two */
 /* Expected current lexical type */
 void expect_pre(token_kind kind) {
     if (state.pre.kind != kind) {
-        fprintf(stderr, "\033[1;31m<compiler %d>:\033[0m unexpected '%s' but found '%s'.\n",
+        fprintf(stderr, "\033[1;31mcompiler %d:\033[0m unexpected '%s' but found '%s'.\n",
             state.pre.line, token_string[kind], state.pre.literal);
         exit(EXIT_FAILURE);
     } else {
@@ -757,7 +776,7 @@ void expect_pre(token_kind kind) {
 /* Expected next lexical type */
 void expect_cur(token_kind kind) {
     if (state.cur.kind != kind) {
-        fprintf(stderr, "\033[1;31m<compiler %d>:\033[0m unexpected '%s' but found '%s'.\n",
+        fprintf(stderr, "\033[1;31mcompiler %d:\033[0m unexpected '%s' but found '%s'.\n",
             state.cur.line, token_string[kind], state.cur.literal);
         exit(EXIT_FAILURE);
     } else {
@@ -1004,7 +1023,7 @@ void set_precedence(int precedence) {
     rule prefix = get_rule(state.pre.kind); /* Get prefix */
     if (prefix.prefix == NULL) {
         fprintf(stderr,
-            "\033[1;31m<compiler %d>:\033[0m not found prefix function of token '%s'.\n",
+            "\033[1;31mcompiler %d:\033[0m not found prefix function of token '%s'.\n",
             state.pre.line,
             state.pre.literal
         );
@@ -1112,11 +1131,14 @@ void stmt() {
 
                 emit_top_code(F_JUMP_TO);
                 int ef_p = *get_top_offset_p(); /* TO: F_JUMP_TO */
-                block();
+                block(); /* ef body */
 
                 /* Jump out the statements */
                 if (state.cur.kind == EF || state.cur.kind == NF) {
-                    p = append_list(p, get_top_offset_p());
+                    int *f = get_top_offset_p();
+                    *f += 1; /* The ef node has not yet inserted an offset,
+                    so a placeholder is added here. */
+                    p = append_list(p, f);
                     emit_top_code(JUMP_TO);
                 }
                 /* TO: ef condition(F_JUMP_TO) */
@@ -1126,7 +1148,7 @@ void stmt() {
             /* nf node, direct resolution */
             if (state.cur.kind == NF) {
                 both_iter();
-                block();
+                block(); /* nf body */
             }
 
             /* The position of the jump out conditional statements is here */
@@ -1139,10 +1161,90 @@ void stmt() {
             free_list(p); /* Release cache list */
             break;
         }
-        case AOP:
-        case FOR:
+        case AOP: {
+            state.loop_handler = true;
+            iter();
+
+            /* Expression position for loop return */
+            int begin_p = get_top_code_len();
+            set_precedence(P_LOWEST); /* Condition */
+            iter();
+
+            emit_top_code(F_JUMP_TO);
+            int expr_p = *get_top_offset_p();
+            
+            block(); /* Loop block */
+
+            emit_top_code(JUMP_TO); /* Jump to the beginning */
+            emit_top_offset(begin_p);
+
+            /* Replace placeholder in offset list */
+            replace_holder(-1, get_top_code_len());
+            replace_holder(-2, begin_p);
+
+            insert_top_offset(expr_p, get_top_code_len()); /* TO: F_JUMP_TO */
+            break;
+        }
+        case FOR: {
+            state.loop_handler = true;
+            iter();
+
+            stmt(); /* Initial */
+            iter();
+            expect_pre(SEMICOLON);
+
+            /* Expression position for loop return */
+            int begin_p = get_top_code_len();
+            set_precedence(P_LOWEST); /* Condition */
+            iter();
+            expect_pre(SEMICOLON);
+
+            emit_top_code(F_JUMP_TO);
+            int expr_p = *get_top_offset_p(); /* For condition */
+
+            emit_top_code(JUMP_TO);
+            int body_p = *get_top_offset_p(); /* For body */
+
+            set_precedence(P_LOWEST);
+            iter();
+            int update_p = *get_top_offset_p(); /* For update */
+
+            emit_top_code(JUMP_TO);
+            emit_top_offset(begin_p);
+
+            insert_top_offset(body_p, get_top_code_len());
+
+            block(); /* Loop block */
+
+            emit_top_code(JUMP_TO);
+            emit_top_offset(update_p);
+
+            /* Replace placeholder in offset list */
+            replace_holder(-1, get_top_code_len());
+            replace_holder(-2, update_p);
+
+            insert_top_offset(expr_p, get_top_code_len()); /* TO: F_JUMP_TO */
+            break;
+        }
         case OUT:
         case GO:
+            if (!state.loop_handler) {
+                fprintf(stderr,
+                    "\033[1;31mcompiler %d:\033[0m Loop control \
+statement cannot be used outside loop.\n", state.pre.line);
+                exit(EXIT_FAILURE);
+            }
+            token_kind kind = state.pre.kind;
+            iter();
+            if (state.pre.kind == R_ARROW) {
+                emit_top_code(JUMP_TO); /* No condition */
+            } else {
+                set_precedence(P_LOWEST);
+                emit_top_code(T_JUMP_TO); /* Condition */
+            }
+            /* Placeholder position */
+            emit_top_offset(kind == OUT ? -1 : -2);
+            break;
         case RET:
         case NEW:
         case MOD:
@@ -1158,7 +1260,7 @@ void block() {
     int off = state.pre.off;
 
     if (off <= tok->off) {
-        fprintf(stderr, "\033[1;31m<compiler %d>:\033[0m no block statement.\n",
+        fprintf(stderr, "\033[1;31mcompiler %d:\033[0m no block statement.\n",
             state.pre.line);
         exit(EXIT_FAILURE);
     }
@@ -1184,6 +1286,7 @@ void compile() {
     while (state.pre.kind != EOH) {
         stmt();
         iter();
+        state.loop_handler = false;
     }
     emit_top_code(TO_RET);
 }
@@ -1203,14 +1306,16 @@ void dissemble() {
 
         // for (int i = 0; i < code->offsets->len; i ++)
         //     printf("%d\n", *(u_int8_t *)code->offsets->data[i]);
+        // for (int i = 0; i < code->codes->len; i ++)
+        //     printf("%s\n", code_string[*(u_int8_t *)code->codes->data[i]]);
 
         for (int b = 0, p = 0; b < code->codes->len; b ++) {
             op_code *inner
                 = (op_code *) code->codes->data[b];
-            printf("[%2d] %10s ", b + 1, code_string[*inner]);
+            printf("[%2d] %10s ", b, code_string[*inner]);
             switch (*inner) {
                 case CONST_OF: {
-                    u_int8_t *off = (u_int8_t *) code->offsets->data[p ++];
+                    int8_t *off = (int8_t *) code->offsets->data[p ++];
                     object *obj = (object *) code->objects->data[*off];
                     printf("%3d %3s\n", *off, obj_string(obj));
                     break;
@@ -1218,7 +1323,7 @@ void dissemble() {
                 case LOAD_OF: case GET_OF:  case SET_OF:  case ASSIGN_TO:
                 case ASS_ADD: case ASS_SUB: case ASS_MUL: case ASS_DIV:
                 case ASS_SUR: {
-                    u_int8_t *off = (u_int8_t *) code->offsets->data[p ++];
+                    int8_t *off = (int8_t *) code->offsets->data[p ++];
                     char *name = (char *) code->names->data[*off];
                     printf("%3d #%s\n", *off, name);
                     break;
@@ -1227,13 +1332,13 @@ void dissemble() {
                 case JUMP_TO:
                 case T_JUMP_TO:
                 case F_JUMP_TO: {
-                    u_int8_t *off = (u_int8_t *) code->offsets->data[p ++];
+                    int8_t *off = (int8_t *) code->offsets->data[p ++];
                     printf("%3d\n", *off);
                     break;
                 }
                 case STORE_NAME: {
-                    u_int8_t *x = (u_int8_t *) code->offsets->data[p];
-                    u_int8_t *y = (u_int8_t *) code->offsets->data[p + 1];
+                    int8_t *x = (int8_t *) code->offsets->data[p];
+                    int8_t *y = (int8_t *) code->offsets->data[p + 1];
                     printf("%3d %s %d '%s'\n", 
                         *x, type_string((type *) code->types->data[*x]), *y,
                         (char *) code->names->data[*y]);
@@ -1241,7 +1346,7 @@ void dissemble() {
                     break;
                 }
                 case BUILD_ARR: case BUILD_TUP: case BUILD_MAP: {
-                    u_int8_t *count = (u_int8_t *) code->offsets->data[p ++];
+                    int8_t *count = (int8_t *) code->offsets->data[p ++];
                     printf("%3d\n", *count);
                     break;
                 }
@@ -1254,7 +1359,7 @@ void dissemble() {
 /* ? */
 int main(int argc, char **argv) {
     if (argc < 2) {
-        printf("usage: ./drift (file)\n");
+        printf("\033[1;31musage:\033[0m ./drift (file)\n");
         exit(EXIT_FAILURE);
     }
     const char *path = argv[1];
@@ -1263,12 +1368,12 @@ int main(int argc, char **argv) {
         path[len - 1] != 'f' ||
         path[len - 2] != '.') {
             fprintf(stderr, 
-                "\033[0;31merror:\033[0m please load the source file with .ft sufix.\n");
+                "\033[1;31merror:\033[0m please load the source file with .ft sufix.\n");
             exit(EXIT_FAILURE);
     }
     FILE *fp = fopen(path, "r"); /* Open file of path */
     if (fp == NULL) {
-        printf("<compiler>: failed to read buffer of file: %s.\n", path);
+        printf("\033[1;31merror:\033[0m failed to read buffer of file: %s.\n", path);
         exit(EXIT_FAILURE);
     }
 
