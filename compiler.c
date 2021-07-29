@@ -8,6 +8,8 @@
 #include <stdbool.h>
 #include <string.h>
 
+#define COMPILER_VERSION "Drift 0.0.1 (MADE AT Jul 29 15:40:45)"
+
 /* My list structure */
 typedef struct { void **data; int len; int cap; } list;
 
@@ -255,7 +257,7 @@ void lexer(const char *buf, int fsize) {
                         line);
                     exit(EXIT_FAILURE);
                 } else {
-                    i += 2;
+                    i += 1;
                 }
                 t.kind = CHAR; t.literal = literal;
             }
@@ -396,7 +398,7 @@ typedef enum {
     TO_REP_SUR,    // *
     SET_NAME,      // N
     NEW_OBJ,       // N F
-    SET_MODULE,    // N
+    SET_MOD,       // N
     USE_MOD,       // N
     BUILD_ARR,     // F
     BUILD_TUP,     // F
@@ -430,7 +432,7 @@ const char *code_string[] = {
     "GET_OF",       "SET_OF",        "CALL_FUNC",  "ASS_ADD",    "ASS_SUB",
     "ASS_MUL",      "ASS_DIV",       "ASS_SUR",    "TO_REP_ADD", "TO_REP_SUB",
     "TO_REP_MUL",   "TO_REP_DIV",    "TO_REP_SUR", "SET_NAME",   "NEW_OBJ",
-    "SET_MODULE",   "USE_MOD",       "BUILD_ARR",  "BUILD_TUP",  "BUILD_MAP",
+    "SET_MO",       "USE_MOD",       "BUILD_ARR",  "BUILD_TUP",  "BUILD_MAP",
     "TO_ADD",       "TO_SUB",        "TO_MUL",     "TO_DIV",     "TO_SUR",
     "TO_GR",        "TO_LE",         "TO_GR_EQ",   "TO_LE_EQ",   "TO_EQ_EQ",
     "TO_NOT_EQ",    "TO_AND",        "TO_OR",      "TO_BANG",    "TO_NOT",
@@ -637,6 +639,13 @@ void reset_state(compile_state *state, compile_state up) {
     state->p = up.p;
 }
 
+/* New state */
+void clear_state() {
+    state.iof = 0;
+    state.inf = 0;
+    state.itf = 0;
+}
+
 /* Compiled object list */
 list *objs = NULL;
 
@@ -709,6 +718,17 @@ void emit_top_name(char *name) {
 /* Type */
 void emit_top_type(type *t) {
     code_object *obj = (code_object *) list_back(objs);
+    if (obj->types != NULL) {
+        for (int i = 0; i < obj->types->len; i ++) {
+            type *x = (type *) obj->types->data[i];
+            if ( /* Basic types do not need to be recreated */
+                x->kind <= 4 && t->kind <= 4) {
+                free(t);
+                emit_top_offset(i);
+                return;
+            }
+        }
+    }
     obj->types = append_list(obj->types, t);
     emit_top_offset(state.itf ++);
 }
@@ -818,6 +838,21 @@ void expect_cur(token_kind kind) {
 /* Output debug information. */
 void debug() { printf("%s %s\n", state.pre.literal, state.cur.literal); }
 
+/* Make simple error message in compiler */
+void syntax_error() {
+    fprintf(stderr,
+        "\033[1;31mcompiler %d:\033[0m syntax error.\n",
+        state.pre.line);
+    exit(EXIT_FAILURE);
+}
+
+/* No block error message */
+void no_block_error() {
+    fprintf(stderr, "\033[1;31mcompiler %d:\033[0m no block statement.\n",
+            state.pre.line);
+    exit(EXIT_FAILURE);
+}
+
 /* LITERAL */
 void literal() {
     token tok = state.pre;
@@ -920,6 +955,11 @@ void group() {
         emit_top_offset(count);
         return;
     }
+    if (state.pre.kind == R_PAREN) { /* Empty tuple */
+        emit_top_code(BUILD_TUP);
+        emit_top_offset(0);
+        return;
+    }
     set_precedence(P_LOWEST); /* Group */
     iter();
     expect_pre(R_PAREN);
@@ -1011,6 +1051,34 @@ void map() {
     emit_top_offset(count);
 }
 
+/* NEW: T{K: V..} */
+void new() {
+    iter();
+    token name = state.pre;
+    iter();
+    expect_pre(L_BRACE);
+    int count = 0;
+    while (state.pre.kind != R_BRACE) {
+        if (state.pre.kind != LITERAL)
+            syntax_error();
+        emit_top_code(SET_NAME);
+        emit_top_name(state.pre.literal);
+        expect_cur(COLON);
+        iter();
+        set_precedence(P_LOWEST);
+        count += 2;
+        if (state.cur.kind == R_BRACE) {
+            iter();
+            break;
+        }
+        expect_cur(COMMA);
+        iter();
+    }
+    emit_top_code(NEW_OBJ);
+    emit_top_name(name.literal);
+    emit_top_offset(count);
+}
+
 /* Rules */
 rule rules[] = {
     { EOH,       NULL,    NULL,    P_LOWEST  },
@@ -1036,6 +1104,7 @@ rule rules[] = {
     { DOT,       NULL,    get,     P_CALL    }, // .
     { L_BRACKET, array,   indexes, P_CALL    }, // [
     { L_BRACE,   map,     NULL,    P_CALL    }, // {
+    { NEW,       new,     NULL,    P_CALL    }, // new
 };
 
 /* Search by dictionary type */
@@ -1105,21 +1174,6 @@ type *set_type() {
             break;
     }
     return T;
-}
-
-/* Make simple error message in compiler */
-void syntax_error() {
-    fprintf(stderr,
-        "\033[1;31mcompiler %d:\033[0m syntax error.\n",
-        state.pre.line);
-    exit(EXIT_FAILURE);
-}
-
-/* No block error message */
-void no_block_error() {
-    fprintf(stderr, "\033[1;31mcompiler %d:\033[0m no block statement.\n",
-            state.pre.line);
-    exit(EXIT_FAILURE);
 }
 
 void block(); /* Placeholder */
@@ -1231,6 +1285,7 @@ void stmt() {
                 /* Back up the current compilation state,
                    It will create a new object to parse the function body */
                 compile_state up_state = backup_state();
+                clear_state(); /* New state */
 
                 /* New code object */
                 code_object *code = (code_object *) malloc(sizeof(code_object));
@@ -1249,7 +1304,27 @@ void stmt() {
                 emit_top_code(LOAD_FUNC);
                 emit_top_obj(func);
             } else if (state.pre.kind == DEF) { /* Whole */
-                printf("WHOLE\n");
+                compile_state up_state = backup_state(); /* Current state */
+                clear_state(); /* New state */
+
+                /* Code */
+                code_object *code = (code_object *) malloc(sizeof(code_object));
+                code->description = name.literal;
+                push_obj_list(code); /* Code */
+                block(); /* Body */
+
+                reset_state(&state, up_state); /* State */
+
+                code_object *ptr = (code_object *) pop_list_back(objs); /* Pop back */
+                /* Object */
+                object *wh = (object *) malloc(sizeof(object));
+                wh->kind = OBJ_WHOLE;
+                wh->value.whole.name = ptr->description;
+                wh->value.whole.code = ptr;
+
+                /* Bytecode */
+                emit_top_code(LOAD_WHOLE);
+                emit_top_obj(wh);
             } else {
                 type *T = set_type();
                 iter();
@@ -1435,10 +1510,23 @@ statement cannot be used outside loop.\n", state.pre.line);
             emit_top_offset(kind == OUT ? -1 : -2);
             break;
         case RET:
-        case NEW:
-        case MOD:
-        case USE:
+            iter();
+            if (state.pre.kind == R_ARROW) {
+                emit_top_code(TO_RET);
+            } else {
+                set_precedence(P_LOWEST);
+                emit_top_code(RET_OF);
+            }
             break;
+        case MOD:
+        case USE: {
+            token_kind kind = state.pre.kind;
+            iter();
+            if (state.pre.kind != LITERAL) syntax_error();
+            emit_top_name(state.pre.literal);
+            emit_top_code(kind == MOD ? SET_MOD : USE_MOD);
+            break;
+        }
         default: set_precedence(P_LOWEST); /* Expression */
     }
 }
@@ -1488,6 +1576,8 @@ void dissemble(code_object *code) {
         code->objects == NULL ? 0 : code->objects->len,
         code->offsets == NULL ? 0 : code->offsets->len);
 
+// for (int i = 0; i < code->offsets->len; i ++) printf("%d\n", *(int8_t *)code->offsets->data[i]);
+
     for (int b = 0, p = 0; b < code->codes->len; b ++) {
         op_code *inner
             = (op_code *) code->codes->data[b];
@@ -1505,10 +1595,16 @@ void dissemble(code_object *code) {
             }
             case LOAD_OF: case GET_OF:  case SET_OF:  case ASSIGN_TO:
             case ASS_ADD: case ASS_SUB: case ASS_MUL: case ASS_DIV:
-            case ASS_SUR: {
+            case ASS_SUR:
+            case SET_NAME:
+            case SET_MOD:
+            case USE_MOD: {
                 int8_t *off = (int8_t *) code->offsets->data[p ++];
                 char *name = (char *) code->names->data[*off];
-                printf("%3d #%s\n", *off, name);
+                if (*inner == SET_NAME || *inner == SET_MOD || *inner == USE_MOD)
+                    printf("%3d '%s'\n", *off, name);
+                else
+                    printf("%3d #%s\n", *off, name);
                 break;
             }
             case CALL_FUNC:
@@ -1533,6 +1629,13 @@ void dissemble(code_object *code) {
                 printf("%3d\n", *count);
                 break;
             }
+            case NEW_OBJ: {
+                int8_t *x = (int8_t *) code->offsets->data[p];
+                int8_t *y = (int8_t *) code->offsets->data[p + 1];
+                printf("%3d #%s %d\n", *x, (char *) code->names->data[*x], *y);
+                p += 2;
+                break;
+            }
             default: printf("\n");
         }
     }
@@ -1550,11 +1653,27 @@ void dissemble(code_object *code) {
 
 /* ? */
 int main(int argc, char **argv) {
-    if (argc != 2) {
-        printf("\033[1;31musage:\033[0m ./drift (file)\n");
+    if (argc < 2) {
+        printf("\033[1;31musage:\033[0m ./drift [-t | -b] -v | (file)\n");
         exit(EXIT_FAILURE);
     }
+
+    bool show_token = false; /* Exec arguments */
+    bool show_byte = false;
+
+    if (argc == 2 && strcmp(argv[1], "-v") == 0) {
+        printf("%s\n", COMPILER_VERSION); /* Output version */
+        exit(EXIT_SUCCESS);
+    }
+    if (argc == 3) {
+        if (
+            strcmp(argv[1], "-t") == 0) show_token = true;
+        if (
+            strcmp(argv[1], "-b") == 0) show_byte = true;
+    }
     const char *path = argv[1];
+    if (argc == 3) path = argv[2];
+
     int len = strlen(path) - 1;
     if (path[len] != 't'  || 
         path[len - 1] != 'f' ||
@@ -1579,16 +1698,17 @@ int main(int argc, char **argv) {
 
     /* Lexical analysis */
     lexer(buf, fsize);
-    /* for (int i = 0; i < tokens->len; i ++) {
-        token *t = tokens->data[i];
-        printf("[%3d]\t%-5d %-20s %-20d %d\n", 
-            i, t->kind, t->literal, t->line, t->off);
-    } */
+    if (show_token) {
+        for (int i = 0; i < tokens->len; i ++) {
+            token *t = tokens->data[i];
+            printf("[%3d]\t%-5d %-20s %-20d %d\n", 
+                i, t->kind, t->literal, t->line, t->off);
+        }
+    }
 
     /* Compiler */
     compile();
-
-    dissemble(objs->data[0]);
+    if (show_byte) dissemble(objs->data[0]);
     
     fclose(fp); /* Close file */
     free(buf); /* Close buffer */
