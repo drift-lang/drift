@@ -65,28 +65,28 @@ void free_list(list *l) {
 
 /* Types of all tokens */
 typedef enum {
-    EOH,       LITERAL,   NUMBER,    STRING,  CHAR,      FLOAT,
-    ADD,       SUB,       MUL,       DIV,     SUR,       AS_ADD,
-    AS_SUB,    AS_MUL,    AS_DIV,    AS_SUR,  R_ARROW,   L_ARROW,
-    DOT,       COMMA,     COLON,     EQ,      SEMICOLON, GREATER,
-    LESS,      GR_EQ,     LE_EQ,     ADDR,    OR,        BANG,
-    BANG_EQ,   EQ_EQ,     L_BRACE,   R_BRACE, L_PAREN,   R_PAREN,
-    L_BRACKET, R_BRACKET, UNDERLINE, DEF,     RET,       FOR,
-    AOP,       IF,        EF,        NF,      NEW,       OUT,
+    EOH,       LITERAL,   NUMBER,  STRING,    CHAR,      FLOAT,
+    ADD,       SUB,       MUL,     DIV,       SUR,       AS_ADD,
+    AS_SUB,    AS_MUL,    AS_DIV,  AS_SUR,    R_ARROW,   DOT,
+    COMMA,     COLON,     EQ,      SEMICOLON, GREATER,   LESS,
+    GR_EQ,     LE_EQ,     ADDR,    OR,        BANG,      BANG_EQ,
+    EQ_EQ,     L_BRACE,   R_BRACE, L_PAREN,   R_PAREN,   L_BRACKET,
+    R_BRACKET, UNDERLINE, SLASH,   DEF,       RET,       FOR,
+    AOP,       IF,        EF,      NF,        NEW,       OUT,
     GO,        MOD,       USE
 } token_kind;
 
 /* Token string */
 const char *token_string[] = {
-    "EOH", "LITERAL", "NUMBER", "STRING", "CHAR", "FLOAT",
+    "EOF", "LITERAL", "NUMBER", "STRING", "CHAR", "FLOAT",
     "+",   "-",       "*",      "/",      "%",    "+=",
-    "-=",  "*=",      "/=",     "%=",     "->",   "<-",
-    ".",   ",",       ":",      "=",      ";",    ">",
-    "<",   ">=",      "<=",     "&",      "|",    "!",
-    "!=",  "==",      "{",      "}",      "(",    ")",
-    "[",   "]",       "_",      "def",    "ret",  "for",
+    "-=",  "*=",      "/=",     "%=",     "->",   ".",
+    ",",   ":",       "=",      ";",      ">",    "<",
+    ">=",  "<=",      "&",      "|",      "!",    "!=",
+    "==",  "{",       "}",      "(",      ")",    "[",
+    "]",   "_",       "\\",     "def",    "ret",  "for",
     "aop", "if",      "ef",     "nf",     "new",  "out",
-    "go",  "mod",     "use"
+    "go",  "mod", "use"
 };
 
 /* Token properties */
@@ -229,12 +229,7 @@ void lexer(const char *buf, int fsize) {
                 break;
             case '<':
                 if (next(buf, &i, '=')) {t.kind = LE_EQ; t.literal = "<=";}
-                else {
-                    if (buf[i] == '-') {
-                        t.kind = L_ARROW; t.literal = "<-";
-                        i ++;
-                    } else {t.kind = LESS; t.literal = "<";}
-                }
+                else {t.kind = LESS; t.literal = "<";}
                 break;
             case '>':
                 if (next(buf, &i, '=')) {t.kind = GR_EQ; t.literal = ">=";}
@@ -339,6 +334,10 @@ void lexer(const char *buf, int fsize) {
                 i ++;
                 t.kind = R_PAREN; t.literal = ")";
                 break;
+            case '\\':
+                i ++;
+                t.kind = SLASH; t.literal = "\\";
+                break;
             default:
                 fprintf(stderr, "\033[1;31mlexer %d:\033[0m unknown character '%c'.\n",
                     line, c);
@@ -350,10 +349,10 @@ void lexer(const char *buf, int fsize) {
     /* Terminator */
     if (tokens != NULL) {
         token *end = list_back(tokens);
-        token *eoh = new_token(EOH, "EOH", end->line + 1, 0);
+        token *eoh = new_token(EOH, "EOF", end->line + 1, 0);
         push_token_list(eoh); /* End of handler */
     } else {
-        push_token_list(new_token(EOH, "EOH", 0, 0)); /* No token */
+        push_token_list(new_token(EOH, "EOF", 0, 0)); /* No token */
     }
 }
 
@@ -377,6 +376,7 @@ typedef enum {
     LOAD_ENUM,     // J
     LOAD_WHOLE,    // J
     LOAD_FUNC,     // J
+    LOAD_FACE,     // J
     ASSIGN_TO,     // N
     STORE_NAME,    // N T
     TO_INDEX,      // *
@@ -426,15 +426,15 @@ typedef enum {
 /* Output bytecode */
 const char *code_string[] = {
     "CONST_OF",     "LOAD_OF",       "LOAD_ENUM",  "LOAD_WHOLE", "LOAD_FUNC",
-    "ASSIGN_TO",    "STORE_NAME",    "TO_INDEX",   "TO_REPLACE", "GET_OF",
-    "SET_OF",       "CALL_FUNC",     "ASS_ADD",    "ASS_SUB",    "ASS_MUL",
-    "ASS_DIV",      "ASS_SUR",       "TO_REP_ADD", "TO_REP_SUB", "TO_REP_MUL", 
-    "TO_REP_DIV",   "TO_REP_SUR",    "SET_NAME",   "NEW_OBJ",    "SET_MODULE",
-    "USE_MOD",      "BUILD_ARR",     "BUILD_TUP",  "BUILD_MAP",  "TO_ADD",
-    "TO_SUB",       "TO_MUL",        "TO_DIV",     "TO_SUR",     "TO_GR",
-    "TO_LE",        "TO_GR_EQ",      "TO_LE_EQ",   "TO_EQ_EQ",   "TO_NOT_EQ",
-    "TO_AND",       "TO_OR",         "TO_BANG",    "TO_NOT",     "JUMP_TO",
-    "T_JUMP_TO",    "F_JUMP_TO",     "TO_RET",     "RET_OF",
+    "LOAD_FACE",    "ASSIGN_TO",     "STORE_NAME", "TO_INDEX",   "TO_REPLACE",
+    "GET_OF",       "SET_OF",        "CALL_FUNC",  "ASS_ADD",    "ASS_SUB",
+    "ASS_MUL",      "ASS_DIV",       "ASS_SUR",    "TO_REP_ADD", "TO_REP_SUB",
+    "TO_REP_MUL",   "TO_REP_DIV",    "TO_REP_SUR", "SET_NAME",   "NEW_OBJ",
+    "SET_MODULE",   "USE_MOD",       "BUILD_ARR",  "BUILD_TUP",  "BUILD_MAP",
+    "TO_ADD",       "TO_SUB",        "TO_MUL",     "TO_DIV",     "TO_SUR",
+    "TO_GR",        "TO_LE",         "TO_GR_EQ",   "TO_LE_EQ",   "TO_EQ_EQ",
+    "TO_NOT_EQ",    "TO_AND",        "TO_OR",      "TO_BANG",    "TO_NOT",
+    "JUMP_TO",      "T_JUMP_TO",     "F_JUMP_TO",  "TO_RET",     "RET_OF",
 };
 
 /* Type system */
@@ -529,9 +529,16 @@ const char *type_string(type *t) {
     }
 }
 
+/* Method structure of interface */
+typedef struct {
+    char *name; /* Face name */
+    list *T; /* Types of arguments */
+    type *ret; /* Return type */
+} method;
+
 /* Generate object, subject data type. */
 typedef struct {
-    const char *description; /* Description name */
+    char *description; /* Description name */
     list *names; /* Name set */
     list *codes; /* Bytecode set */
     list *offsets; /* Offset set */
@@ -542,7 +549,7 @@ typedef struct {
 /* Object type */
 typedef enum {
     OBJ_INT,  OBJ_FLOAT, OBJ_STRING, OBJ_CHAR,
-    OBJ_ENUM, OBJ_FUNC,  OBJ_WHOLE
+    OBJ_ENUM, OBJ_FUNC,  OBJ_WHOLE,  OBJ_FACE,
 } obj_kind;
 
 /* Object system */
@@ -566,7 +573,10 @@ typedef struct {
         } func; /* function */
         struct {
             char *name;
-            list *inherit;
+            list *element;
+        } face; /* interface */
+        struct {
+            char *name;
             code_object *code;
         } whole; /* whole */
     } value; /* Inner value */
@@ -585,6 +595,9 @@ const char *obj_string(object *obj) {
             return str;
         case OBJ_FUNC:
             sprintf(str, "func \"%s\"", obj->value.func.name);
+            return str;
+        case OBJ_FACE:
+            sprintf(str, "face \"%s\"", obj->value.face.name);
             return str;
         case OBJ_WHOLE:
             sprintf(str, "whole \"%s\"", obj->value.whole.name);
@@ -605,6 +618,24 @@ typedef struct {
 
 /* Global state of compiler */
 compile_state state;
+
+/* Backup global state */
+compile_state backup_state() {
+    compile_state up;
+    up.iof = state.iof;
+    up.inf = state.inf;
+    up.itf = state.itf;
+    up.p = state.p;
+    return up;
+}
+
+/* Reset global state */
+void reset_state(compile_state *state, compile_state up) {
+    state->iof = up.iof;
+    state->inf = up.inf;
+    state->itf = up.itf;
+    state->p = up.p;
+}
 
 /* Compiled object list */
 list *objs = NULL;
@@ -1076,6 +1107,21 @@ type *set_type() {
     return T;
 }
 
+/* Make simple error message in compiler */
+void syntax_error() {
+    fprintf(stderr,
+        "\033[1;31mcompiler %d:\033[0m syntax error.\n",
+        state.pre.line);
+    exit(EXIT_FAILURE);
+}
+
+/* No block error message */
+void no_block_error() {
+    fprintf(stderr, "\033[1;31mcompiler %d:\033[0m no block statement.\n",
+            state.pre.line);
+    exit(EXIT_FAILURE);
+}
+
 void block(); /* Placeholder */
 
 /* Statements */
@@ -1085,21 +1131,164 @@ void stmt() {
             iter();
             token name = state.pre;
             iter();
-            if (name.kind == L_PAREN) { /* Function */
-                printf("FUNCTION\n");
-            } else if (state.pre.kind == DEF ||
-                       state.pre.kind == L_ARROW) { /* Whole */
+
+            /* Judge the original offset */
+            token *tok = tokens->data[state.p - 1];
+            int off = state.pre.off;
+
+            if (state.pre.kind == SLASH) { /* Interface */
+                if (off <= tok->off) no_block_error();
+
+                object *fa = (object *) malloc(sizeof(object)); /* Object */
+                fa->kind = OBJ_FACE;
+                fa->value.face.name = name.literal;
+
+                /* Face block parsing */
+                while (true) {
+                    method *m = (method *) malloc(sizeof(method));
+
+                    iter(); /* Skip left slash */
+
+                    /* Inner elements */
+                    if (state.pre.kind != SLASH) { /* Have argument */
+                        list *arg = new_list();
+
+                        while (true) { /* Parsing arguments */
+                            arg = append_list(arg, set_type());
+                            iter();
+                            if (state.pre.kind == SLASH) break;
+                            expect_pre(COMMA);
+                        }
+                        iter(); /* Skip right slash */
+
+                        m->name = state.pre.literal;
+                        m->T = arg;
+                    } else { /* No argument */
+                        iter();
+                        m->name = state.pre.literal;
+                        m->T = new_list();
+                    }
+
+                    if (state.cur.kind == R_ARROW) { /* Method return */
+                        both_iter();
+                        m->ret = set_type();
+                    }
+
+                    fa->value.face.element = /* Method elements in faces */
+                        append_list(fa->value.face.element, m);
+
+                    /* Bytecode */
+                    emit_top_code(LOAD_FACE);
+                    emit_top_obj(fa);
+
+                    if (state.cur.off == off) { /* To next statemt in block */
+                        iter();
+                    } else {
+                        break;
+                    }
+                }
+            } else if (name.kind == L_PAREN) { /* Function */
+                list *K = new_list(); /* Argument name */
+                list *V = new_list(); /* Argument type */
+
+                if (state.pre.kind != R_PAREN) { /* Arguments */
+                    while (true) {
+                        if (state.cur.kind == R_PAREN) break;
+
+                        K = append_list(K, state.pre.literal); /* Name */
+                        if (state.cur.kind != COMMA) { /* And type */
+                            iter();
+                            type *T = set_type(); /* Type */
+                            iter();
+
+                            /* Type alignment for multiple argument types */
+                            while (K->len != V->len) {
+                                V = append_list(V, T); /* One-on-one */
+                            }
+                            if (state.pre.kind == R_PAREN) break;
+                            expect_pre(COMMA);
+                        } else {
+                            both_iter();
+                        }
+                    }
+                }
+
+                object *func = (object *) malloc(sizeof(object)); /* Object */
+                func->kind = OBJ_FUNC;
+                func->value.func.k = K; /* Argument name */
+                func->value.func.v = V; /* Argument type */
+
+                iter();
+                token name = state.pre; /* Function name */
+                iter();
+
+                if (state.pre.kind == R_ARROW) { /* Function return */
+                    iter();
+                    func->value.func.ret = set_type();
+                    iter();
+                }
+
+                /* Back up the current compilation state,
+                   It will create a new object to parse the function body */
+                compile_state up_state = backup_state();
+
+                /* New code object */
+                code_object *code = (code_object *) malloc(sizeof(code_object));
+                code->description = name.literal;
+                push_obj_list(code); /* To top */
+                block(); /* Function body */
+
+                /* Reset status */
+                reset_state(&state, up_state);
+
+                code_object *ptr = (code_object *) pop_list_back(objs); /* Pop back */
+                func->value.func.code = ptr;
+                func->value.func.name = ptr->description;
+
+                /* Bytecode */
+                emit_top_code(LOAD_FUNC);
+                emit_top_obj(func);
+            } else if (state.pre.kind == DEF) { /* Whole */
                 printf("WHOLE\n");
-            } else { /* Variable: def <name> <type> = <stmt> */
+            } else {
                 type *T = set_type();
                 iter();
-                expect_pre(EQ);
 
-                set_precedence(P_LOWEST); /* expression */
+                /* Variable: def <name> <type> = <stmt> */
+                if (state.pre.kind == EQ) {
+                    iter();
+                    set_precedence(P_LOWEST); /* expression */
 
-                emit_top_type(T);
-                emit_top_code(STORE_NAME);
-                emit_top_name(name.literal);
+                    emit_top_type(T);
+                    emit_top_code(STORE_NAME);
+                    emit_top_name(name.literal);
+                } else { /* Enumeration */
+                    if (T->kind != T_USER) syntax_error();
+                    if (off <= tok->off)   no_block_error();
+                    
+                    list *elem = new_list();
+                    elem = append_list(elem, (char *)T->inner.name); /* Previous */
+                    free(T);
+                    /* Enums */
+                    while (true) {
+                        elem = append_list(elem, (char *)state.pre.literal);
+                        if (state.cur.off == off) {
+                            iter();
+                        } else {
+                            break;
+                        }
+                    }
+                    /* Enum object */
+                    object *en = (object *) malloc(sizeof(object));
+                    en->kind = OBJ_ENUM;
+                    en->value.enumeration.name
+                        = name.literal;
+                    en->value.enumeration.element 
+                        = elem;
+                    /* Bytecode */
+                    emit_top_code(LOAD_ENUM);
+                    emit_top_obj(en);
+                }
             }
             break;
         }
@@ -1254,15 +1443,13 @@ statement cannot be used outside loop.\n", state.pre.line);
     }
 }
 
-/* Compile module code of the same level */
+/* Compile block statement of the same level */
 void block() {
     token *tok = (token *)tokens->data[state.p - 1];
     int off = state.pre.off;
-
+    /* Block */
     if (off <= tok->off) {
-        fprintf(stderr, "\033[1;31mcompiler %d:\033[0m no block statement.\n",
-            state.pre.line);
-        exit(EXIT_FAILURE);
+        no_block_error();
     }
     while (true) {
         stmt(); /* Single statement */
@@ -1288,77 +1475,82 @@ void compile() {
         iter();
         state.loop_handler = false;
     }
-    emit_top_code(TO_RET);
+    emit_top_code(TO_RET); /* End compile */
 }
 
-/* detailed information */
-void dissemble() {
-    for (int i = 0; i < objs->len; i ++) {
-        code_object *code 
-            = (code_object *) objs->data[i];
-        printf("<%s>: %d code, %d name, %d type, %d object, %d offset\n",
-            code->description,
-            code->codes == NULL ? 0 : code->codes->len,
-            code->names == NULL ? 0 : code->names->len,
-            code->types == NULL ? 0 : code->types->len,
-            code->objects == NULL ? 0 : code->objects->len,
-            code->offsets == NULL ? 0 : code->offsets->len);
+/* Detailed information */
+void dissemble(code_object *code) {
+    printf("<%s>: %d code, %d name, %d type, %d object, %d offset\n",
+        code->description,
+        code->codes == NULL ? 0 : code->codes->len,
+        code->names == NULL ? 0 : code->names->len,
+        code->types == NULL ? 0 : code->types->len,
+        code->objects == NULL ? 0 : code->objects->len,
+        code->offsets == NULL ? 0 : code->offsets->len);
 
-        // for (int i = 0; i < code->offsets->len; i ++)
-        //     printf("%d\n", *(u_int8_t *)code->offsets->data[i]);
-        // for (int i = 0; i < code->codes->len; i ++)
-        //     printf("%s\n", code_string[*(u_int8_t *)code->codes->data[i]]);
-
-        for (int b = 0, p = 0; b < code->codes->len; b ++) {
-            op_code *inner
-                = (op_code *) code->codes->data[b];
-            printf("[%2d] %10s ", b, code_string[*inner]);
-            switch (*inner) {
-                case CONST_OF: {
-                    int8_t *off = (int8_t *) code->offsets->data[p ++];
-                    object *obj = (object *) code->objects->data[*off];
-                    printf("%3d %3s\n", *off, obj_string(obj));
-                    break;
-                }
-                case LOAD_OF: case GET_OF:  case SET_OF:  case ASSIGN_TO:
-                case ASS_ADD: case ASS_SUB: case ASS_MUL: case ASS_DIV:
-                case ASS_SUR: {
-                    int8_t *off = (int8_t *) code->offsets->data[p ++];
-                    char *name = (char *) code->names->data[*off];
-                    printf("%3d #%s\n", *off, name);
-                    break;
-                }
-                case CALL_FUNC:
-                case JUMP_TO:
-                case T_JUMP_TO:
-                case F_JUMP_TO: {
-                    int8_t *off = (int8_t *) code->offsets->data[p ++];
-                    printf("%3d\n", *off);
-                    break;
-                }
-                case STORE_NAME: {
-                    int8_t *x = (int8_t *) code->offsets->data[p];
-                    int8_t *y = (int8_t *) code->offsets->data[p + 1];
-                    printf("%3d %s %d '%s'\n", 
-                        *x, type_string((type *) code->types->data[*x]), *y,
-                        (char *) code->names->data[*y]);
-                    p += 2;
-                    break;
-                }
-                case BUILD_ARR: case BUILD_TUP: case BUILD_MAP: {
-                    int8_t *count = (int8_t *) code->offsets->data[p ++];
-                    printf("%3d\n", *count);
-                    break;
-                }
-                default: printf("\n");
+    for (int b = 0, p = 0; b < code->codes->len; b ++) {
+        op_code *inner
+            = (op_code *) code->codes->data[b];
+        printf("[%2d] %10s ", b, code_string[*inner]);
+        switch (*inner) {
+            case CONST_OF:
+            case LOAD_ENUM:
+            case LOAD_FUNC:
+            case LOAD_FACE:
+            case LOAD_WHOLE: {
+                int8_t *off = (int8_t *) code->offsets->data[p ++];
+                object *obj = (object *) code->objects->data[*off];
+                printf("%3d %3s\n", *off, obj_string(obj));
+                break;
             }
+            case LOAD_OF: case GET_OF:  case SET_OF:  case ASSIGN_TO:
+            case ASS_ADD: case ASS_SUB: case ASS_MUL: case ASS_DIV:
+            case ASS_SUR: {
+                int8_t *off = (int8_t *) code->offsets->data[p ++];
+                char *name = (char *) code->names->data[*off];
+                printf("%3d #%s\n", *off, name);
+                break;
+            }
+            case CALL_FUNC:
+            case JUMP_TO:
+            case T_JUMP_TO:
+            case F_JUMP_TO: {
+                int8_t *off = (int8_t *) code->offsets->data[p ++];
+                printf("%3d\n", *off);
+                break;
+            }
+            case STORE_NAME: {
+                int8_t *x = (int8_t *) code->offsets->data[p];
+                int8_t *y = (int8_t *) code->offsets->data[p + 1];
+                printf("%3d %s %d '%s'\n", 
+                    *x, type_string((type *) code->types->data[*x]), *y,
+                    (char *) code->names->data[*y]);
+                p += 2;
+                break;
+            }
+            case BUILD_ARR: case BUILD_TUP: case BUILD_MAP: {
+                int8_t *count = (int8_t *) code->offsets->data[p ++];
+                printf("%3d\n", *count);
+                break;
+            }
+            default: printf("\n");
+        }
+    }
+
+    /* Output the details of the objects in it */
+    if (code->objects != NULL) {
+        for (int i = 0; i < code->objects->len; i ++) {
+            object *obj = (object *)code->objects->data[i];
+            /* Dissemble code object */
+            if (obj->kind == OBJ_FUNC)       dissemble(obj->value.func.code);
+            else if (obj->kind == OBJ_WHOLE) dissemble(obj->value.whole.code);
         }
     }
 }
 
 /* ? */
 int main(int argc, char **argv) {
-    if (argc < 2) {
+    if (argc != 2) {
         printf("\033[1;31musage:\033[0m ./drift (file)\n");
         exit(EXIT_FAILURE);
     }
@@ -1396,7 +1588,7 @@ int main(int argc, char **argv) {
     /* Compiler */
     compile();
 
-    dissemble();
+    dissemble(objs->data[0]);
     
     fclose(fp); /* Close file */
     free(buf); /* Close buffer */
