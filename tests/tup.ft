@@ -1,0 +1,4 @@
+# TUP
+def x ()int = (1)
+def x ()string = ("A", "B", "C")
+def x ()int = ()

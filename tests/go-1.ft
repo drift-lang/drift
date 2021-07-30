@@ -1,0 +1,11 @@
+# GO-1
+aop a > b
+    a += 1
+    if a > 100
+        print("Haha")
+    ef a == 300
+        print("Pooo")
+        print(a)
+    nf
+        out ->
+    go 1 + 1 == 2

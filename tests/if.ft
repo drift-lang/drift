@@ -1,0 +1,4 @@
+# IF
+if x > y
+    print("A")
+print("B")

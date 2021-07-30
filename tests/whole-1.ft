@@ -1,0 +1,25 @@
+# WHOLE-1
+def Foo
+	def (a, b int) add -> int
+		ret a + b
+
+	def (ch char) sum -> string
+		if ch == ' '
+			ret "NO"
+		ef ch == 'p'
+			ret "OK"
+		ret "None"
+
+	def () bar
+		for def i int = 0; i < 10; i += 1
+			if i % 2 == 0
+				print(i)
+		print("Done")
+
+	def name string = "bingxio"
+	def iter int = 0
+	
+	def () call
+		aop iter < 100
+			print("iter = ", iter)
+			iter += 1

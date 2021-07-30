@@ -1,0 +1,4 @@
+# FOR
+for def x int = 0; x < 10; x += 1
+    print("Hello World!")
+    print(x)

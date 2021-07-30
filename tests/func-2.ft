@@ -1,0 +1,5 @@
+# FUN-2
+def (a, b int) max -> int
+    if a > b
+        ret a
+    ret -1

@@ -1,0 +1,11 @@
+# STR
+def (str string, c char) count -> int
+	if len(str == 0) == 0
+		return 0
+	def x int = 0
+	for def i int = 0; i < len(str); i += 1
+		if str[i] == c
+			x += 1
+	ret x
+def x string = "Hello World!"
+print(count(x, 'o'))

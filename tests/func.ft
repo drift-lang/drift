@@ -1,0 +1,3 @@
+# FUNC
+def () foo
+	print("Hello, drift!")

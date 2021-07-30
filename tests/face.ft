@@ -1,0 +1,11 @@
+# FACE
+def Color
+    RED
+    PINK
+    BLUE
+
+def Mode
+    \int, int\ max -> int
+    \\ foo
+
+print("Hello, drift!")

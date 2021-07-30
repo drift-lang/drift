@@ -1,0 +1,3 @@
+# MAP
+def x {}<int, int> = {1: 34, 6: 78, 5: 22}
+def x {}<int, foo> = {"foo": a, "bar": b}

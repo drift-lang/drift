@@ -1,0 +1,7 @@
+# FUNC-1
+def (tp, node int, tl []leaf) max -> int
+    if a > b
+        ret a
+    ret -1
+def x int = max()
+print(x)

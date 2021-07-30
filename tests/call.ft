@@ -1,0 +1,4 @@
+# CALL
+x + foo() * y.z
+foo(1, a + b, x.y, a + b * c)
+foo() + bar(1, 2, 3) * 2

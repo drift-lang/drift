@@ -1,0 +1,5 @@
+*.o
+drift
+drift.exe
+.vscode
+.idea

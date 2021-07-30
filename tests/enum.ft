@@ -1,0 +1,6 @@
+# ENUM
+def Color
+    RED
+    GREEN
+    PINK
+print(Color)

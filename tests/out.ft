@@ -1,0 +1,7 @@
+# OUT
+aop a > b
+    print(a)
+    print(b)
+
+    out x != y
+    def x int = 65

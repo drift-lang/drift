@@ -1,0 +1,7 @@
+# EF
+if x > y
+    print("A")
+    print("B")
+ef a > b
+    print("C")
+    print("D")

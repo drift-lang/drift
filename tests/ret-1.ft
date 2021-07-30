@@ -1,0 +1,5 @@
+# RET-1
+ret 1 + 2 * 3
+ret ->
+ret 4
+ret bar()

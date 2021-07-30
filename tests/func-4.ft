@@ -1,0 +1,4 @@
+# FUNC-4
+def () foo -> |int|
+    ret def (x int) _
+        print(x)
