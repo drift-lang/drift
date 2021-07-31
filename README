@@ -4,7 +4,7 @@ The Drift Programming Language.
 2. Bytecode execution.
 3. For the drift language, see my blog post:
      https://bingxio.fun/article/2021-05-24.html
-4. After optimization, the size is only about 15 kb.
+4. After optimization, the size is only about 30 kb.
 5. The compiler runs on any device.
 6. Provide external interfaces to access languages libraries
      that support links.

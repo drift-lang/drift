@@ -5,6 +5,7 @@
  * GPL 3.0 License - bingxio <3106740988@qq.com> */
 #include "lexer.h"
 #include "compiler.h"
+#include "vm.h"
 
 #define COMPILER_VERSION "Drift 0.0.1 (MADE AT Jul 29 15:40:45)"
 
@@ -27,6 +28,9 @@ void run(char *source, int fsize) {
     /* Compiler */
     list *codes = compile(tokens);
     if (show_bytes) dissemble(codes->data[0]);
+
+    /* Virtual machine */
+    evaluate(codes->data[0]);
 
     free(source);
     free_list(tokens);
