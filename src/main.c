@@ -8,15 +8,41 @@
 
 #define COMPILER_VERSION "Drift 0.0.1 (MADE AT Jul 29 15:40:45)"
 
+bool show_tokens; /* Exec arguments */
+bool show_bytes;
+
+/* Run source code */
+void run(char *source, int fsize) {
+    /* Lexical analysis */
+    list *tokens = lexer(source, fsize);
+
+    if (show_tokens) {
+        for (int i = 0; i < tokens->len; i ++) {
+            token *t = tokens->data[i];
+            printf("[%3d]\t%-5d %-20s %-20d %d\n", 
+                i, t->kind, t->literal, t->line, t->off);
+        }
+    }
+
+    /* Compiler */
+    list *codes = compile(tokens);
+    if (show_bytes) dissemble(codes->data[0]);
+
+    free(source);
+    free_list(tokens);
+    free_list(codes);
+}
+
 /* ? */
 int main(int argc, char **argv) {
     if (argc < 2) {
-        printf("\033[1;31musage:\033[0m ./drift [-t | -b] -v | (file)\n");
+        printf("usage: [OPTION] FILE\n \
+\n\
+        -t  output token list\n\
+        -b  output bytecode list\n\n\
+FILE: drift program file with .ft suffix\n");
         exit(EXIT_FAILURE);
     }
-
-    bool show_token = false; /* Exec arguments */
-    bool show_byte = false;
 
     if (argc == 2 && strcmp(argv[1], "-v") == 0) {
         printf("%s\n", COMPILER_VERSION); /* Output version */
@@ -24,9 +50,9 @@ int main(int argc, char **argv) {
     }
     if (argc == 3) {
         if (
-            strcmp(argv[1], "-t") == 0) show_token = true;
+            strcmp(argv[1], "-t") == 0) show_tokens = true;
         if (
-            strcmp(argv[1], "-b") == 0) show_byte = true;
+            strcmp(argv[1], "-b") == 0) show_bytes = true;
     }
     const char *path = argc == 3 ? argv[2] : argv[1];
     int len = strlen(path) - 1;
@@ -51,22 +77,8 @@ int main(int argc, char **argv) {
     fread(buf, fsize, sizeof(char), fp); /* Read file to buffer*/
     buf[fsize] = '\0';
 
-    /* Lexical analysis */
-    list *tokens = lexer(buf, fsize);
-    if (show_token) {
-        for (int i = 0; i < tokens->len; i ++) {
-            token *t = tokens->data[i];
-            printf("[%3d]\t%-5d %-20s %-20d %d\n", 
-                i, t->kind, t->literal, t->line, t->off);
-        }
-    }
-
-    /* Compiler */
-    list *objs = compile(tokens);
-    if (show_byte) dissemble(objs->data[0]);
+    run(buf, fsize);
     
     fclose(fp); /* Close file */
-    free(buf); /* Close buffer */
-    free_list(tokens); /* Release tokens */
     return 0;
 }

@@ -1,4 +1,10 @@
 # AOP
+def x int = 12
+def y int = 63
+
+aop ->
+    print("Loop")
+
 aop x > y
     print("Hello World!")
     x -= 1

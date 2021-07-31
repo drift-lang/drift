@@ -36,12 +36,11 @@ static const char *token_string[] = {
 };
 
 /* Token properties */
-typedef struct { token_kind kind; char *literal; int line; int off; } token;
-
-/* Build token */
-token *new_token(token_kind k, char *literal, int line, int off);
-
-/* Analyze the types of strings */
-token_kind to_keyword(const char *literal);
+typedef struct {
+    token_kind kind;
+    char *literal;
+    int line;
+    int off;
+} token;
 
 #endif

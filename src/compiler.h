@@ -21,11 +21,12 @@ typedef struct {
     list *tokens;
     token pre; /* Last token */
     token cur; /* Current token */
-    u_int8_t iof; /* Offset of object */
-    u_int8_t inf; /* Offset of name */
-    u_int8_t itf; /* Offset of type */
+    int16_t iof; /* Offset of object */
+    int16_t inf; /* Offset of name */
+    int16_t itf; /* Offset of type */
     int p; /* Read position */
     bool loop_handler; /* Is current handing loop statement? */
+    list *codes; /* Compiled code object */
 } compile_state;
 
 /* Compiler */

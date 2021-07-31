@@ -126,3 +126,7 @@ aop ->
     x -= 1
 
 putl()
+
+aop a > b
+    puts("Call")
+    out ->

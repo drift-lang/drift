@@ -19,9 +19,8 @@ detail info:
 license:
     - GNU General Public License v3.0
 
-build:
-    My GCC version is 8.3.0 and Python 3
+build: My GCC version is 8.3.0 and Python 3
     > python build.py
-    > ./drift
+    > ./drift -v
 
 Have a good time! and give star if you like.

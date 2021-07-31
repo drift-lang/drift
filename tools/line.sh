@@ -1,1 +1,1 @@
-find . -name "*.c" | xargs wc -l
+find . -name *.[ch] | xargs wc -l

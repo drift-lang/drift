@@ -19,4 +19,7 @@ typedef struct {
     list *lines; /* Lines set */
 } code_object;
 
+/* Allocate new code object */
+code_object *new_code(char *des);
+
 #endif

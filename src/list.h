@@ -9,7 +9,11 @@
 #include <stdlib.h>
 
 /* My list structure */
-typedef struct { void **data; int len; int cap; } list;
+typedef struct {
+    void **data;
+    int len;
+    int cap;
+} list;
 
 /* Create an empty list */
 list *new_list();

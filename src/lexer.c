@@ -16,11 +16,25 @@ bool is_ident(char c) {
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
 }
 
-/* Token list */
-list *tokens = NULL;
+/* Analyze the types of strings */
+token_kind to_keyword(const char *literal) {
+    for (int i = 39; i < 51; i ++) {
+        if (strcmp(literal, token_string[i]) == 0) {
+            return i;
+        }
+    }
+    return LITERAL;
+}
 
-/* Push token into token list */
-void push_token_list(token *tok) { tokens = append_list(tokens, tok); }
+/* Build token */
+token *new_token(token_kind k, char *literal, int line, int off) {
+    token *tok = (token *) malloc(sizeof(token));
+    tok->kind = k;
+    tok->literal = literal;
+    tok->line = line;
+    tok->off = off;
+    return tok;
+}
 
 /* Determine whether the next character is the specified type */
 bool next(const char *buf, int *p, char c) {
@@ -46,6 +60,7 @@ void paste_literal(char *literal, const char *buf, int *p, int i) {
 
 /* Lexical analysis */
 list *lexer(const char *buf, int fsize) {
+    list *tokens = NULL;
     bool new_line = true; /* Indent judgement */
     for (int i = 0, line = 1, off = 0; i < fsize;) {
         char c = buf[i];
@@ -77,7 +92,8 @@ list *lexer(const char *buf, int fsize) {
             char *literal = (char *) malloc(p * sizeof(char));
             paste_literal(literal, buf, &p, i);
             /* Append */
-            push_token_list(new_token(f ? FLOAT : NUMBER, literal, line, off));
+            tokens = append_list(tokens,
+                new_token(f ? FLOAT : NUMBER, literal, line, off));
             continue;
         }
         if (is_ident(c)) { /* Ident */
@@ -89,7 +105,7 @@ list *lexer(const char *buf, int fsize) {
             char *literal = (char *) malloc((p + 1) * sizeof(char));
             paste_literal(literal, buf, &p, i);
             /* Append */
-            push_token_list(new_token(
+            tokens = append_list(tokens, new_token(
                 to_keyword(literal), literal, line, off));
             continue;
         }
@@ -237,15 +253,16 @@ list *lexer(const char *buf, int fsize) {
                 exit(EXIT_FAILURE);
         }
         /* Other */
-        push_token_list(new_token(t.kind, t.literal, t.line, t.off));
+        tokens = append_list(tokens,
+            new_token(t.kind, t.literal, t.line, t.off));
     }
     /* Terminator */
     if (tokens != NULL) {
         token *end = list_back(tokens);
         token *eoh = new_token(EOH, "EOF", end->line + 1, 0);
-        push_token_list(eoh); /* End of handler */
+        tokens = append_list(tokens, eoh); /* End of handler */
     } else {
-        push_token_list(new_token(EOH, "EOF", 0, 0)); /* No token */
+        tokens = append_list(tokens, new_token(EOH, "EOF", 0, 0)); /* No token */
     }
     return tokens;
 }

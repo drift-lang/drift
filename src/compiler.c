@@ -33,21 +33,25 @@ void clear_state() {
     state.itf = 0;
 }
 
-/* Compiled object list */
-list *objs = NULL;
+/* Push new code object to list */
+void push_code_list(code_object *obj) {
+    state.codes = append_list(state.codes, obj);
+}
 
-/* Push new object to list */
-void push_obj_list(code_object *obj) { objs = append_list(objs, obj); }
+/* Get tail data */
+code_object *back() {
+    return (code_object *) list_back(state.codes);
+}
 
 /* Replace placeholder in offset list */
-void replace_holder(int8_t place, int8_t off) {
-    code_object *obj = (code_object *) list_back(objs);
+void replace_holder(int16_t place, int16_t off) {
+    code_object *obj = back();
     if (obj->offsets == NULL)
         return;
     for (int i = 0; i < obj->offsets->len; i ++) {
         if (
-            *(int8_t *)(obj->offsets->data[i]) == place) {
-                int8_t *f = (int8_t *) malloc(sizeof(int8_t));
+            *(int16_t *)(obj->offsets->data[i]) == place) {
+                int16_t *f = (int16_t *) malloc(sizeof(int16_t));
                 *f = off;
                 obj->offsets->data[i] = f;
         }
@@ -56,7 +60,7 @@ void replace_holder(int8_t place, int8_t off) {
 
 /* Gets the current offset list length */
 int *get_top_offset_p() {
-    code_object *obj = (code_object *) list_back(objs);
+    code_object *obj = back();
     int *p = (int *) malloc(sizeof(int));
     *p = obj->offsets->len;
     return p;
@@ -64,31 +68,31 @@ int *get_top_offset_p() {
 
 /* Gets the top bytecode list length */
 int get_top_code_len() {
-    code_object *obj = (code_object *) list_back(objs);
+    code_object *obj = back();
     if (obj->codes == NULL)
         return 0;
     return obj->codes->len; /* The offset used to insert the specified position */
 }
 
 /* Insert offset position new element */
-void insert_top_offset(int p, int8_t off) {
-    code_object *obj = (code_object *) list_back(objs);
-    int8_t *f = (int8_t *) malloc(sizeof(int8_t));
+void insert_top_offset(int p, int16_t off) {
+    code_object *obj = back();
+    int16_t *f = (int16_t *) malloc(sizeof(int16_t));
     *f = off;
     insert_list(obj->offsets, p, f);
 }
 
 /* Offset */
-void emit_top_offset(int8_t off) {
-    code_object *obj = (code_object *) list_back(objs);
-    int8_t *f = (int8_t *) malloc(sizeof(int8_t));
+void emit_top_offset(int16_t off) {
+    code_object *obj = back();
+    int16_t *f = (int16_t *) malloc(sizeof(int16_t));
     *f = off;
     obj->offsets = append_list(obj->offsets, f);
 }
 
 /* Name */
 void emit_top_name(char *name) {
-    code_object *obj = (code_object *) list_back(objs);
+    code_object *obj = back();
     if (obj->names != NULL) {
         for (int i = 0; i < obj->names->len; i ++) {
             if ( /* Duplicate reference to existing name */
@@ -104,7 +108,7 @@ void emit_top_name(char *name) {
 
 /* Type */
 void emit_top_type(type *t) {
-    code_object *obj = (code_object *) list_back(objs);
+    code_object *obj = back();
     if (obj->types != NULL) {
         for (int i = 0; i < obj->types->len; i ++) {
             type *x = (type *) obj->types->data[i];
@@ -122,20 +126,20 @@ void emit_top_type(type *t) {
 
 /* Object */
 void emit_top_obj(object *obj) {
-    code_object *code = (code_object *) list_back(objs);
+    code_object *code = back();
     code->objects = append_list(code->objects, obj);
     emit_top_offset(state.iof ++);
 }
 
 /* Line */
 void emit_top_line(int *line) {
-    code_object *code = (code_object *) list_back(objs);
+    code_object *code = back();
     code->lines = append_list(code->lines, line);
 }
 
 /* Code */
 void emit_top_code(u_int8_t code) {
-    code_object *obj = (code_object *) list_back(objs);
+    code_object *obj = back();
     op_code *c = (op_code *) malloc(sizeof(u_int8_t));
     *c = code;
     obj->codes = append_list(obj->codes, c);
@@ -144,9 +148,10 @@ void emit_top_code(u_int8_t code) {
     emit_top_line(l);
 }
 
+int p = 0; /* Traversal lexical list */
+
 /* Iterator of lexical list */
 void iter() {
-    static int p = 0;
     state.pre = state.cur;
     if (p == state.tokens->len)
         return;
@@ -708,15 +713,15 @@ void stmt() {
                 clear_state(); /* New state */
 
                 /* New code object */
-                code_object *code = (code_object *) malloc(sizeof(code_object));
-                code->description = name.literal;
-                push_obj_list(code); /* To top */
+                code_object *code = new_code(name.literal);
+                push_code_list(code); /* To top */
                 block(); /* Function body */
 
                 /* Reset status */
                 reset_state(&state, up_state);
 
-                code_object *ptr = (code_object *) pop_list_back(objs); /* Pop back */
+                code_object *ptr = (code_object *)
+                    pop_list_back(state.codes); /* Pop back */
                 func->value.func.code = ptr;
                 func->value.func.name = ptr->description;
 
@@ -728,14 +733,14 @@ void stmt() {
                 clear_state(); /* New state */
 
                 /* Code */
-                code_object *code = (code_object *) malloc(sizeof(code_object));
-                code->description = name.literal;
-                push_obj_list(code); /* Code */
+                code_object *code = new_code(name.literal);
+                push_code_list(code); /* Code */
                 block(); /* Body */
 
                 reset_state(&state, up_state); /* State */
 
-                code_object *ptr = (code_object *) pop_list_back(objs); /* Pop back */
+                code_object *ptr = (code_object *)
+                    pop_list_back(state.codes); /* Pop back */
                 /* Object */
                 object *wh = (object *) malloc(sizeof(object));
                 wh->kind = OBJ_WHOLE;
@@ -884,37 +889,35 @@ void stmt() {
             iter();
             expect_pre(SEMICOLON);
 
-            /* Expression position for loop return */
-            int begin_p = get_top_code_len();
-            set_precedence(P_LOWEST); /* Condition */
-            iter();
-            expect_pre(SEMICOLON);
-
-            emit_top_code(F_JUMP_TO);
-            int expr_p = *get_top_offset_p(); /* For condition */
-
-            emit_top_code(JUMP_TO);
-            int body_p = *get_top_offset_p(); /* For body */
-
+            int begin_p = get_top_code_len(); /* Bytecode pos */
+            /* Expression condition */
             set_precedence(P_LOWEST);
             iter();
-            int update_p = *get_top_offset_p(); /* For update */
+            expect_pre(SEMICOLON);
+            emit_top_code(F_JUMP_TO);
+            int expr_p = *get_top_offset_p();
 
+            emit_top_code(JUMP_TO);
+            int body_p = *get_top_offset_p();
+
+            int update_p = get_top_code_len(); /* Bytecode pos */
+            /* Expression update */
+            set_precedence(P_LOWEST);
+            iter();
             emit_top_code(JUMP_TO);
             emit_top_offset(begin_p);
 
+            /* Loop body */
             insert_top_offset(body_p, get_top_code_len());
-
-            block(); /* Loop block */
-
+            block();
             emit_top_code(JUMP_TO);
             emit_top_offset(update_p);
+
+            insert_top_offset(expr_p, get_top_code_len());
 
             /* Replace placeholder in offset list */
             replace_holder(-1, get_top_code_len());
             replace_holder(-2, update_p);
-
-            insert_top_offset(expr_p, get_top_code_len()); /* TO: F_JUMP_TO */
             break;
         }
         case OUT:
@@ -978,21 +981,27 @@ void block() {
 
 /* Compiler */
 list *compile(list *t) {
+    p = 0; /* Set state */
+
     state.tokens = t;
+    state.codes = NULL;
+    state.p = 0;
+    clear_state();
+
     both_iter();
 
     /* Push global object */
-    code_object *obj = (code_object *) malloc(sizeof(code_object));
-    obj->description = "main";
-    push_obj_list(obj);
+    code_object *code = new_code("main");
+    push_code_list(code);
 
     while (state.pre.kind != EOH) {
         stmt();
         iter();
         state.loop_handler = false;
     }
+
     emit_top_code(TO_RET); /* End compile */
-    return objs;
+    return state.codes;
 }
 
 /* Detailed information */
@@ -1005,7 +1014,7 @@ void dissemble(code_object *code) {
         code->objects == NULL ? 0 : code->objects->len,
         code->offsets == NULL ? 0 : code->offsets->len);
 
-// for (int i = 0; i < code->offsets->len; i ++) printf("%d\n", *(int8_t *)code->offsets->data[i]);
+// for (int i = 0; i < code->offsets->len; i ++) printf("%d\n", *(int16_t *)code->offsets->data[i]);
 
     for (int b = 0, p = 0, pl = -1; b < code->codes->len; b ++) {
         int line = *(int *) code->lines->data[b];
@@ -1027,7 +1036,7 @@ void dissemble(code_object *code) {
             case LOAD_FUNC:
             case LOAD_FACE:
             case LOAD_WHOLE: {
-                int8_t *off = (int8_t *) code->offsets->data[p ++];
+                int16_t *off = (int16_t *) code->offsets->data[p ++];
                 object *obj = (object *) code->objects->data[*off];
                 printf("%4d %3s\n", *off, obj_string(obj));
                 break;
@@ -1038,7 +1047,7 @@ void dissemble(code_object *code) {
             case SET_NAME:
             case SET_MOD:
             case USE_MOD: {
-                int8_t *off = (int8_t *) code->offsets->data[p ++];
+                int16_t *off = (int16_t *) code->offsets->data[p ++];
                 char *name = (char *) code->names->data[*off];
                 if (*inner == SET_NAME || *inner == SET_MOD || *inner == USE_MOD)
                     printf("%4d '%s'\n", *off, name);
@@ -1050,13 +1059,13 @@ void dissemble(code_object *code) {
             case JUMP_TO:
             case T_JUMP_TO:
             case F_JUMP_TO: {
-                int8_t *off = (int8_t *) code->offsets->data[p ++];
+                int16_t *off = (int16_t *) code->offsets->data[p ++];
                 printf("%4d\n", *off);
                 break;
             }
             case STORE_NAME: {
-                int8_t *x = (int8_t *) code->offsets->data[p];
-                int8_t *y = (int8_t *) code->offsets->data[p + 1];
+                int16_t *x = (int16_t *) code->offsets->data[p];
+                int16_t *y = (int16_t *) code->offsets->data[p + 1];
                 printf("%4d %s %d '%s'\n", 
                     *x, type_string((type *) code->types->data[*x]), *y,
                     (char *) code->names->data[*y]);
@@ -1064,13 +1073,13 @@ void dissemble(code_object *code) {
                 break;
             }
             case BUILD_ARR: case BUILD_TUP: case BUILD_MAP: {
-                int8_t *count = (int8_t *) code->offsets->data[p ++];
+                int16_t *count = (int16_t *) code->offsets->data[p ++];
                 printf("%4d\n", *count);
                 break;
             }
             case NEW_OBJ: {
-                int8_t *x = (int8_t *) code->offsets->data[p];
-                int8_t *y = (int8_t *) code->offsets->data[p + 1];
+                int16_t *x = (int16_t *) code->offsets->data[p];
+                int16_t *y = (int16_t *) code->offsets->data[p + 1];
                 printf("%4d #%s %d\n", *x, (char *) code->names->data[*x], *y);
                 p += 2;
                 break;
