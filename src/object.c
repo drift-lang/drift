@@ -26,6 +26,86 @@ const char *obj_string(object *obj) {
         case OBJ_WHOLE:
             sprintf(str, "whole \"%s\"", obj->value.whole.name);
             return str;
+        case OBJ_ARR:
+            sprintf(str, "arr (%d)", obj->value.arr.element->len);
+            return str;
+        case OBJ_TUP:
+            sprintf(str, "tup (%d)", obj->value.tup.element->len);
+            return str;
+        case OBJ_MAP:
+            sprintf(str, "map (%d)", obj->value.map.v->len);
+            return str;
+    }
+}
+
+/* Object's raw data */
+const char *obj_raw_string(object *obj) {
+    char *str = (char *) malloc(sizeof(char) * 128);
+    switch (obj->kind) {
+        case OBJ_INT:    sprintf(str, "%d", obj->value.integer);             return str;
+        case OBJ_FLOAT:  sprintf(str, "%f", obj->value.floating);            return str;
+        case OBJ_STRING: sprintf(str, "%s", obj->value.string);              return str;
+        case OBJ_CHAR:   sprintf(str, "%c", obj->value.ch);                  return str;
+        case OBJ_BOOL:   sprintf(str, "%s", obj->value.boolean ? "T" : "F"); return str;
+        case OBJ_ARR: { /* Array */
+            list *elem = obj->value.arr.element;
+            if (elem->len == 0) {
+                free(str);
+                return "[]";
+            }
+            sprintf(str, "[");
+            for (int i = 0; i < elem->len; i ++) {
+                strcat(str,
+                    obj_raw_string((object *)elem->data[i]));
+                if (i + 1 != elem->len) {
+                    strcat(str, ", ");
+                }
+            }
+            strcat(str, "]");
+            return str;
+        }
+        case OBJ_TUP: { /* Tuple */
+            list *elem = obj->value.arr.element;
+            if (elem->len == 0) {
+                free(str);
+                return "()";
+            }
+            sprintf(str, "(");
+            for (int i = 0; i < elem->len; i ++) {
+                strcat(str,
+                    obj_raw_string((object *)elem->data[i]));
+                if (i + 1 != elem->len) {
+                    strcat(str, ", ");
+                }
+            }
+            strcat(str, ")");
+            return str;
+        }
+        case OBJ_MAP: { /* Map */
+            list *k = obj->value.map.k;
+            list *v = obj->value.map.v;
+            if (k->len == 0) {
+                free(str);
+                return "{}";
+            }
+            sprintf(str, "{");
+            for (int i = 0; i < k->len; i ++) {
+                strcat(str,
+                    obj_raw_string((object *)k->data[i]));
+                strcat(str, ": ");
+                strcat(str,
+                    obj_raw_string((object *)v->data[i]));
+                if (i + 1 != k->len) {
+                    strcat(str, ", ");
+                }
+            }
+            strcat(str, "}");
+            return str;
+        }
+        default: { /* Other */
+            free(str);
+            return obj_string(obj);
+        }
     }
 }
 
@@ -168,6 +248,10 @@ object *binary_op(u_int8_t op, object *a, object *b) {
                 EV_BOL(je,
                     strcmp(a->value.string, b->value.string) == 0);
             }
+            if (a->kind == OBJ_CHAR && b->kind == OBJ_CHAR) {
+                EV_BOL(je,
+                    a->value.ch == b->value.ch);
+            }
             break;
         case TO_NOT_EQ:
             OP_B(a, b, je, !=);
@@ -204,6 +288,10 @@ object *binary_op(u_int8_t op, object *a, object *b) {
             if (a->kind == OBJ_STRING && b->kind == OBJ_STRING) {
                 EV_BOL(je,
                     strcmp(a->value.string, b->value.string) != 0);
+            }
+            if (a->kind == OBJ_CHAR && b->kind == OBJ_CHAR) {
+                EV_BOL(je,
+                    a->value.ch != b->value.ch);
             }
             break;
         case TO_AND:
@@ -270,4 +358,132 @@ object *binary_op(u_int8_t op, object *a, object *b) {
     if (!je_ins) return NULL;
     je_ins = false;
     return je;
+}
+
+/* The judgement type is the same */
+bool type_checker(type *tp, object *obj) {
+    switch (tp->kind) {
+        case T_ARRAY:
+        case T_TUPLE:
+            if (tp->kind == T_ARRAY && obj->kind != OBJ_ARR)
+                return false;
+            if (tp->kind == T_TUPLE && obj->kind != OBJ_TUP)
+                return false;
+            list *elem;
+            if (tp->kind == T_ARRAY) elem = obj->value.arr.element;
+            if (tp->kind == T_TUPLE) elem = obj->value.tup.element;
+            if (elem->len != 0) {
+                for (int i = 0; i < elem->len; i ++) {
+                    object *x = (object *)elem->data[i];
+                    if (!type_checker(
+                            (type *)tp->inner.single, x)) {
+                        return false;
+                    }
+                }
+            }
+            break;
+        case T_MAP:
+            if (obj->kind != OBJ_MAP)
+                return false;
+            list *k = obj->value.map.k;
+            list *v = obj->value.map.v;
+            for (int i = 0; i < k->len; i ++) {
+                if (!type_checker(
+                        (type *)tp->inner.both.T1, (object *)k->data[i])) {
+                    return false;
+                }
+            }
+            for (int i = 0; i < v->len; i ++) {
+                if (!type_checker(
+                        (type *)tp->inner.both.T2, (object *)v->data[i])) {
+                    return false;
+                }
+            }
+            break;
+        case T_FUNC:
+            if (obj->kind != OBJ_FUNC)
+                return false;
+            if (tp->inner.func.arg->len != obj->value.func.k->len)
+                return false;
+            if (tp->inner.func.ret != NULL) {
+                if (obj->value.func.ret == NULL)
+                    return false;
+                if (
+                    ((type *)tp->inner.func.ret)->kind !=
+                    ((type *)obj->value.func.ret)->kind) {
+                        return false;
+                    }
+            }
+            for (int i = 0; i < tp->inner.func.arg->len; i ++) {
+                type *x =
+                    (type *)tp->inner.func.arg->data[i];
+                type *y =
+                    (type *)obj->value.func.k->data[i];
+                if (x->kind != y->kind)
+                    return false;
+                if (!type_checker(
+                        x, (object *)obj->value.func.v->data[i])) {
+                            return false;
+                        }
+            }
+            break;
+        default: {
+            if (
+                (tp->kind == T_INT    && obj->kind != OBJ_INT) ||
+                (tp->kind == T_FLOAT  && obj->kind != OBJ_FLOAT) ||
+                (tp->kind == T_STRING && obj->kind != OBJ_STRING) ||
+                (tp->kind == T_CHAR   && obj->kind != OBJ_CHAR) ||
+                (tp->kind == T_BOOL   && obj->kind != OBJ_BOOL)
+            ) {
+                return false;
+            } else {
+                if (tp->kind == T_USER) {
+                    const char *name = tp->inner.name;
+
+                    if (
+                        (obj->kind == OBJ_FUNC &&
+                            strcmp(name, obj->value.func.name) != 0) ||
+                        (obj->kind == OBJ_ENUM &&
+                            strcmp(name, obj->value.enumeration.name) != 0) ||
+                        (obj->kind == OBJ_FACE &&
+                            strcmp(name, obj->value.face.name) != 0) ||
+                        (obj->kind == OBJ_WHOLE &&
+                            strcmp(name, obj->value.whole.name) != 0)
+                    ) {
+                        return false;   
+                    }
+                }
+            }
+        }
+    }
+    return true;
+}
+
+/* Are the two objects equal */
+bool obj_eq(object *a, object *b) {
+    switch (a->kind) {
+        case OBJ_INT:
+            if (b->kind == OBJ_INT)
+                return a->value.integer == b->value.integer;
+            break;
+        case OBJ_FLOAT:
+            if (b->kind == OBJ_FLOAT)
+                return a->value.floating == b->value.floating;
+            break;
+        case OBJ_CHAR:
+            if (b->kind == OBJ_CHAR)
+                return a->value.ch == b->value.ch;
+            break;
+        case OBJ_STRING:
+            if (b->kind == OBJ_STRING)
+                return strcmp(a->value.string, b->value.string) == 0;
+            break;
+        case OBJ_BOOL:
+            if (b->kind == OBJ_BOOL)
+                return a->value.boolean ?
+                    b->value.boolean == true : b->value.boolean == false;
+            break;
+        default:
+            return false;
+    }
 }

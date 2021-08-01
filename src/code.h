@@ -20,6 +20,6 @@ typedef struct {
 } code_object;
 
 /* Allocate new code object */
-code_object *new_code(char *des);
+code_object *new_code(char *);
 
 #endif

@@ -2,3 +2,4 @@
 def x []int = [1, 2, 3]
 def x []string = ["A", "B", "C"]
 def x []int = []
+x

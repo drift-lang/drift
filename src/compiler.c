@@ -5,6 +5,19 @@
  * GPL 3.0 License - bingxio <3106740988@qq.com> */
 #include "compiler.h"
 
+/* Allocate new code object */
+code_object *new_code(char *des) {
+    code_object *obj = (code_object *)malloc(sizeof(code_object));
+    obj->description = des;
+    obj->codes = NULL;
+    obj->lines = NULL;
+    obj->names = NULL;
+    obj->objects = NULL;
+    obj->offsets = NULL;
+    obj->types = NULL;
+    return obj;
+}
+
 /* Global state of compiler */
 compile_state state;
 
@@ -40,7 +53,7 @@ void push_code_list(code_object *obj) {
 
 /* Get tail data */
 code_object *back() {
-    return (code_object *) list_back(state.codes);
+    return (code_object *)back_list(state.codes);
 }
 
 /* Replace placeholder in offset list */
@@ -51,7 +64,7 @@ void replace_holder(int16_t place, int16_t off) {
     for (int i = 0; i < obj->offsets->len; i ++) {
         if (
             *(int16_t *)(obj->offsets->data[i]) == place) {
-                int16_t *f = (int16_t *) malloc(sizeof(int16_t));
+                int16_t *f = (int16_t *)malloc(sizeof(int16_t));
                 *f = off;
                 obj->offsets->data[i] = f;
         }
@@ -61,7 +74,7 @@ void replace_holder(int16_t place, int16_t off) {
 /* Gets the current offset list length */
 int *get_top_offset_p() {
     code_object *obj = back();
-    int *p = (int *) malloc(sizeof(int));
+    int *p = (int *)malloc(sizeof(int));
     *p = obj->offsets->len;
     return p;
 }
@@ -77,7 +90,7 @@ int get_top_code_len() {
 /* Insert offset position new element */
 void insert_top_offset(int p, int16_t off) {
     code_object *obj = back();
-    int16_t *f = (int16_t *) malloc(sizeof(int16_t));
+    int16_t *f = (int16_t *)malloc(sizeof(int16_t));
     *f = off;
     insert_list(obj->offsets, p, f);
 }
@@ -85,7 +98,7 @@ void insert_top_offset(int p, int16_t off) {
 /* Offset */
 void emit_top_offset(int16_t off) {
     code_object *obj = back();
-    int16_t *f = (int16_t *) malloc(sizeof(int16_t));
+    int16_t *f = (int16_t *)malloc(sizeof(int16_t));
     *f = off;
     obj->offsets = append_list(obj->offsets, f);
 }
@@ -111,9 +124,9 @@ void emit_top_type(type *t) {
     code_object *obj = back();
     if (obj->types != NULL) {
         for (int i = 0; i < obj->types->len; i ++) {
-            type *x = (type *) obj->types->data[i];
+            type *x = (type *)obj->types->data[i];
             if ( /* Basic types do not need to be recreated */
-                x->kind <= 4 && t->kind <= 4) {
+                (x->kind <= 4 && t->kind <= 4) && x->kind == t->kind) {
                 free(t);
                 emit_top_offset(i);
                 return;
@@ -140,10 +153,10 @@ void emit_top_line(int *line) {
 /* Code */
 void emit_top_code(u_int8_t code) {
     code_object *obj = back();
-    op_code *c = (op_code *) malloc(sizeof(u_int8_t));
+    op_code *c = (op_code *)malloc(sizeof(u_int8_t));
     *c = code;
     obj->codes = append_list(obj->codes, c);
-    int *l = (int *) malloc(sizeof(int));
+    int *l = (int *)malloc(sizeof(int));
     *l = state.pre.line;
     emit_top_line(l);
 }
@@ -155,7 +168,7 @@ void iter() {
     state.pre = state.cur;
     if (p == state.tokens->len)
         return;
-    state.cur = *(token *) state.tokens->data[p++];
+    state.cur = *(token *)state.tokens->data[p++];
     state.p = p - 2; /* Always point to the current lexical subscript */
 }
 
@@ -264,7 +277,7 @@ void no_block_error() {
 /* LITERAL */
 void literal() {
     token tok = state.pre;
-    object *obj = (object *) malloc(sizeof(object));
+    object *obj = (object *)malloc(sizeof(object));
 
     switch (tok.kind) {
         case NUMBER:
@@ -548,7 +561,7 @@ void set_precedence(int precedence) {
 /* Type system */
 type *set_type() {
     token now = state.pre;
-    type *T = (type *) malloc(sizeof(type));
+    type *T = (type *)malloc(sizeof(type));
     switch (now.kind) {
         case LITERAL:
             if (strcmp(now.literal, "int") == 0)         T->kind = T_INT;
@@ -619,13 +632,13 @@ void stmt() {
             if (state.pre.kind == SLASH) { /* Interface */
                 if (off <= tok->off) no_block_error();
 
-                object *fa = (object *) malloc(sizeof(object)); /* Object */
+                object *fa = (object *)malloc(sizeof(object)); /* Object */
                 fa->kind = OBJ_FACE;
                 fa->value.face.name = name.literal;
 
                 /* Face block parsing */
                 while (true) {
-                    method *m = (method *) malloc(sizeof(method));
+                    method *m = (method *)malloc(sizeof(method));
 
                     iter(); /* Skip left slash */
 
@@ -692,7 +705,7 @@ void stmt() {
                     }
                 }
 
-                object *func = (object *) malloc(sizeof(object)); /* Object */
+                object *func = (object *)malloc(sizeof(object)); /* Object */
                 func->kind = OBJ_FUNC;
                 func->value.func.k = K; /* Argument name */
                 func->value.func.v = V; /* Argument type */
@@ -721,7 +734,7 @@ void stmt() {
                 reset_state(&state, up_state);
 
                 code_object *ptr = (code_object *)
-                    pop_list_back(state.codes); /* Pop back */
+                    pop_back_list(state.codes); /* Pop back */
                 func->value.func.code = ptr;
                 func->value.func.name = ptr->description;
 
@@ -740,9 +753,9 @@ void stmt() {
                 reset_state(&state, up_state); /* State */
 
                 code_object *ptr = (code_object *)
-                    pop_list_back(state.codes); /* Pop back */
+                    pop_back_list(state.codes); /* Pop back */
                 /* Object */
-                object *wh = (object *) malloc(sizeof(object));
+                object *wh = (object *)malloc(sizeof(object));
                 wh->kind = OBJ_WHOLE;
                 wh->value.whole.name = ptr->description;
                 wh->value.whole.code = ptr;
@@ -779,7 +792,7 @@ void stmt() {
                         }
                     }
                     /* Enum object */
-                    object *en = (object *) malloc(sizeof(object));
+                    object *en = (object *)malloc(sizeof(object));
                     en->kind = OBJ_ENUM;
                     en->value.enumeration.name
                         = name.literal;
@@ -1017,7 +1030,7 @@ void dissemble(code_object *code) {
 // for (int i = 0; i < code->offsets->len; i ++) printf("%d\n", *(int16_t *)code->offsets->data[i]);
 
     for (int b = 0, p = 0, pl = -1; b < code->codes->len; b ++) {
-        int line = *(int *) code->lines->data[b];
+        int line = *(int *)code->lines->data[b];
         if (line != pl) {
             // if (pl != -1)
             //     printf("\n");
@@ -1028,7 +1041,7 @@ void dissemble(code_object *code) {
         }
 
         op_code *inner
-            = (op_code *) code->codes->data[b];
+            = (op_code *)code->codes->data[b];
         printf("%2d %10s", b, code_string[*inner]);
         switch (*inner) {
             case CONST_OF:
@@ -1036,8 +1049,8 @@ void dissemble(code_object *code) {
             case LOAD_FUNC:
             case LOAD_FACE:
             case LOAD_WHOLE: {
-                int16_t *off = (int16_t *) code->offsets->data[p ++];
-                object *obj = (object *) code->objects->data[*off];
+                int16_t *off = (int16_t *)code->offsets->data[p ++];
+                object *obj = (object *)code->objects->data[*off];
                 printf("%4d %3s\n", *off, obj_string(obj));
                 break;
             }
@@ -1047,8 +1060,8 @@ void dissemble(code_object *code) {
             case SET_NAME:
             case SET_MOD:
             case USE_MOD: {
-                int16_t *off = (int16_t *) code->offsets->data[p ++];
-                char *name = (char *) code->names->data[*off];
+                int16_t *off = (int16_t *)code->offsets->data[p ++];
+                char *name = (char *)code->names->data[*off];
                 if (*inner == SET_NAME || *inner == SET_MOD || *inner == USE_MOD)
                     printf("%4d '%s'\n", *off, name);
                 else
@@ -1059,28 +1072,28 @@ void dissemble(code_object *code) {
             case JUMP_TO:
             case T_JUMP_TO:
             case F_JUMP_TO: {
-                int16_t *off = (int16_t *) code->offsets->data[p ++];
+                int16_t *off = (int16_t *)code->offsets->data[p ++];
                 printf("%4d\n", *off);
                 break;
             }
             case STORE_NAME: {
-                int16_t *x = (int16_t *) code->offsets->data[p];
-                int16_t *y = (int16_t *) code->offsets->data[p + 1];
+                int16_t *x = (int16_t *)code->offsets->data[p];
+                int16_t *y = (int16_t *)code->offsets->data[p + 1];
                 printf("%4d %s %d '%s'\n", 
-                    *x, type_string((type *) code->types->data[*x]), *y,
+                    *x, type_string((type *)code->types->data[*x]), *y,
                     (char *) code->names->data[*y]);
                 p += 2;
                 break;
             }
             case BUILD_ARR: case BUILD_TUP: case BUILD_MAP: {
-                int16_t *count = (int16_t *) code->offsets->data[p ++];
+                int16_t *count = (int16_t *)code->offsets->data[p ++];
                 printf("%4d\n", *count);
                 break;
             }
             case NEW_OBJ: {
-                int16_t *x = (int16_t *) code->offsets->data[p];
-                int16_t *y = (int16_t *) code->offsets->data[p + 1];
-                printf("%4d #%s %d\n", *x, (char *) code->names->data[*x], *y);
+                int16_t *x = (int16_t *)code->offsets->data[p];
+                int16_t *y = (int16_t *)code->offsets->data[p + 1];
+                printf("%4d #%s %d\n", *x, (char *)code->names->data[*x], *y);
                 p += 2;
                 break;
             }

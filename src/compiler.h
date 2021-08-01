@@ -14,7 +14,6 @@
 #include "opcode.h"
 #include "type.h"
 #include "object.h"
-#include "method.h"
 
 /* Compilation status*/
 typedef struct {
@@ -30,9 +29,9 @@ typedef struct {
 } compile_state;
 
 /* Compiler */
-list *compile(list *tokens);
+list *compile(list *);
 
 /* Detailed information */
-void dissemble(code_object *code);
+void dissemble(code_object *);
 
 #endif

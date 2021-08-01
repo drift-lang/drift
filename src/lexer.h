@@ -13,6 +13,6 @@
 #include "token.h"
 
 /* Lexical analysis */
-list *lexer(const char *buf, int fsize);
+list *lexer(const char *, int);
 
 #endif

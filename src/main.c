@@ -44,7 +44,7 @@ int main(int argc, char **argv) {
 \n\
         -t  output token list\n\
         -b  output bytecode list\n\n\
-FILE: drift program file with .ft suffix\n");
+        FILE: drift program file with .ft suffix\n");
         exit(EXIT_FAILURE);
     }
 

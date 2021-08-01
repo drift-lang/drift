@@ -21,6 +21,6 @@ typedef struct {
 } vm_state;
 
 /* Evaluate code object */
-void evaluate(code_object *code);
+void evaluate(code_object *);
 
 #endif

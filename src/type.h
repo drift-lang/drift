@@ -51,6 +51,6 @@ typedef struct {
 } type;
 
 /* Output type */
-const char *type_string(type *t);
+const char *type_string(type *);
 
 #endif

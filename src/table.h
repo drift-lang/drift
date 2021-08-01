@@ -6,6 +6,8 @@
 #ifndef FT_TABLE_H
 #define FT_TABLE_H
 
+#include <stdbool.h>
+
 #include "list.h"
 #include "object.h"
 
@@ -18,16 +20,22 @@ typedef struct {
 /* New table */
 table *new_table();
 
+/* Count of table values */
+int count_table(table *);
+
 /* Add key and value */
-void add_table(table *t, char *name, object *val);
+void add_table(table *, char *, object *);
+
+/* Set the value corresponding to the key */
+void set_table(table *, char *, object *);
 
 /* Get value with key */
-void *get_table(table *t, char *name);
+void *get_table(table *, char *);
 
-/* Count of table values */
-int count_table(table *t);
+/* Check if the key exists */
+bool exist(table *, char *);
 
 /* Free */
-void free_table(table *t);
+void free_table(table *);
 
 #endif

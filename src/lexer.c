@@ -6,10 +6,14 @@
 #include "lexer.h"
 
 /* Whether the symbol is a space, carriage return, line feed, indent */
-bool is_space(char c) { return c == ' ' || c == '\t' || c == '\n' || c == '\r'; }
+bool is_space(char c) {
+    return c == ' ' || c == '\t' || c == '\n' || c == '\r';
+}
 
 /* Are the symbols numbers 0 to 9 */
-bool is_digit(char c) { return c >= '0' && c <= '9'; }
+bool is_digit(char c) {
+    return c >= '0' && c <= '9';
+}
 
 /* Is the symbol a legal identifier */
 bool is_ident(char c) {
@@ -258,7 +262,7 @@ list *lexer(const char *buf, int fsize) {
     }
     /* Terminator */
     if (tokens != NULL) {
-        token *end = list_back(tokens);
+        token *end = back_list(tokens);
         token *eoh = new_token(EOH, "EOF", end->line + 1, 0);
         tokens = append_list(tokens, eoh); /* End of handler */
     } else {

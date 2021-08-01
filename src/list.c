@@ -28,24 +28,33 @@ list *append_list(list *l, void *ptr) {
 }
 
 /* Tail data */
-void *list_back(list *l) {
+void *back_list(list *l) {
     if (l->len == 0) return NULL;
     return l->data[l->len - 1];
 }
 
 /* Pop up tail data */
-void *pop_list_back(list *l) { return l->data[-- l->len]; }
+void *pop_back_list(list *l) {
+    return l->data[-- l->len];
+}
 
 /* Insert element at specified location */
 void insert_list(list *l, int p, void *ptr) {
     if (p < 0) return;
-    if (p > l->len - 1) p = l->len - 1;
+    if (p != 0 && p > l->len - 1) p = l->len - 1;
     l = append_list(l, ptr);
     for (int i = p, j = 1, m = 2; i < l->len - 1; i ++) {
         l->data[l->len - j] = l->data[l->len - m];
         j ++;
         m ++;
     }
+    l->data[p] = ptr;
+}
+
+/* Replace data in list subscript */
+void replace_list(list *l, int p, void *ptr) {
+    if (p < 0) return;
+    free(l->data[p]);
     l->data[p] = ptr;
 }
 

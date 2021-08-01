@@ -1,0 +1,5 @@
+def x int = 45
+x + 1
+
+def x string = "Pp"
+x
