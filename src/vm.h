@@ -18,9 +18,10 @@ typedef struct {
     list *frame; /* Frame list */
     int16_t op; /* Position of offset */
     int16_t ip; /* IP */
+    bool loop_ret; /* Break loop */
 } vm_state;
 
 /* Evaluate code object */
-void evaluate(code_object *);
+vm_state evaluate(code_object *);
 
 #endif

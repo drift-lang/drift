@@ -35,6 +35,7 @@ void *back_list(list *l) {
 
 /* Pop up tail data */
 void *pop_back_list(list *l) {
+    if (l->len == 0) return NULL;
     return l->data[-- l->len];
 }
 

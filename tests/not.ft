@@ -1,0 +1,3 @@
+def x int = 35
+def y bool = !x
+x

@@ -327,7 +327,6 @@ void unary() {
 
     if (operator == SUB)  emit_top_code(TO_NOT);  /* - */
     if (operator == BANG) emit_top_code(TO_BANG); /* ! */
-    if (operator == SUR)  emit_top_code(TO_SUR);  /* % */
 }
 
 /* BINARY: + - * / % */
@@ -508,6 +507,7 @@ rule rules[] = {
     { FLOAT,     literal, NULL,    P_LOWEST  },
     { STRING,    literal, NULL,    P_LOWEST  },
     { CHAR,      literal, NULL,    P_LOWEST  },
+    { BANG,      unary,   NULL,    P_LOWEST  }, // !
     { ADD,       NULL,    binary,  P_TERM    }, // +
     { SUB,       unary,   binary,  P_TERM    }, // -
     { MUL,       NULL,    binary,  P_FACTOR  }, // *
@@ -567,6 +567,7 @@ type *set_type() {
             if (strcmp(now.literal, "int") == 0)         T->kind = T_INT;
             else if (strcmp(now.literal, "float") == 0)  T->kind = T_FLOAT;
             else if (strcmp(now.literal, "bool") == 0)   T->kind = T_BOOL;
+            else if (strcmp(now.literal, "char") == 0)   T->kind = T_CHAR;
             else if (strcmp(now.literal, "string") == 0) T->kind = T_STRING;
             else {
                 T->kind = T_USER;

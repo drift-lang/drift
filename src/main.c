@@ -11,6 +11,7 @@
 
 bool show_tokens; /* Exec arguments */
 bool show_bytes;
+bool show_tb;
 
 /* Run source code */
 void run(char *source, int fsize) {
@@ -30,7 +31,12 @@ void run(char *source, int fsize) {
     if (show_bytes) dissemble(codes->data[0]);
 
     /* Virtual machine */
-    evaluate(codes->data[0]);
+    vm_state state = evaluate(codes->data[0]);
+    if (show_tb) {
+        frame *main = (frame *)state.frame->data[0];
+        dissemble_table(main->tb,
+            main->code->description);
+    }
 
     free(source);
     free_list(tokens);
@@ -44,6 +50,7 @@ int main(int argc, char **argv) {
 \n\
         -t  output token list\n\
         -b  output bytecode list\n\n\
+        -s  output table\n\n\
         FILE: drift program file with .ft suffix\n");
         exit(EXIT_FAILURE);
     }
@@ -57,6 +64,8 @@ int main(int argc, char **argv) {
             strcmp(argv[1], "-t") == 0) show_tokens = true;
         if (
             strcmp(argv[1], "-b") == 0) show_bytes = true;
+        if (
+            strcmp(argv[1], "-s") == 0) show_tb = true;
     }
     const char *path = argc == 3 ? argv[2] : argv[1];
     int len = strlen(path) - 1;

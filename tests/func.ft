@@ -1,3 +1,4 @@
 # FUNC
 def () foo
-	print("Hello, drift!")
+    print("Hello, drift!")
+foo()

@@ -48,6 +48,7 @@ typedef struct {
         struct {
             char *name;
             code_object *code;
+            struct frame *fr;
         } whole; /* whole */
         struct {
             list *element;

@@ -44,10 +44,8 @@ void set_table(table *t, char *name, object *val) {
 void *get_table(table *t, char *name) {
     for (int i = 0; i < count_table(t); i ++) {
         if (
-            strcmp(name, (char *)t->name->data[i]) == 0
-        ) {
-            return t->objs->data[i];
-        }
+            strcmp(name, (char *)t->name->data[i]) == 0)
+        return t->objs->data[i];
     }
     return NULL;
 }
@@ -59,6 +57,20 @@ bool exist(table *t, char *name) {
     if (get_table(t, name) == NULL)
         return false;
     return true;
+}
+
+/* Dissemble */
+void dissemble_table(table *t, const char *name) {
+    printf("<%s>: %d item\n",
+        name, count_table(t));
+    for (int i = 0; i < count_table(t); i ++) {
+        printf(
+            "%20s -> (%x):%20s\n",
+            (char *)t->name->data[i],
+            t->objs->data[i],
+            obj_string((object *)t->objs->data[i])
+        );
+    }
 }
 
 /* Free */

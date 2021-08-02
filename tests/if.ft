@@ -1,4 +1,6 @@
-# IF
+def x int = 34
+def y int = 21
+
 if x > y
-    print("A")
-print("B")
+    "A"
+"B"

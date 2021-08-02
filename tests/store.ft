@@ -1,5 +1,3 @@
-def x int = 45
-x + 1
-
-def x string = "Pp"
+def x int = 34
+def p int = 98
 x

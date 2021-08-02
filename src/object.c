@@ -126,18 +126,20 @@ bool je_ins = false;
 /* Digital operation: + - **/
 #define OP_A(A, B, J, P) \
 if (A->kind == OBJ_INT) { \
-    if (B->kind == OBJ_INT) \
+    if (B->kind == OBJ_INT) { \
         EV_INT(J, \
             A->value.integer P B->value.integer); \
+    } \
     if (B->kind == OBJ_FLOAT) { \
         EV_FLO(J, \
             A->value.integer P B->value.floating); \
         } \
     } \
 if (A->kind == OBJ_FLOAT) { \
-    if (B->kind == OBJ_INT) \
+    if (B->kind == OBJ_INT) { \
         EV_FLO(J, \
             A->value.floating P B->value.integer); \
+    } \
     if (B->kind == OBJ_FLOAT) { \
         EV_FLO(J, \
             A->value.floating P B->value.floating); \
@@ -147,18 +149,20 @@ if (A->kind == OBJ_FLOAT) { \
 /* Logical operation: > >= < <= == != | & */
 #define OP_B(A, B, J, P) \
 if (A->kind == OBJ_INT) { \
-    if (B->kind == OBJ_INT) \
+    if (B->kind == OBJ_INT) { \
         EV_BOL(J, \
             A->value.integer P B->value.integer); \
+    } \
     if (B->kind == OBJ_FLOAT) { \
         EV_BOL(J, \
             A->value.integer P B->value.floating); \
         } \
     } \
 if (A->kind == OBJ_FLOAT) { \
-    if (B->kind == OBJ_INT) \
+    if (B->kind == OBJ_INT) { \
         EV_BOL(J, \
             A->value.floating P B->value.integer); \
+    } \
     if (B->kind == OBJ_FLOAT) { \
         EV_BOL(J, \
             A->value.floating P B->value.floating); \

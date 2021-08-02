@@ -1,0 +1,8 @@
+def x {}<string, int> = {}
+x["foo"] = 65
+x["bar"] = 87
+x["bar"] += 3
+
+x["p"] = x["foo"] + 2
+
+x

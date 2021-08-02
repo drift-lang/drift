@@ -59,26 +59,64 @@ void undefined_error(char *name) {
     exit(EXIT_FAILURE);
 }
 
-/* Unsupport type to OP_? */
-void unsupport_type_error(const char *code) {
-    fprintf(stderr,
-        "\033[1;31mvm %d:\033[0m unsupport type to '%s'.\n",
+/* Type error */
+void type_error(type *T, object *obj) {
+    fprintf(stderr, "\033[1;31mvm %d:\033[0m expect type %s, but found %s.\n",
+        GET_LINE(), type_string(T), obj_string(obj));
+    exit(EXIT_FAILURE);
+}
+
+/* Make simple error message */
+void simple_error(const char *msg) {
+    fprintf(stderr, "\033[1;31mvm %d:\033[0m %s.\n", GET_LINE(), msg);
+    exit(EXIT_FAILURE);
+}
+
+/* Operand error */
+void unsupport_operand_error(const char *code) {
+    fprintf(stderr, "\033[1;31mvm %d:\033[0m unsupport operand to '%s'.\n",
         GET_LINE(), code);
     exit(EXIT_FAILURE);
 }
 
-/* Inspection type */
-void type_error() {
-    fprintf(stderr,
-        "\033[1;31mvm %d:\033[0m inspection type.\n", GET_LINE());
-    exit(EXIT_FAILURE);
-}
-
-/* Data error */
-void data_error() {
-    fprintf(stderr,
-        "\033[1;31mvm %d:\033[0m data error\n", GET_LINE());
-    exit(EXIT_FAILURE);
+/* Jumps to the specified bytecode position and
+   moves the offset */
+void jump(int16_t to) {
+    state.op --; /* Step back the offset of the current jump */
+    bool reverse = state.ip > to;
+    if (reverse)
+        /* Inversion skip the jump bytecode */
+        state.ip --;
+    while (
+        reverse ?
+            state.ip >= to : /* Condition */
+            state.ip < to
+    ) {
+        switch(GET_CODE()) {
+            case CONST_OF:   case LOAD_OF:    case LOAD_ENUM:  case LOAD_FUNC:
+            case LOAD_FACE:  case ASSIGN_TO:  case GET_OF:     case SET_OF:
+            case CALL_FUNC:  case ASS_ADD:    case ASS_SUB:    case ASS_MUL:
+            case ASS_DIV:    case ASS_SUR:    case SE_ASS_ADD: case SE_ASS_SUB:
+            case SE_ASS_MUL: case SE_ASS_DIV: case SE_ASS_SUR: case SET_NAME:
+            case SET_MOD:    case USE_MOD:    case BUILD_ARR:  case BUILD_TUP:
+            case BUILD_MAP:  case JUMP_TO:    case T_JUMP_TO:  case F_JUMP_TO:
+                /* These bytecodes contain a parameter */
+                reverse ?
+                    state.op -- : state.op ++;
+                break;
+            case STORE_NAME: /* Two parameter */
+            case NEW_OBJ:
+                if (reverse)
+                    state.op -= 2;
+                else
+                    state.op += 2;
+                break;
+        }
+        reverse ? /* Set bytecode position */
+            state.ip -- : state.ip ++;
+    }
+    if (!reverse) /* Loop update */
+        state.ip --;
 }
 
 /* Evaluate */
@@ -97,7 +135,7 @@ void eval() {
                 object *obj = POP();
                 if ( /* Store and object type check */
                     !type_checker(T, obj)) {
-                        type_error();
+                        type_error(T, obj);
                     }
                 if (obj->kind == OBJ_ARR) { /* Sets the type specified */
                     obj->value.arr.T = (type *)T->inner.single;
@@ -129,7 +167,7 @@ void eval() {
                     undefined_error(name);
                 }
                 /* Update the content of the table */
-                set_table(top_frame()->tb, name, obj);
+                add_table(top_frame()->tb, name, obj);
                 break;
             }
             case TO_ADD:   case TO_SUB:    case TO_MUL: case TO_DIV:   case TO_SUR:
@@ -139,7 +177,7 @@ void eval() {
                 object *a = POP(); /* P1 */
                 object *r = binary_op(code, a, b);
                 if (r == NULL) { /* Operand error */
-                    unsupport_type_error(code_string[code]);
+                    unsupport_operand_error(code_string[code]);
                 }
                 PUSH(r);
                 break;
@@ -158,10 +196,10 @@ void eval() {
                 if (code == ASS_SUR) op = TO_SUR;
                 object *r =  binary_op(op, (object *)resu, obj); /* To operation */
                 if (r == NULL) {
-                    unsupport_type_error(code_string[code]);
+                    unsupport_operand_error(code_string[code]);
                 }
                 /* Update */
-                set_table(top_frame()->tb, name, r);
+                add_table(top_frame()->tb, name, r);
                 break;
             }
             case BUILD_ARR: { /* F */
@@ -173,9 +211,8 @@ void eval() {
                     PUSH(obj);
                     break;
                 }
-                while (count > 0) {
-                    insert_list( /* Build data type */
-                        obj->value.arr.element, 0, POP());
+                while (count > 0) { /* Build data */
+                    append_list(obj->value.arr.element, POP());
                     count --;
                 }
                 PUSH(obj);
@@ -191,8 +228,7 @@ void eval() {
                     break;
                 }
                 while (count > 0) {
-                    insert_list(
-                        obj->value.tup.element, 0, POP());
+                    append_list(obj->value.tup.element, POP());
                     count --;
                 }
                 PUSH(obj);
@@ -202,8 +238,8 @@ void eval() {
                 int16_t count = GET_OFF();
                 object *obj = (object *)malloc(sizeof(object));
                 obj->kind = OBJ_MAP;
-                obj->value.map.k = new_list();
-                obj->value.map.v = new_list();
+                obj->value.map.k = new_list(); /* K */
+                obj->value.map.v = new_list(); /* V */
                 if (count == 0) {
                     PUSH(obj);
                     break;
@@ -211,10 +247,8 @@ void eval() {
                 while (count > 0) {
                     object *b = POP();
                     object *a = POP();
-                    insert_list(
-                        obj->value.map.k, 0, a); /* Key */
-                    insert_list(
-                        obj->value.map.v, 0, b); /* Value */
+                    append_list(obj->value.map.k, a); /* Key */
+                    append_list(obj->value.map.v, b); /* Value */
                     count -= 2;
                 }
                 PUSH(obj);
@@ -224,14 +258,14 @@ void eval() {
                 object *p = POP();
                 object *obj = POP();
                 if (obj->kind != OBJ_ARR && obj->kind != OBJ_MAP) { /* Array and Map */
-                    type_error();
+                    simple_error("only array and map can be called with subscipt");
                 }
                 if (obj->kind == OBJ_ARR) { /* Array */
                     if (p->kind != OBJ_INT) {
-                        type_error(); /* Index only integer */
+                        simple_error("get value using integer subscript"); /* Index only integer */
                     }
                     if (obj->value.arr.element->len == 0) { /* None elements */
-                        data_error();
+                        simple_error("array entry is empty");
                     }
                     PUSH(
                         (object *)obj->value.arr.element->data[
@@ -240,7 +274,7 @@ void eval() {
                 }
                 if (obj->kind == OBJ_MAP) { /* Map */
                     if (obj->value.map.k->len == 0) {
-                        data_error();
+                        simple_error("map entry is empty");
                     }
                     int i = 0; /* Traverse the key, find the corresponding,
                         and change the variable */
@@ -254,7 +288,7 @@ void eval() {
                     }
                     /* Not found */
                     if (i == obj->value.map.k->len) {
-                        data_error();
+                        simple_error("the map does not have this key");
                     }
                 }
                 break;
@@ -263,15 +297,12 @@ void eval() {
                 object *obj = POP();
                 object *idx = POP();
                 object *j = POP();
-                if (j->kind != OBJ_ARR && j->kind != OBJ_MAP) { /* Array and Map */
-                    type_error();
-                }
                 if (j->kind == OBJ_ARR) { /* Array */
                     if (idx->kind != OBJ_INT) {
-                        type_error();
+                        simple_error("get value using integer subscript");
                     }
                     if (!type_checker(j->value.arr.T, obj)) { /* Inconsistent type */
-                        type_error();
+                        type_error(j->value.arr.T, obj);
                     }
                     int p = idx->value.integer; /* Indexes */
                     if (j->value.arr.element->len == 0) {
@@ -281,19 +312,16 @@ void eval() {
                     } else {
                         /* Index out of bounds */
                         if (p > j->value.arr.element->len - 1) {
-                            data_error();
+                            simple_error("index out of bounds");
                         }
                         /* Replace data */
                         replace_list(j->value.arr.element, p, obj);
                     }
                 }
                 if (j->kind == OBJ_MAP) { /* Map */
-                    if (
-                        !type_checker(j->value.map.T1, idx) ||
-                        !type_checker(j->value.map.T2, obj) /* Type check of K and V */
-                    ) {
-                        type_error();
-                    }
+                    /* Type check of K and V */
+                    if (!type_checker(j->value.map.T1, idx)) type_error(j->value.map.T1, idx);
+                    if (!type_checker(j->value.map.T2, obj)) type_error(j->value.map.T2, obj);
                     int p = -1; /* Find the location of the key */
                     for (int i = 0; i < j->value.map.k->len; i ++) {
                         if (obj_eq(
@@ -311,9 +339,268 @@ void eval() {
                 }
                 break;
             }
-            case TO_RET: { /* x */
-                if (top_data()->len != 0) {
-                    printf("%s\n", obj_raw_string(POP()));
+            case TO_REP_ADD: case TO_REP_SUB: case TO_REP_MUL: case TO_REP_DIV:
+            case TO_REP_SUR: { /* x */
+                object *obj = POP();
+                object *idx = POP();
+                object *j = POP();
+                u_int8_t op;
+                if (code == TO_REP_ADD) op = TO_ADD; if (code == TO_REP_SUB) op = TO_SUB;
+                if (code == TO_REP_MUL) op = TO_MUL; if (code == TO_REP_DIV) op = TO_DIV;
+                if (code == TO_REP_SUR) op = TO_SUR;
+                if (j->kind == OBJ_ARR) { /* Array */
+                    if (idx->kind != OBJ_INT) {
+                        simple_error("get value using integer subscript");
+                    }
+                    int p = idx->value.integer; /* Indexes */
+                    if (j->value.arr.element->len == 0 || p < 0 || p > j->value.arr.element->len - 1) {
+                        simple_error("index out of bounds");
+                    }
+                    object *r = binary_op( /* To operand */
+                        op,
+                        (object *)j->value.arr.element->data[p], obj);
+                    if (r == NULL) {
+                        /* Operand error */
+                        unsupport_operand_error(code_string[code]);
+                    }
+                    replace_list(j->value.arr.element, p, r); /* Replace data */
+                }
+                if (j->kind == OBJ_MAP) { /* Map */
+                    /* Type check of K and V */
+                    if (!type_checker(j->value.map.T1, idx)) type_error(j->value.map.T1, idx);
+                    if (!type_checker(j->value.map.T2, obj)) type_error(j->value.map.T2, obj);
+                    if (j->value.map.k->len == 0) {
+                        simple_error("map entry is empty");
+                    }
+                    int p = -1; /* Find the location of the key */
+                    for (int i = 0; i < j->value.map.k->len; i ++) {
+                        if (obj_eq(
+                            idx, (object *)j->value.map.k->data[i])) {
+                                p = i;
+                                break;
+                        }
+                    }
+                    if (p == -1) { /* Insert empty list directly */
+                        simple_error("no replace key exist");
+                    }
+                    object *r = binary_op(op,
+                        (object *)j->value.map.v->data[p], obj);
+                    if (r == NULL) {
+                        unsupport_operand_error(code_string[code]);
+                    }
+                    replace_list(j->value.map.v, p, r); /* Replace date */
+                }
+                break;
+            }
+            case TO_BANG: { /* !P */
+                object *obj = POP();
+                object *new =
+                    (object *)malloc(sizeof(object)); /* Alloc new */
+                switch (obj->kind) {
+                    case OBJ_INT:
+                        new->value.boolean = !obj->value.integer;
+                        break;
+                    case OBJ_FLOAT:
+                        new->value.boolean = !obj->value.floating;
+                        break;
+                    case OBJ_CHAR:
+                        new->value.boolean = !obj->value.ch;
+                        break;
+                    case OBJ_STRING:
+                        new->value.boolean = !strlen(obj->value.string);
+                        break;
+                    case OBJ_BOOL:
+                        new->value.boolean = !obj->value.boolean;
+                        break;
+                    default:
+                        new->value.boolean = false;
+                }
+                new->kind = OBJ_BOOL;
+                PUSH(new);
+                break;
+            }
+            case TO_NOT: { /* -P */
+                object *obj = POP();
+                object *new =
+                    (object *)malloc(sizeof(object)); /* Alloc new */
+                if (obj->kind == OBJ_INT) {
+                    new->value.integer = -obj->value.integer;
+                    PUSH(new);
+                    break;
+                }
+                if (obj->kind == OBJ_FLOAT) {
+                    new->value.floating = -obj->value.floating;
+                    PUSH(new);
+                    break;
+                }
+                unsupport_operand_error(code_string[code]);
+                break;
+            }
+            case JUMP_TO:
+            case F_JUMP_TO:
+            case T_JUMP_TO: { /* F */
+                int16_t off = GET_OFF(); /* Offset */
+                if (code == JUMP_TO) {
+                    jump(off); /* Just jump */
+                    break;
+                }
+                bool ok = /* Condition */
+                    ((object *)POP())->value.boolean;
+                if (code == T_JUMP_TO && ok)
+                    jump(off);
+                if (code == F_JUMP_TO && ok == false)
+                    jump(off);
+                break;
+            }
+            case LOAD_FUNC: { /* J */
+                object *obj = GET_OBJ();
+                add_table(top_frame()->tb,
+                    obj->value.func.name, obj); /* Func */
+                break;
+            }
+            case CALL_FUNC: { /* F */
+                int16_t off = GET_OFF();
+                list *arg = new_list();
+                while (off > 0) {
+                    append_list(arg, POP());
+                    off --;
+                }
+                object *func = POP(); /* Function */
+                list *k = func->value.func.k;
+                list *v = func->value.func.v;
+
+                if (k->len != arg->len) {
+                    simple_error("inconsistent funtion arguments");
+                }
+                /* Call frame */
+                frame *f = new_frame(func->value.func.code); /* Func code object */
+
+                /* Check arguments */
+                for (int i = 0; i < k->len; i ++) {
+                    char *N = (char *)k->data[i]; /* Name */
+                    type *T = (type *)v->data[i]; /* Type */
+                    object *p = arg->data[-- arg->len]; /* Reverse */
+                    if (
+                        !type_checker(T, p) /* Check type consistent */
+                    ) type_error(T, p);
+                    /* Add to table of frame */
+                    add_table(f->tb, N, p);
+                }
+
+                /* Backup pointer */
+                int16_t op_up = state.op;
+                int16_t ip_up = state.ip;
+
+                state.op = 0; /* Clear */
+                state.ip = 0;
+                state.frame = append_list(state.frame, f);
+                eval();
+
+                frame *p = (frame *)pop_back_list(state.frame); /* Evaluated */
+
+                /* Function return */
+                if (func->value.func.ret != NULL) {
+                    if (p->ret == NULL ||
+                            !type_checker(func->value.func.ret, p->ret)) {
+                                if (p->ret == NULL) {
+                                    simple_error("function missing return value");
+                                }
+                        type_error(func->value.func.ret, p->ret); /* Ret type */
+                    }
+                    PUSH(p->ret);
+                }
+                state.op = op_up; /* Reset pointer to main */
+                state.ip = ip_up;
+                break;
+            }
+            case LOAD_FACE: { /* J */
+                object *obj = GET_OBJ();
+                add_table(top_frame()->tb,
+                    obj->value.face.name, obj); /* Face */
+                break;
+            }
+            case LOAD_ENUM: { /* J */
+                object *obj = GET_OBJ();
+                add_table(top_frame()->tb,
+                    obj->value.enumeration.name, obj); /* Enum */
+                break;
+            }
+            case GET_OF: { /* N */
+                char *name = GET_NAME();
+                object *obj = POP();
+                if (obj->kind != OBJ_ENUM && obj->kind != OBJ_WHOLE && obj->kind != OBJ_TUP) {
+                    simple_error("only enum, tuple and whole type are supported");
+                }
+                if (obj->kind == OBJ_ENUM) { /* Enum */
+                    list *elem = obj->value.enumeration.element;
+                    /* Enumeration get integer */
+                    object *p = (object *)malloc(sizeof(object));
+                    p->kind = OBJ_INT;
+                    p->value.integer = -1; /* Origin value */
+                    for (int i = 0; i < elem->len; i ++) {
+                        if (
+                            strcmp(name, (char *)elem->data[i]) == 0) {
+                                p->value.integer = i;
+                                break;
+                        }
+                    }
+                    PUSH(p);
+                }
+                if (obj->kind == OBJ_WHOLE) { /* Whole */
+                    frame *fr = (frame *)obj->value.whole.fr;
+                    void *ptr = get_table(fr->tb, name);
+                    if (ptr == NULL) {
+                        simple_error("nonexistent member");
+                    }
+                    PUSH((object *)ptr);
+                }
+                if (obj->kind == OBJ_TUP) { /* Tuple */
+                    if (obj->value.tup.element->len == 0) {
+                        simple_error("tuple entry is empty");
+                    }
+                    for (int i = 0; i < strlen(name); i ++) {
+                        if ( /* */
+                            !(name[i] >= '0' && name[i] <= '9')) {
+                                simple_error("subscript can only be obtained with integer");
+                        }
+                    }
+                    /* Index */
+                    int idx = atoi(name);
+                    PUSH((object *)obj->value.tup.element->data[idx]);
+                }
+                break;
+            }
+            case SET_OF: { /* N */
+                char *name = GET_NAME();
+                object *obj = POP();
+                if (obj->kind != OBJ_WHOLE) {
+                    simple_error("only members of whole can be set");
+                }
+                frame *fr = (frame *)obj->value.whole.fr; /* Whole frame */
+                void *ptr = get_table(fr->tb, name);
+                if (ptr == NULL) {
+                    simple_error("nonexistent member");
+                }
+                object *j = (object *)ptr;
+                if (obj->kind != j->kind) {
+                    simple_error("wrong type set");
+                }
+                // if (j->kind == OBJ_ARR && !type_checker(j->value.arr.T, obj))
+                //     type_error(j->value.arr.T, obj);
+
+                // if (j->kind == OBJ_TUP && !type_checker(j->value.tup.T, obj))
+                //     type_error(j->value.tup.T, obj);
+                // if (j->kind == OBJ_MAP) {
+
+                // }
+                break;
+            }
+            case TO_RET:
+            case RET_OF: { /* x */
+                state.ip = top_frame()->code->codes->len; /* Catch */
+                state.loop_ret = true;
+                if (code == RET_OF) { /* Return value */
+                    top_frame()->ret = POP();
                 }
                 break;
             }
@@ -327,7 +614,7 @@ void eval() {
 }
 
 /* Eval */
-void evaluate(code_object *code) {
+vm_state evaluate(code_object *code) {
     /* Set virtual machine state */
     state.frame = new_list();
     state.ip = 0;
@@ -338,4 +625,5 @@ void evaluate(code_object *code) {
     state.frame = append_list(state.frame, main);
 
     eval(); /* GO */
+    return state;
 }
