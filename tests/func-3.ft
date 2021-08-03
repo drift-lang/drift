@@ -1,4 +1,0 @@
-# FUNC-3
-def () foo -> |int, int| -> string
-    ret def (a, b int) _ -> string
-        ret string(a + b)

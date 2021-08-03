@@ -1,3 +1,0 @@
-# NEW
-def x Foo = new Foo{name: "bingxio", age: 43}
-def y Bar = new Bar{}

@@ -1,7 +1,0 @@
-# AOP-1
-def x int = 0
-aop ->
-    print(x)
-    x += 2
-    if x > 100
-        out ->

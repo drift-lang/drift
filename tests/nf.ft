@@ -1,5 +1,0 @@
-# NF
-if a > b
-    print("A")
-nf
-    print("B")

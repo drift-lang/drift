@@ -1,4 +1,0 @@
-# FACE-1
-def Foo
-    \\ bar -> string
-print(Foo)

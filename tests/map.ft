@@ -1,5 +1,0 @@
-# MAP
-def x {}<int, int> = {1: 34, 6: 78, 5: 22}
-x
-def x {}<string, char> = {"foo": 'q', "bar": 't'}
-x

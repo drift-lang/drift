@@ -1,3 +1,0 @@
-# ARG
-def (a, b, c int, x []int, y User) foo
-    print("Drift!")

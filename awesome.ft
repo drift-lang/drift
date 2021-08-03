@@ -1,0 +1,55 @@
+# Awesome!!
+def (a, b int) sum -> int
+    if a == 3
+        ret 9
+    ret a + b
+def x int = sum(4, 3)
+def Color
+    RED
+    GREEN
+    PINK
+def y int = Color.GREEN
+def member ()int = (4, 3, 7, 8, 5, 1)
+def p int = member.3
+def l int = y
+# y = 1
+# l = 3
+l = 3
+def a []int = []
+a[3] = 34
+def as bool = a[0] == 34
+def m {}<int, string> = {
+    3: "drift",
+    9: "world"
+}
+m[3] = "lang"
+m[2] = "drift"
+m[8] = "hello"
+def () show -> {}<int, int>
+    ret {1: 34, 2: 65, 3: 11}
+def sc {}<int, int> = show()
+def () fl -> |int, int| -> int
+    ret def (a, b int) _ -> int
+            ret a + b
+def fc |int, int| -> int = fl()
+def fs int = fc(43, 17)
+def Foo
+    def x int = 65
+    def p string = "drift-lang"
+
+    def y string = ""
+
+    def () show -> string
+        ret p
+
+    def Kind
+        Str
+        Int
+def f Foo = new Foo{}
+def k Foo = new Foo{x: 43, y: "world"}
+def m int = k.x
+k.x = 14
+def m int = k.x
+k.x += 3
+def m int = k.x # m: 17
+# m = "what?"

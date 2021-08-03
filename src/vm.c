@@ -23,6 +23,11 @@ frame *top_frame() {
     return back_list(state.frame);
 }
 
+/* Return main frame object */
+frame *main_frame() {
+    return (frame *)state.frame->data[0];
+}
+
 /* Return code object of front frame */
 code_object *top_code() {
     frame *f = top_frame();
@@ -51,6 +56,11 @@ list *top_data() {
 
 #define GET_LINE() *(int *)      top_code()->lines->data[state.ip]
 #define GET_CODE() *(u_int8_t *) top_code()->codes->data[state.ip]
+
+#define GET_PR_CODE() *(u_int8_t *) top_code()->codes->data[state.ip - 2]
+#define GET_PR_OBJ()  (object *)    top_code()->objects->data[ \
+    (* (int16_t *)top_code()->offsets->data[state.op - 1]) \
+] \
 
 /* Undefined error */
 void undefined_error(char *name) {
@@ -92,7 +102,7 @@ void jump(int16_t to) {
             state.ip >= to : /* Condition */
             state.ip < to
     ) {
-        switch(GET_CODE()) {
+        switch (GET_CODE()) {
             case CONST_OF:   case LOAD_OF:    case LOAD_ENUM:  case LOAD_FUNC:
             case LOAD_FACE:  case ASSIGN_TO:  case GET_OF:     case SET_OF:
             case CALL_FUNC:  case ASS_ADD:    case ASS_SUB:    case ASS_MUL:
@@ -147,8 +157,10 @@ void eval() {
                     obj->value.map.T1 = (type *)T->inner.both.T1;
                     obj->value.map.T2 = (type *)T->inner.both.T2;
                 }
+                object *new = (object *)malloc(sizeof(object));
+                memcpy(new, obj, sizeof(object));
                 /* Add to current table */
-                add_table(top_frame()->tb, name, obj);
+                add_table(top_frame()->tb, name, new);
                 break;
             }
             case LOAD_OF: { /* N */
@@ -165,6 +177,10 @@ void eval() {
                 object *obj = POP();
                 if (!exist(top_frame()->tb, name)) { /* Get */
                     undefined_error(name);
+                }
+                if (!obj_kind_eq(
+                        (object *)get_table(top_frame()->tb, name), obj)) {
+                    simple_error("inconsistent type");
                 }
                 /* Update the content of the table */
                 add_table(top_frame()->tb, name, obj);
@@ -565,13 +581,19 @@ void eval() {
                         }
                     }
                     /* Index */
-                    int idx = atoi(name);
-                    PUSH((object *)obj->value.tup.element->data[idx]);
+                    int idx = atoi(name); /* Index is reversed */
+                    int p =
+                        obj->value.tup.element->len - 1 - idx; /* Previous index */
+                    if (idx >= obj->value.tup.element->len) {
+                        simple_error("index out of bounds");
+                    }
+                    PUSH((object *)obj->value.tup.element->data[p]);
                 }
                 break;
             }
             case SET_OF: { /* N */
                 char *name = GET_NAME();
+                object *val = POP(); /* Will set value */
                 object *obj = POP();
                 if (obj->kind != OBJ_WHOLE) {
                     simple_error("only members of whole can be set");
@@ -581,18 +603,104 @@ void eval() {
                 if (ptr == NULL) {
                     simple_error("nonexistent member");
                 }
-                object *j = (object *)ptr;
-                if (obj->kind != j->kind) {
+                object *j = (object *)ptr; /* Origin value */
+                if (val->kind != j->kind) {
                     simple_error("wrong type set");
                 }
-                // if (j->kind == OBJ_ARR && !type_checker(j->value.arr.T, obj))
-                //     type_error(j->value.arr.T, obj);
+                if (!basic(j)) /* Check basic object */
+                    simple_error("only members of basic objects can be assign");
 
-                // if (j->kind == OBJ_TUP && !type_checker(j->value.tup.T, obj))
-                //     type_error(j->value.tup.T, obj);
-                // if (j->kind == OBJ_MAP) {
+                if (!obj_kind_eq(obj, val))
+                    simple_error("inconsistent type");
 
-                // }
+                set_table(fr->tb, name, val); /* Restore */
+                break;
+            }
+            case LOAD_WHOLE: { /* J */
+                object *obj = GET_OBJ();
+                add_table(top_frame()->tb,
+                    obj->value.whole.name, obj); /* Whole */
+                break;
+            }
+            case NEW_OBJ: { /* N F*/
+                char *name = GET_NAME();
+                int16_t count = GET_OFF();
+                void *wh = get_table(top_frame()->tb, name); /* Get whole */
+                if (wh == NULL) {
+                    undefined_error(name);
+                }
+
+                object *obj = (object *)wh; /* To whole */
+                object *new = (object *)malloc(sizeof(object)); /* Copy */
+                memcpy(new, obj, sizeof(object));
+
+                /* Evaluate frame of whole */
+                new->value.whole.fr =
+                    (struct frame *)new_frame(obj->value.whole.code);
+                /* Backup pointer */
+                int16_t op_up = state.op;
+                int16_t ip_up = state.ip;
+
+                state.op = 0;
+                state.ip = 0;
+                state.frame = append_list(state.frame, new->value.whole.fr);
+                eval(); /* Evaluate */
+
+                pop_back_list(state.frame); /* Pop */
+
+                state.op = op_up; /* Reset pointer */
+                state.ip = ip_up;
+
+                frame *f = (frame *)new->value.whole.fr;
+
+                /* Initialize member */
+                while (count > 0) {
+                    object *y = POP(); /* Get value */
+                    object *x = POP();
+                    void *ptr = get_table(f->tb, x->value.string);
+                    if (ptr == NULL) {
+                        undefined_error(name); /* Get key */
+                    }
+                    add_table(f->tb, x->value.string, y);
+                    count -= 2;
+                }
+
+                new->value.whole.init = true; /* Whole object */
+                PUSH(new);
+                break;
+            }
+            case SET_NAME: { /* N */
+                char *name = GET_NAME();
+                object *n = (object *)malloc(sizeof(object));
+                n->kind = OBJ_STRING;
+                n->value.string = name;
+                PUSH(n); /* Push name of string object */
+                break;
+            }
+            case SE_ASS_ADD: case SE_ASS_SUB: case SE_ASS_MUL: case SE_ASS_DIV:
+            case SE_ASS_SUR: { /* N */
+                char *name = GET_NAME();
+                object *val = POP();
+                object *obj = POP();
+
+                /* Frame of whole */
+                frame *f = (frame *)obj->value.whole.fr;
+
+                void *ptr = get_table(f->tb, name);
+                if (ptr == NULL) {
+                    undefined_error(name);
+                }
+
+                u_int8_t op; /* Translate operator */
+                if (code == SE_ASS_ADD) op = TO_ADD; if (code == SE_ASS_SUB) op = TO_SUB;
+                if (code == SE_ASS_MUL) op = TO_MUL; if (code == SE_ASS_DIV) op = TO_DIV;
+                if (code == SE_ASS_SUR) op = TO_SUR;
+
+                object *r = binary_op(op, (object *)ptr, val); /* To binary */
+                if (r == NULL) {
+                    unsupport_operand_error(code_string[code]);
+                }
+                set_table(f->tb, name, r); /* Restore */
                 break;
             }
             case TO_RET:
@@ -600,7 +708,11 @@ void eval() {
                 state.ip = top_frame()->code->codes->len; /* Catch */
                 state.loop_ret = true;
                 if (code == RET_OF) { /* Return value */
-                    top_frame()->ret = POP();
+                    if (GET_PR_CODE() == LOAD_FUNC) {
+                        top_frame()->ret = GET_PR_OBJ(); /* Grammar sugar */
+                    } else {
+                        top_frame()->ret = POP();
+                    }
                 }
                 break;
             }

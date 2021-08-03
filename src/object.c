@@ -410,8 +410,9 @@ bool type_checker(type *tp, object *obj) {
             if (tp->inner.func.arg->len != obj->value.func.k->len)
                 return false;
             if (tp->inner.func.ret != NULL) {
-                if (obj->value.func.ret == NULL)
+                if (obj->value.func.ret == NULL) {
                     return false;
+                }
                 if (
                     ((type *)tp->inner.func.ret)->kind !=
                     ((type *)obj->value.func.ret)->kind) {
@@ -422,9 +423,10 @@ bool type_checker(type *tp, object *obj) {
                 type *x =
                     (type *)tp->inner.func.arg->data[i];
                 type *y =
-                    (type *)obj->value.func.k->data[i];
-                if (x->kind != y->kind)
+                    (type *)obj->value.func.v->data[i];
+                if (x->kind != y->kind) {
                     return false;
+                }
                 if (!type_checker(
                         x, (object *)obj->value.func.v->data[i])) {
                             return false;
@@ -490,4 +492,29 @@ bool obj_eq(object *a, object *b) {
         default:
             return false;
     }
+}
+
+/* Is the basic type */
+bool basic(object *obj) {
+    if (
+        obj->kind == OBJ_INT    || obj->kind == OBJ_FLOAT ||
+        obj->kind == OBJ_STRING || obj->kind == OBJ_CHAR  ||
+        obj->kind == OBJ_BOOL   || obj->kind == OBJ_ARR   ||
+        obj->kind == OBJ_TUP    || obj->kind == OBJ_MAP) {
+            return true;
+        }
+    return false;
+}
+
+/* Are the types of the two objects consistent */
+bool obj_kind_eq(object *a, object *b) {
+    if (
+        (a->kind == OBJ_INT && b->kind != OBJ_INT) ||
+        (a->kind == OBJ_FLOAT && b->kind != OBJ_FLOAT) ||
+        (a->kind == OBJ_STRING && b->kind != OBJ_STRING) ||
+        (a->kind == OBJ_CHAR && b->kind != OBJ_CHAR) ||
+        (a->kind == OBJ_BOOL && b->kind != OBJ_BOOL)) {
+        return false;
+    }
+    return true;
 }

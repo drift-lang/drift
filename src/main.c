@@ -38,34 +38,45 @@ void run(char *source, int fsize) {
             main->code->description);
     }
 
-    free(source);
+    free(source); /* Release memory */
     free_list(tokens);
     free_list(codes);
 }
 
+/* Print license*/
+void license() {
+    printf("1. GNU Public License v3.0 @ bingxio 2021.\n");
+}
+
+/* Print usage information */
+void usage() {
+    printf("usage: <option> FILE(program file with .ft suffix)\n \
+\n\
+  -t  print token list\n\
+  -b  print bytecode list\n\
+  -s  print table\n\n\
+  -v  print version\n\
+  -l  print license\n");
+    exit(EXIT_FAILURE);
+}
+
 /* ? */
 int main(int argc, char **argv) {
-    if (argc < 2) {
-        printf("usage: [OPTION] FILE\n \
-\n\
-        -t  output token list\n\
-        -b  output bytecode list\n\n\
-        -s  output table\n\n\
-        FILE: drift program file with .ft suffix\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (argc == 2 && strcmp(argv[1], "-v") == 0) {
-        printf("%s\n", COMPILER_VERSION); /* Output version */
-        exit(EXIT_SUCCESS);
+    if (argc < 2) usage();
+    if (argc == 2) {
+        if (strcmp(argv[1], "-v") == 0) {
+            printf("%s\n", COMPILER_VERSION);
+            exit(EXIT_SUCCESS);
+        }
+        if (strcmp(argv[1], "-l") == 0) {
+            license();
+            exit(EXIT_SUCCESS);
+        }
     }
     if (argc == 3) {
-        if (
-            strcmp(argv[1], "-t") == 0) show_tokens = true;
-        if (
-            strcmp(argv[1], "-b") == 0) show_bytes = true;
-        if (
-            strcmp(argv[1], "-s") == 0) show_tb = true;
+        if (strcmp(argv[1], "-t") == 0) show_tokens = true;
+        if (strcmp(argv[1], "-b") == 0) show_bytes = true;
+        if (strcmp(argv[1], "-s") == 0) show_tb = true;
     }
     const char *path = argc == 3 ? argv[2] : argv[1];
     int len = strlen(path) - 1;

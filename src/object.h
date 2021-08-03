@@ -49,6 +49,7 @@ typedef struct {
             char *name;
             code_object *code;
             struct frame *fr;
+            bool init;
         } whole; /* whole */
         struct {
             list *element;
@@ -88,5 +89,11 @@ bool type_checker(type *, object *);
 
 /* Are the two objects equal */
 bool obj_eq(object *, object *);
+
+/* Is the basic type */
+bool basic(object *);
+
+/* Are the types of the two objects consistent */
+bool obj_kind_eq(object *, object *);
 
 #endif

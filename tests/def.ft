@@ -1,3 +1,0 @@
-# NAME
-def x int = 2 + 3 * 4
-def y string = "Hello" + "World"

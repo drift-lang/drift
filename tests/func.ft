@@ -1,4 +1,0 @@
-# FUNC
-def () foo
-    print("Hello, drift!")
-foo()
