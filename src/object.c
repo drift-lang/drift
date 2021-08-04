@@ -179,6 +179,7 @@ object *binary_op(u_int8_t op, object *a, object *b) {
                 je->kind = OBJ_STRING;
                 strcat(a->value.string, b->value.string);
                 je->value.string = a->value.string;
+                je_ins = true;
             }
             break;
         case TO_SUB: OP_A(a, b, je, -) break;
@@ -517,4 +518,22 @@ bool obj_kind_eq(object *a, object *b) {
         return false;
     }
     return true;
+}
+
+/* Type string of object */
+const char *obj_type_string(object *obj) {
+    switch (obj->kind) {
+        case OBJ_INT:    return "int";
+        case OBJ_FLOAT:  return "float";
+        case OBJ_CHAR:   return "char";
+        case OBJ_STRING: return "string";
+        case OBJ_BOOL:   return "bool";
+        case OBJ_ARR:    return "array";
+        case OBJ_TUP:    return "tuple";
+        case OBJ_MAP:    return "map";
+        case OBJ_FUNC:   return "func";
+        case OBJ_ENUM:   return "enum";
+        case OBJ_WHOLE:  return "whole";
+        case OBJ_FACE:   return "face";
+    }
 }

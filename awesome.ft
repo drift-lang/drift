@@ -1,4 +1,6 @@
 # Awesome!!
+mod awe
+print("hello" + " world!")
 def (a, b int) sum -> int
     if a == 3
         ret 9
@@ -45,6 +47,11 @@ def Foo
     def Kind
         Str
         Int
+
+    def (x, y int) max -> int
+        if x > y
+            ret x
+        ret y
 def f Foo = new Foo{}
 def k Foo = new Foo{x: 43, y: "world"}
 def m int = k.x
@@ -53,3 +60,47 @@ def m int = k.x
 k.x += 3
 def m int = k.x # m: 17
 # m = "what?"
+def max int = k.max(5, 9)
+use fp
+use os
+# fp.call()
+for def i int = 0; i < 10; i += 1
+    print("i = ", i)
+    # sleep(1000)
+def x int = 0
+aop x < 100
+    x += 1
+    go x % 20 != 0
+    print(x)
+# aop 1
+#    aop 1
+#        aop 1
+#            aop 1
+#                ret ->
+def Human
+    \\ eat
+    \string\ say
+    \int\ call -> bool
+def Man
+    def name string = ""
+    def age int = 0
+
+    def () eat
+        print(name)
+        print("eat")
+    
+    def (m string) say
+        print("say: " + m)
+
+    def () call -> bool
+        ret age >= 8
+def n Man =
+    new Man{name: "baby", age: 10}
+print(typeof(n), typeof(Human), typeof(n.eat))
+print(
+    n.name,
+    n.age,
+    n.call,
+    "hello drift!!"
+)
+new Man{}.say("你好呀！")

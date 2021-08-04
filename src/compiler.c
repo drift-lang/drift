@@ -168,7 +168,7 @@ void iter() {
     state.pre = state.cur;
     if (p == state.tokens->len)
         return;
-    state.cur = *(token *)state.tokens->data[p++];
+    state.cur = *(token *)state.tokens->data[p ++];
     state.p = p - 2; /* Always point to the current lexical subscript */
 }
 
@@ -183,6 +183,7 @@ typedef enum {
     P_COMPARE, // > >= < <=
     P_TERM,    // + -
     P_FACTOR,  // * / %
+    P_NEW,     // new
     P_UNARY,   // ! -
     P_CALL,    // . () []
 } precedence;
@@ -483,16 +484,13 @@ void new() {
             syntax_error();
         emit_top_code(SET_NAME);
         emit_top_name(state.pre.literal);
-        expect_cur(COLON);
         iter();
+        expect_pre(COLON);
         set_precedence(P_LOWEST);
-        count += 2;
-        if (state.cur.kind == R_BRACE) {
-            iter();
-            break;
-        }
-        expect_cur(COMMA);
         iter();
+        count += 2;
+        if (state.pre.kind == R_BRACE) break;
+        expect_pre(COMMA);
     }
     emit_top_code(NEW_OBJ);
     emit_top_name(name.literal);
@@ -513,6 +511,7 @@ rule rules[] = {
     { MUL,       NULL,    binary,  P_FACTOR  }, // *
     { DIV,       NULL,    binary,  P_FACTOR  }, // /
     { SUR,       NULL,    binary,  P_FACTOR  }, // %
+    { NEW,       new,     NULL,    P_NEW     }, // new
     { OR,        NULL,    binary,  P_OR      }, // |
     { ADDR,      NULL,    binary,  P_AND     }, // &
     { EQ_EQ,     NULL,    binary,  P_EQ      }, // ==
@@ -525,7 +524,6 @@ rule rules[] = {
     { DOT,       NULL,    get,     P_CALL    }, // .
     { L_BRACKET, array,   indexes, P_CALL    }, // [
     { L_BRACE,   map,     NULL,    P_CALL    }, // {
-    { NEW,       new,     NULL,    P_CALL    }, // new
 };
 
 /* Search by dictionary type */
@@ -553,8 +551,12 @@ void set_precedence(int precedence) {
     prefix.prefix(); /* Process prefix */
     while (precedence < get_cur_prec()) { /* Determine future priorities */
         rule infix = get_rule(state.cur.kind); /* Get infix */
-        iter();
-        infix.infix(); /* Process infix */
+        if (infix.infix != NULL) {
+            iter();
+            infix.infix(); /* Process infix */
+        } else {
+            break;
+        }
     }
 }
 
@@ -971,7 +973,8 @@ statement cannot be used outside loop.\n", state.pre.line);
             emit_top_code(kind == MOD ? SET_MOD : USE_MOD);
             break;
         }
-        default: set_precedence(P_LOWEST); /* Expression */
+        default:
+            set_precedence(P_LOWEST); /* Expression */
     }
 }
 

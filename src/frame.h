@@ -17,6 +17,7 @@ typedef struct {
     table *tb; /* Object mapping table */
     list *data; /* Eval data stack */
     object *ret; /* Return value of frame */
+    char *module; /* Module name */
 } frame;
 
 #endif

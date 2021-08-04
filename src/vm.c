@@ -76,17 +76,100 @@ void type_error(type *T, object *obj) {
     exit(EXIT_FAILURE);
 }
 
+/* Operand error */
+void unsupport_operand_error(const char *code) {
+    fprintf(stderr, "\033[1;31mvm %d:\033[0m unsupport operand to '%s'.\n",
+        GET_LINE(), code);
+    exit(EXIT_FAILURE);
+}
+
 /* Make simple error message */
 void simple_error(const char *msg) {
     fprintf(stderr, "\033[1;31mvm %d:\033[0m %s.\n", GET_LINE(), msg);
     exit(EXIT_FAILURE);
 }
 
-/* Operand error */
-void unsupport_operand_error(const char *code) {
-    fprintf(stderr, "\033[1;31mvm %d:\033[0m unsupport operand to '%s'.\n",
-        GET_LINE(), code);
-    exit(EXIT_FAILURE);
+/* Builtin function: print(object...) */
+void print(frame *f, list *arg) {
+    if (arg->len == 0) {
+        printf("\n");
+        return;
+    }
+    for (int i = arg->len - 1; i >= 0; i --) {
+        printf("%s\t", obj_raw_string((object *)arg->data[i]));
+    }
+    printf("\n");
+}
+
+/* Builtin function: len(object) -> int */
+void len(frame *f, list *arg) {
+    if (arg->len != 1) {
+        simple_error("'len' function require an argument");
+    }
+    object *obj = (object *)pop_back_list(arg);
+    if (obj->kind != OBJ_STRING) {
+        simple_error("only string length can be obtained");
+    }
+    object *len = (object *)malloc(sizeof(object));
+    len->kind = OBJ_INT;
+    len->value.integer = strlen(obj->value.string);
+    PUSH(len);
+}
+
+/* Builtin function: typeof(object) -> string */
+void ob_type(frame *f, list *arg) {
+    if (arg->len != 1) {
+        simple_error("'typeof' function require an argument");
+    }
+    object *str = (object *)malloc(sizeof(object));
+    str->kind = OBJ_STRING;
+    str->value.string =
+        (char *)obj_type_string((object *)pop_back_list(arg));
+    PUSH(str);
+}
+
+/* Builtin function: sleep(int) */
+void s_sleep(frame *f, list *arg) {
+    if (arg->len != 1) {
+        simple_error("'typeof' function require an argument");
+    }
+    object *obj = (object *)pop_back_list(arg);
+    if (obj->kind != OBJ_INT) {
+        simple_error("'typeof' function receive an integer object");
+    }
+#if defined(__linux__) || defined(__APPLE__)
+    sleep(obj->value.integer / 1000);
+#elif defined(_WIN32)
+    Sleep(obj->value.integer);
+#endif
+}
+
+/* Builtin function list */
+builtin bts[] = {
+    { "print",  print   },
+    { "len",    len     },
+    { "typeof", ob_type },
+    { "sleep",  s_sleep },
+};
+
+/* Get builtin function with name */
+object *get_builtin(char *name) {
+    int p = -1;
+    for (int i = 0;
+        i < sizeof(bts) / sizeof(bts[0]); i ++) {
+            if (strcmp(bts[i].name, name) == 0) {
+                p = i;
+                break;
+            }
+        }
+    if (p != -1) { /* Placeholder object */
+        object *f = (object *)malloc(sizeof(object));
+        f->kind = OBJ_FUNC;
+        f->value.func.name = name;
+        return f;
+    } else {
+        return NULL;
+    }
 }
 
 /* Jumps to the specified bytecode position and
@@ -129,6 +212,18 @@ void jump(int16_t to) {
         state.ip --;
 }
 
+/* Find object in overlay frames */
+void *lookup(char *name) {
+    for (int i = state.frame->len - 1; i >= 0; i --) {
+        frame *f = (frame *)state.frame->data[i];
+        void *ptr = get_table(f->tb, name);
+        if (ptr != NULL) {
+            return ptr;
+        }
+    }
+    return NULL;
+}
+
 /* Evaluate */
 void eval() {
     while (state.ip < top_code()->codes->len) { /* Traversal bytecode list */
@@ -165,7 +260,21 @@ void eval() {
             }
             case LOAD_OF: { /* N */
                 char *name = GET_NAME();
-                void *resu = get_table(top_frame()->tb, name); /* Get table */
+                void *resu = lookup(name); /* Lookup frames */
+                if (resu == NULL) {
+                    if (state.whole != NULL && state.frame->len > 1) {
+                        frame *f = (frame *)state.whole->value.whole.fr;
+                        resu = get_table(f->tb, name); /* Set to whole frame */
+                        if (resu == NULL)
+                            resu = get_builtin(name);
+                        else
+                            state.whole = NULL;
+                    }
+                    /* Builtin function */
+                    else {
+                        resu = get_builtin(name);
+                    }
+                }
                 if (resu == NULL) {
                     undefined_error(name); /* Undefined name */
                 }
@@ -481,7 +590,16 @@ void eval() {
                     append_list(arg, POP());
                     off --;
                 }
+
                 object *func = POP(); /* Function */
+                for (int i = 0;
+                    i < sizeof(bts) / sizeof(bts[0]); i ++) {
+                        if (strcmp(bts[i].name, func->value.func.name) == 0) {
+                            bts[i].func(top_frame(), arg); /* Call builtin function */
+                            goto next;
+                        }
+                }
+
                 list *k = func->value.func.k;
                 list *v = func->value.func.v;
 
@@ -563,11 +681,15 @@ void eval() {
                     PUSH(p);
                 }
                 if (obj->kind == OBJ_WHOLE) { /* Whole */
+                    if (obj->value.whole.init == false) {
+                        simple_error("whole did not load initialization members");
+                    }
                     frame *fr = (frame *)obj->value.whole.fr;
                     void *ptr = get_table(fr->tb, name);
                     if (ptr == NULL) {
                         simple_error("nonexistent member");
                     }
+                    state.whole = obj; /* Record the whole that is currently invoke */
                     PUSH((object *)ptr);
                 }
                 if (obj->kind == OBJ_TUP) { /* Tuple */
@@ -716,11 +838,21 @@ void eval() {
                 }
                 break;
             }
+            case SET_MOD: { /* N */
+                top_frame()->module = GET_NAME();
+                break;
+            }
+            case USE_MOD: { /* N */
+                char *name = GET_NAME();
+                printf("use module: %s\n", name);
+                break;
+            }
             default: { /* Unreachable */
                 fprintf(stderr, "\033[1;31mvm %d:\033[0m unreachable '%s'.\n",
                     GET_LINE(), code_string[code]);
             }
         }
+next:
         state.ip ++; /* IP */
     }
 }
@@ -739,3 +871,5 @@ vm_state evaluate(code_object *code) {
     eval(); /* GO */
     return state;
 }
+
+void load_module() {}

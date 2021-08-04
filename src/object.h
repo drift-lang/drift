@@ -96,4 +96,7 @@ bool basic(object *);
 /* Are the types of the two objects consistent */
 bool obj_kind_eq(object *, object *);
 
+/* Type string of object */
+const char *obj_type_string(object *);
+
 #endif

@@ -32,7 +32,7 @@ static const char *token_string[] = {
     "==",  "{",       "}",      "(",      ")",    "[",
     "]",   "_",       "\\",     "def",    "ret",  "for",
     "aop", "if",      "ef",     "nf",     "new",  "out",
-    "go",  "mod", "use"
+    "go",  "mod",     "use"
 };
 
 /* Token properties */
