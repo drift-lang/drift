@@ -1,5 +1,4 @@
 # Awesome!!
-mod awe
 print("hello" + " world!")
 def (a, b int) sum -> int
     if a == 3
@@ -61,9 +60,6 @@ k.x += 3
 def m int = k.x # m: 17
 # m = "what?"
 def max int = k.max(5, 9)
-use fp
-use os
-# fp.call()
 for def i int = 0; i < 10; i += 1
     print("i = ", i)
     # sleep(1000)
@@ -72,15 +68,18 @@ aop x < 100
     x += 1
     go x % 20 != 0
     print(x)
-# aop 1
-#    aop 1
-#        aop 1
-#            aop 1
-#                ret ->
-def Human
+aop 1
+    aop 1
+        aop 1
+            aop 1
+                out ->
+            out ->
+        out ->
+    out ->
+def  Human
     \\ eat
+    \\ call -> bool
     \string\ say
-    \int\ call -> bool
 def Man
     def name string = ""
     def age int = 0
@@ -104,3 +103,21 @@ print(
     "hello drift!!"
 )
 new Man{}.say("你好呀！")
+print(n.call() == 1)
+def h Human = Human
+print("Origi: ", h)
+h = n
+print("Store: ", h)
+print(h, n, h.say)
+new Man{}.say("我喜欢你~")
+h.say("i am bingxio.")
+h.say("love")
+# h.test()
+def (f Human) do_face
+    f.eat()
+    f.say("Call inner")
+    print(f.call())
+do_face(h)
+print("TEST END!")
+use awesome
+use os

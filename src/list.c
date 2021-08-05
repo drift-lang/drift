@@ -61,10 +61,6 @@ void replace_list(list *l, int p, void *ptr) {
 
 /* Release the list elements and themselves */
 void free_list(list *l) {
-    if (l->data != NULL) {
-        for (int i = 0; i < l->len; i ++) {
-            free(l->data[i]);
-        }
-        free(l->data);
-    }
+    free(l->data);
+    free(l);
 }

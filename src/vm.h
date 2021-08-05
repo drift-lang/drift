@@ -7,11 +7,15 @@
 #define FT_VM_H
 
 #include <stdio.h>
+#include <dirent.h>
 
 #include "list.h"
 #include "code.h"
 #include "frame.h"
 #include "opcode.h"
+
+#include "lexer.h"
+#include "compiler.h"
 
 #if defined(__linux__) || defined(__APPLE__)
     #include <unistd.h>
@@ -27,10 +31,11 @@ typedef struct {
     int16_t ip; /* IP */
     bool loop_ret; /* Break loop */
     object *whole; /* Method of load whole */
+    char *filename; /* Current evaluate filename */
 } vm_state;
 
 /* Evaluate code object */
-vm_state evaluate(code_object *);
+vm_state evaluate(code_object *, char *);
 
 /* Built in function prototype */
 typedef void (* built)(frame *, list *);
@@ -41,6 +46,12 @@ typedef struct {
     built func; /* Function handler */
 } builtin;
 
+/* Load module by name */
 void load_module();
+
+char *get_filename(const char *p);
+
+/* Release frame struct */
+void free_frame(frame *f);
 
 #endif

@@ -8,6 +8,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stdbool.h>
 
 #include "list.h"
 
@@ -52,5 +53,8 @@ typedef struct {
 
 /* Output type */
 const char *type_string(type *);
+
+/* Return two types is equal */
+bool type_eq(type *, type *);
 
 #endif

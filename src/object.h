@@ -44,6 +44,7 @@ typedef struct {
         struct {
             char *name;
             list *element;
+            struct object *whole;
         } face; /* interface */
         struct {
             char *name;
@@ -65,6 +66,10 @@ typedef struct {
             type *T1;
             type *T2;
         } map; /* map */
+        struct {
+            char *name;
+            struct frame *fr;
+        } mod; /* module */
     } value; /* Inner value */
 } object;
 

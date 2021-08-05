@@ -3,3 +3,5 @@ drift
 drift.exe
 .vscode
 .idea
+*.swp
+os.ft

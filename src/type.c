@@ -58,3 +58,54 @@ const char *type_string(type *t) {
             return str;
     }
 }
+
+/* Return two types is equal */
+bool type_eq(type *a, type *b) {
+    if (a == NULL && b == NULL) return true;
+    if (a == NULL && b != NULL) return false;
+    if (a != NULL && b == NULL) return false;
+    if (
+        (a->kind == T_INT    && b->kind != T_INT) ||
+        (a->kind == T_FLOAT  && b->kind != T_FLOAT) ||
+        (a->kind == T_CHAR   && b->kind != T_CHAR) ||
+        (a->kind == T_STRING && b->kind != T_STRING) ||
+        (a->kind == T_BOOL   && b->kind != T_BOOL)
+    ) {
+        return false;
+    }
+    if (a->kind == T_ARRAY) {
+        if (b->kind != T_ARRAY) return false;
+        return type_eq((type *)a->inner.single, (type *)b->inner.single);
+    }
+    if (a->kind == T_TUPLE) {
+        if (b->kind != T_TUPLE) return false;
+        return type_eq((type *)a->inner.single, (type *)b->inner.single);
+    }
+    if (a->kind == T_MAP) {
+        if (b->kind != T_MAP) return false;
+        if (!type_eq((type *)a->inner.both.T1, (type *)b->inner.both.T1)) return false;
+        if (!type_eq((type *)a->inner.both.T2, (type *)b->inner.both.T2)) return false;
+    }
+    if (a->kind == T_FUNC) {
+        if (b->kind != T_FUNC)
+            return false;
+        if (a->inner.func.ret != NULL) {
+            if (b->inner.func.ret == NULL) return false;
+            if (!type_eq((type *)a->inner.func.ret, (type *)b->inner.func.ret))
+                return false;
+        }
+        if (a->inner.func.ret == NULL) {
+            if (b->inner.func.ret != NULL) return false;
+        }
+        if (a->inner.func.arg->len != b->inner.func.arg->len)
+            return false;
+        for (int i = 0; i < a->inner.func.arg->len; i ++) {
+            type *A = (type *)a->inner.func.arg->data[i];
+            type *B = (type *)b->inner.func.arg->data[i];
+            if (!type_eq(A, B)) {
+                return false;
+            }
+        }
+    }
+    return true;
+}

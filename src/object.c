@@ -113,13 +113,16 @@ const char *obj_raw_string(object *obj) {
 bool je_ins = false;
 
 /* Easy to set object properties */
-#define EV_INT(obj, val) obj->kind = OBJ_INT; \
+#define EV_INT(obj, val) \
+    obj->kind = OBJ_INT; \
     obj->value.integer = val; \
     je_ins = true
-#define EV_FLO(obj, val) obj->kind = OBJ_FLOAT; \
+#define EV_FLO(obj, val) \
+    obj->kind = OBJ_FLOAT; \
     obj->value.floating = val; \
     je_ins = true
-#define EV_BOL(obj, val) obj->kind = OBJ_BOOL; \
+#define EV_BOL(obj, val) \
+    obj->kind = OBJ_BOOL; \
     obj->value.boolean = val; \
     je_ins = true
 
@@ -127,22 +130,18 @@ bool je_ins = false;
 #define OP_A(A, B, J, P) \
 if (A->kind == OBJ_INT) { \
     if (B->kind == OBJ_INT) { \
-        EV_INT(J, \
-            A->value.integer P B->value.integer); \
+        EV_INT(J, A->value.integer P B->value.integer); \
     } \
     if (B->kind == OBJ_FLOAT) { \
-        EV_FLO(J, \
-            A->value.integer P B->value.floating); \
-        } \
+        EV_FLO(J, A->value.integer P B->value.floating); \
     } \
+} \
 if (A->kind == OBJ_FLOAT) { \
     if (B->kind == OBJ_INT) { \
-        EV_FLO(J, \
-            A->value.floating P B->value.integer); \
+        EV_FLO(J, A->value.floating P B->value.integer); \
     } \
     if (B->kind == OBJ_FLOAT) { \
-        EV_FLO(J, \
-            A->value.floating P B->value.floating); \
+        EV_FLO(J, A->value.floating P B->value.floating); \
     } \
 }
 
@@ -150,22 +149,18 @@ if (A->kind == OBJ_FLOAT) { \
 #define OP_B(A, B, J, P) \
 if (A->kind == OBJ_INT) { \
     if (B->kind == OBJ_INT) { \
-        EV_BOL(J, \
-            A->value.integer P B->value.integer); \
+        EV_BOL(J, A->value.integer P B->value.integer); \
     } \
     if (B->kind == OBJ_FLOAT) { \
-        EV_BOL(J, \
-            A->value.integer P B->value.floating); \
-        } \
+        EV_BOL(J, A->value.integer P B->value.floating); \
     } \
+} \
 if (A->kind == OBJ_FLOAT) { \
     if (B->kind == OBJ_INT) { \
-        EV_BOL(J, \
-            A->value.floating P B->value.integer); \
+        EV_BOL(J, A->value.floating P B->value.integer); \
     } \
     if (B->kind == OBJ_FLOAT) { \
-        EV_BOL(J, \
-            A->value.floating P B->value.floating); \
+        EV_BOL(J, A->value.floating P B->value.floating); \
     } \
 }
 
@@ -175,10 +170,14 @@ object *binary_op(u_int8_t op, object *a, object *b) {
     switch (op) {
         case TO_ADD:
             OP_A(a, b, je, +)
-            if (a->kind == OBJ_STRING && b->kind == OBJ_STRING) {
+            if (a->kind == OBJ_STRING && b->kind == OBJ_STRING) { /* string + string */
                 je->kind = OBJ_STRING;
-                strcat(a->value.string, b->value.string);
-                je->value.string = a->value.string;
+                
+                char *new = malloc(sizeof(char) * strlen(a->value.string));
+                strcpy(new, a->value.string); /* Copy string */
+                strcat(new, b->value.string); /* To new string*/
+                
+                je->value.string = new;
                 je_ins = true;
             }
             break;
@@ -186,21 +185,21 @@ object *binary_op(u_int8_t op, object *a, object *b) {
         case TO_MUL: OP_A(a, b, je, *) break;
         case TO_DIV:
             if (a->kind == OBJ_INT) {
-                if (b->kind == OBJ_INT && b->value.integer > 0) {
+                if (b->kind == OBJ_INT && b->value.integer > 0) { /* int / int */
                     EV_FLO(je,
                         a->value.integer / b->value.integer);
                 }
-                if (b->kind == OBJ_FLOAT && b->value.floating > 0) {
+                if (b->kind == OBJ_FLOAT && b->value.floating > 0) { /* int / float */
                     EV_FLO(je,
                         a->value.integer / b->value.floating);
                 }
             }
             if (a->kind == OBJ_FLOAT) {
-                if (b->kind == OBJ_INT && b->value.integer > 0) {
+                if (b->kind == OBJ_INT && b->value.integer > 0) { /* float / int */
                     EV_FLO(je,
                         a->value.floating / b->value.integer);
                 }
-                if (b->kind == OBJ_FLOAT && b->value.floating > 0) {
+                if (b->kind == OBJ_FLOAT && b->value.floating > 0) { /* float / float */
                     EV_FLO(je,
                         a->value.floating / b->value.floating);
                 }
@@ -208,7 +207,7 @@ object *binary_op(u_int8_t op, object *a, object *b) {
             break;
         case TO_SUR:
             if (a->kind == OBJ_INT &&
-                (b->kind == OBJ_INT && b->value.integer > 0)) {
+                (b->kind == OBJ_INT && b->value.integer > 0)) { /* int % int */
                     EV_FLO(je,
                         a->value.integer % b->value.integer);
                 }
@@ -219,114 +218,127 @@ object *binary_op(u_int8_t op, object *a, object *b) {
         case TO_LE_EQ:  OP_B(a, b, je, <=) break;
         case TO_EQ_EQ:
             OP_B(a, b, je, ==);
-            if (a->kind == OBJ_INT && b->kind == OBJ_BOOL) {
+            if (a->kind == OBJ_INT && b->kind == OBJ_BOOL) { /* int == bool */
                 if (b->value.boolean) {
-                    EV_BOL(je,
-                        a->value.integer > 0);
-                } else
+                    EV_BOL(je, a->value.integer > 0);
+                } else {
                     EV_BOL(je, a->value.integer <= 0);
+                }
             }
-            if (a->kind == OBJ_FLOAT && b->kind == OBJ_BOOL) {
+            if (a->kind == OBJ_FLOAT && b->kind == OBJ_BOOL) { /* float == bool */
                 if (b->value.boolean) {
-                    EV_BOL(je,
-                        a->value.floating > 0);
-                } else
+                    EV_BOL(je, a->value.floating > 0);
+                } else {
                     EV_BOL(je, a->value.floating <= 0);
+                }
             }
             if (a->kind == OBJ_BOOL) {
-                if (b->kind == OBJ_INT)
+                if (b->kind == OBJ_INT) { /* bool == int */
                     if (a->value.boolean) {
                         EV_BOL(je, b->value.integer > 0);
-                    } else
+                    } else {
                         EV_BOL(je, b->value.integer <= 0);
-                if (b->kind == OBJ_FLOAT)
+                    }
+                }
+                if (b->kind == OBJ_FLOAT) { /* float == bool */
                     if (a->value.boolean) {
                         EV_BOL(je, b->value.floating > 0);
-                    } else
+                    } else {
                         EV_BOL(je, b->value.floating <= 0);
-                if (b->kind == OBJ_BOOL) {
+                    }
+                }
+                if (b->kind == OBJ_BOOL) { /* bool == bool */
                     EV_BOL(je,
                         a->value.boolean == b->value.boolean);
                 }
             }
-            if (a->kind == OBJ_STRING && b->kind == OBJ_STRING) {
+            if (a->kind == OBJ_STRING && b->kind == OBJ_STRING) { /* string == string */
                 EV_BOL(je,
                     strcmp(a->value.string, b->value.string) == 0);
             }
-            if (a->kind == OBJ_CHAR && b->kind == OBJ_CHAR) {
+            if (a->kind == OBJ_CHAR && b->kind == OBJ_CHAR) { /* char == char */
                 EV_BOL(je,
                     a->value.ch == b->value.ch);
             }
             break;
         case TO_NOT_EQ:
             OP_B(a, b, je, !=);
-            if (a->kind == OBJ_INT && b->kind == OBJ_BOOL) {
+            if (a->kind == OBJ_INT && b->kind == OBJ_BOOL) { /* int != bool */
                 if (b->value.boolean) {
                     EV_BOL(je,
                         a->value.integer <= 0);
-                } else
+                } else {
                     EV_BOL(je, a->value.integer > 0);
+                }
             }
-            if (a->kind == OBJ_FLOAT && b->kind == OBJ_BOOL) {
+            if (a->kind == OBJ_FLOAT && b->kind == OBJ_BOOL) { /* float != bool */
                 if (b->value.boolean) {
-                    EV_BOL(je,
-                        a->value.floating <= 0);
-                } else
+                    EV_BOL(je, a->value.floating <= 0);
+                } else {
                     EV_BOL(je, a->value.floating > 0);
+                }
             }
             if (a->kind == OBJ_BOOL) {
-                if (b->kind == OBJ_INT)
-                    if (a->value.boolean) {
+                if (b->kind == OBJ_INT) {
+                    if (a->value.boolean) { /* bool != int */
                         EV_BOL(je, b->value.integer <= 0);
-                    } else
+                    } else {
                         EV_BOL(je, b->value.integer > 0);
-                if (b->kind == OBJ_FLOAT)
+                    }
+                }
+                if (b->kind == OBJ_FLOAT) { /* bool != float */
                     if (a->value.boolean) {
                         EV_BOL(je, b->value.floating <= 0);
-                    } else
+                    } else {
                         EV_BOL(je, b->value.floating > 0);
-                if (b->kind == OBJ_BOOL) {
+                    }
+                }
+                if (b->kind == OBJ_BOOL) { /* bool != bool */
                     EV_BOL(je,
                         a->value.boolean == b->value.boolean);
                 }
             }
-            if (a->kind == OBJ_STRING && b->kind == OBJ_STRING) {
+            if (a->kind == OBJ_STRING && b->kind == OBJ_STRING) { /* string != string */
                 EV_BOL(je,
                     strcmp(a->value.string, b->value.string) != 0);
             }
-            if (a->kind == OBJ_CHAR && b->kind == OBJ_CHAR) {
+            if (a->kind == OBJ_CHAR && b->kind == OBJ_CHAR) { /* char != char */
                 EV_BOL(je,
                     a->value.ch != b->value.ch);
             }
             break;
         case TO_AND:
             OP_B(a, b, je, &&);
-            if (a->kind == OBJ_INT && b->kind == OBJ_BOOL) {
+            if (a->kind == OBJ_INT && b->kind == OBJ_BOOL) { /* int & bool */
                 if (b->value.boolean) {
-                    EV_BOL(je,
-                        a->value.integer <= 0);
-                } else
+                    EV_BOL(je, a->value.integer <= 0);
+                } else {
                     EV_BOL(je, a->value.integer > 0);
+                }
             }
-            if (a->kind == OBJ_FLOAT && b->kind == OBJ_BOOL) {
+            if (a->kind == OBJ_FLOAT && b->kind == OBJ_BOOL) { /* float & bool */
                 if (b->value.boolean) {
-                    EV_BOL(je,
-                        a->value.floating <= 0);
-                } else
+                    EV_BOL(je, a->value.floating <= 0);
+                } else {
                     EV_BOL(je, a->value.floating > 0);
+                }
             }
             if (a->kind == OBJ_BOOL) {
-                if (b->kind == OBJ_INT)
+                if (b->kind == OBJ_INT) { /* bool & int */
                     if (a->value.boolean) {
                         EV_BOL(je, b->value.integer <= 0);
-                    } else
+                    } else {
                         EV_BOL(je, b->value.integer > 0);
-                if (b->kind == OBJ_FLOAT)
+                    }
+                }
+                if (b->kind == OBJ_FLOAT) { /* bool & float */
                     if (a->value.boolean) {
                         EV_BOL(je, b->value.floating <= 0);
-                    } else
+                    } else {
                         EV_BOL(je, b->value.floating > 0);
-                if (b->kind == OBJ_BOOL) {
+                    }
+                }
+                if (b->kind == OBJ_BOOL) { /* bool & bool */
                     EV_BOL(je,
                         a->value.boolean == b->value.boolean);
                 }
@@ -334,25 +346,25 @@ object *binary_op(u_int8_t op, object *a, object *b) {
             break;
         case TO_OR:
             OP_B(a, b, je, ||);
-            if (a->kind == OBJ_INT && b->kind == OBJ_BOOL) {
+            if (a->kind == OBJ_INT && b->kind == OBJ_BOOL) { /* int | bool */
                 EV_BOL(je,
                     a->value.integer > 0 || b->value.boolean);
             }
-            if (a->kind == OBJ_FLOAT && b->kind == OBJ_BOOL) {
+            if (a->kind == OBJ_FLOAT && b->kind == OBJ_BOOL) { /* float | bool */
                 EV_BOL(je,
                     a->value.floating > 0 || b->value.boolean);
             }
             if (a->kind == OBJ_BOOL) {
-                if (a->value.boolean) {
+                if (a->value.boolean) { /* bool | bool */
                     EV_BOL(je, a->value.boolean);
                 } else {
-                    if (b->kind == OBJ_INT) {
+                    if (b->kind == OBJ_INT) { /* bool | int */
                         EV_BOL(je, b->value.integer > 0);
                     }
-                    if (b->kind == OBJ_FLOAT) {
+                    if (b->kind == OBJ_FLOAT) { /* bool | float */
                         EV_BOL(je, b->value.floating > 0);
                     }
-                    if (b->kind == OBJ_BOOL) {
+                    if (b->kind == OBJ_BOOL) { /* bool | bool */
                         EV_BOL(je, b->value.boolean);
                     }
                 }
@@ -360,7 +372,10 @@ object *binary_op(u_int8_t op, object *a, object *b) {
             break;
     }
     /* Returns NULL if not executed */
-    if (!je_ins) return NULL;
+    if (!je_ins) {
+        free(je);
+        return NULL;
+    }
     je_ins = false;
     return je;
 }
@@ -510,11 +525,11 @@ bool basic(object *obj) {
 /* Are the types of the two objects consistent */
 bool obj_kind_eq(object *a, object *b) {
     if (
-        (a->kind == OBJ_INT && b->kind != OBJ_INT) ||
-        (a->kind == OBJ_FLOAT && b->kind != OBJ_FLOAT) ||
+        (a->kind == OBJ_INT    && b->kind != OBJ_INT)    ||
+        (a->kind == OBJ_FLOAT  && b->kind != OBJ_FLOAT)  ||
         (a->kind == OBJ_STRING && b->kind != OBJ_STRING) ||
-        (a->kind == OBJ_CHAR && b->kind != OBJ_CHAR) ||
-        (a->kind == OBJ_BOOL && b->kind != OBJ_BOOL)) {
+        (a->kind == OBJ_CHAR   && b->kind != OBJ_CHAR)   ||
+        (a->kind == OBJ_BOOL   && b->kind != OBJ_BOOL)) {
         return false;
     }
     return true;

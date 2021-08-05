@@ -14,7 +14,7 @@ bool show_bytes;
 bool show_tb;
 
 /* Run source code */
-void run(char *source, int fsize) {
+void run(char *source, int fsize, char *filename) {
     /* Lexical analysis */
     list *tokens = lexer(source, fsize);
 
@@ -31,7 +31,7 @@ void run(char *source, int fsize) {
     if (show_bytes) dissemble(codes->data[0]);
 
     /* Virtual machine */
-    vm_state state = evaluate(codes->data[0]);
+    vm_state state = evaluate(codes->data[0], filename);
     if (show_tb) {
         frame *main = (frame *)state.frame->data[0];
         dissemble_table(main->tb,
@@ -41,6 +41,8 @@ void run(char *source, int fsize) {
     free(source); /* Release memory */
     free_list(tokens);
     free_list(codes);
+
+    free(state.filename);
 }
 
 /* Print license*/
@@ -96,12 +98,12 @@ int main(int argc, char **argv) {
     fseek(fp, 0, SEEK_END);
     int fsize = ftell(fp); /* Returns the size of file */
     fseek(fp, 0, SEEK_SET);
-    char *buf = (char *) malloc(fsize * sizeof(char));
+    char *buf = (char *)malloc(fsize * sizeof(char));
 
     fread(buf, fsize, sizeof(char), fp); /* Read file to buffer*/
     buf[fsize] = '\0';
 
-    run(buf, fsize);
+    run(buf, fsize, get_filename(path));
     
     fclose(fp); /* Close file */
     return 0;

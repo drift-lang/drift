@@ -51,7 +51,6 @@ typedef enum {
     SE_ASS_SUR,   // N
     SET_NAME,      // N
     NEW_OBJ,       // N F
-    SET_MOD,       // N
     USE_MOD,       // N
     BUILD_ARR,     // F
     BUILD_TUP,     // F
@@ -86,11 +85,11 @@ static const char *code_string[] = {
     "ASS_MUL",    "ASS_DIV",    "ASS_SUR",    "TO_REP_ADD", "TO_REP_SUB",
     "TO_REP_MUL", "TO_REP_DIV", "TO_REP_SUR", "SE_ASS_ADD", "SE_ASS_SUB",
     "SE_ASS_MUL", "SE_ASS_DIV", "SE_ASS_SUR", "SET_NAME",   "NEW_OBJ",
-    "SET_MOD",    "USE_MOD",    "BUILD_ARR",  "BUILD_TUP",  "BUILD_MAP",
-    "TO_ADD",     "TO_SUB",     "TO_MUL",     "TO_DIV",     "TO_SUR",
-    "TO_GR",      "TO_LE",      "TO_GR_EQ",   "TO_LE_EQ",   "TO_EQ_EQ",
-    "TO_NOT_EQ",  "TO_AND",     "TO_OR",      "TO_BANG",    "TO_NOT",
-    "JUMP_TO",    "T_JUMP_TO",  "F_JUMP_TO",  "TO_RET",     "RET_OF",
+    "USE_MOD",    "BUILD_ARR",  "BUILD_TUP",  "BUILD_MAP",  "TO_ADD",
+    "TO_SUB",     "TO_MUL",     "TO_DIV",     "TO_SUR",     "TO_GR",
+    "TO_LE",      "TO_GR_EQ",   "TO_LE_EQ",   "TO_EQ_EQ",   "TO_NOT_EQ",
+    "TO_AND",     "TO_OR",      "TO_BANG",    "TO_NOT",     "JUMP_TO",
+    "T_JUMP_TO",  "F_JUMP_TO",  "TO_RET",     "RET_OF",
 };
 
 #endif

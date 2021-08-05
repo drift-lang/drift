@@ -18,6 +18,23 @@ frame *new_frame(code_object *code) {
     return f;
 }
 
+/* Release frame struct */
+void free_frame(frame *f) {
+    // code_object *code = f->code;
+    // free(code->description);
+    // free_list(code->names);
+    // free_list(code->codes);
+    // free_list(code->offsets);
+    // free_list(code->types);
+    // free_list(code->objects);
+    // free_list(code->lines);
+    // free_table(f->tb);
+    // free_list(f->data);
+    // free(f->ret);
+    // free(f->module);
+    // free(f);
+}
+
 /* Return font frame object */
 frame *top_frame() {
     return back_list(state.frame);
@@ -191,8 +208,8 @@ void jump(int16_t to) {
             case CALL_FUNC:  case ASS_ADD:    case ASS_SUB:    case ASS_MUL:
             case ASS_DIV:    case ASS_SUR:    case SE_ASS_ADD: case SE_ASS_SUB:
             case SE_ASS_MUL: case SE_ASS_DIV: case SE_ASS_SUR: case SET_NAME:
-            case SET_MOD:    case USE_MOD:    case BUILD_ARR:  case BUILD_TUP:
-            case BUILD_MAP:  case JUMP_TO:    case T_JUMP_TO:  case F_JUMP_TO:
+            case USE_MOD:    case BUILD_ARR:  case BUILD_TUP:  case BUILD_MAP:
+            case JUMP_TO:    case T_JUMP_TO:  case F_JUMP_TO:
                 /* These bytecodes contain a parameter */
                 reverse ?
                     state.op -- : state.op ++;
@@ -252,6 +269,7 @@ void eval() {
                     obj->value.map.T1 = (type *)T->inner.both.T1;
                     obj->value.map.T2 = (type *)T->inner.both.T2;
                 }
+                /* Interface */
                 object *new = (object *)malloc(sizeof(object));
                 memcpy(new, obj, sizeof(object));
                 /* Add to current table */
@@ -287,9 +305,49 @@ void eval() {
                 if (!exist(top_frame()->tb, name)) { /* Get */
                     undefined_error(name);
                 }
-                if (!obj_kind_eq(
-                        (object *)get_table(top_frame()->tb, name), obj)) {
+                object *ori = (object *)get_table(top_frame()->tb, name);
+                if (!obj_kind_eq(ori, obj)) {
                     simple_error("inconsistent type");
+                }
+                if (ori->kind == OBJ_FACE) {
+                    if (obj->kind != OBJ_WHOLE) {
+                        simple_error("interface needs to be assigned by whole");
+                    }
+                    if (obj->value.whole.init == false) {
+                        simple_error("whole is not initialized");
+                    }
+                    list *elem =
+                        ori->value.face.element; /* Face method */
+                    frame *fr = (frame *) obj->value.whole.fr;
+                    for (int i = 0; i < elem->len; i ++) {
+                        method *m =
+                            (method *)elem->data[i]; /* Traverse the node and check the type */
+                        void *p = get_table(fr->tb, m->name);
+                        if (p == NULL) {
+                            simple_error("whole does not contain some member");
+                        }
+                        object *fn = (object *)p; /* Whole object inner */
+                        if (fn->kind != OBJ_FUNC) {
+                            simple_error("an interface can only be a method");
+                        }
+                        if ( /* Check return type */
+                            !type_eq(m->ret, fn->value.func.ret)) {
+                                simple_error("return type in the method are inconsistent");
+                        } /* Check function arguments */
+                        if (m->T->len != fn->value.func.v->len) {
+                            simple_error("inconsistent method arguments");
+                        } /* Check function arguments type */
+                        for (int j = 0; j < m->T->len; j ++) {
+                            type *a = (type *)m->T->data[j];
+                            type *b = (type *)fn->value.func.v->data[j];
+                            if (!type_eq(a, b)) {
+                                simple_error("Inconsistent types of method arguments");
+                            }
+                        }
+                    }
+                    /* Store whole field into face object */
+                    ori->value.face.whole = (struct object *)obj;
+                    break;
                 }
                 /* Update the content of the table */
                 add_table(top_frame()->tb, name, obj);
@@ -300,11 +358,11 @@ void eval() {
             case TO_EQ_EQ: case TO_NOT_EQ: case TO_AND: case TO_OR: {
                 object *b = POP(); /* P2 */
                 object *a = POP(); /* P1 */
-                object *r = binary_op(code, a, b);
+                void *r = binary_op(code, a, b);
                 if (r == NULL) { /* Operand error */
                     unsupport_operand_error(code_string[code]);
                 }
-                PUSH(r);
+                PUSH((object *)r);
                 break;
             }
             case ASS_ADD: case ASS_SUB: case ASS_MUL: case ASS_DIV: case ASS_SUR: { /* N */
@@ -319,12 +377,12 @@ void eval() {
                 if (code == ASS_ADD) op = TO_ADD; if (code == ASS_SUB) op = TO_SUB;
                 if (code == ASS_MUL) op = TO_MUL; if (code == ASS_DIV) op = TO_DIV;
                 if (code == ASS_SUR) op = TO_SUR;
-                object *r =  binary_op(op, (object *)resu, obj); /* To operation */
+                void *r =  binary_op(op, (object *)resu, obj); /* To operation */
                 if (r == NULL) {
                     unsupport_operand_error(code_string[code]);
                 }
                 /* Update */
-                add_table(top_frame()->tb, name, r);
+                add_table(top_frame()->tb, name, (object *)r);
                 break;
             }
             case BUILD_ARR: { /* F */
@@ -481,14 +539,14 @@ void eval() {
                     if (j->value.arr.element->len == 0 || p < 0 || p > j->value.arr.element->len - 1) {
                         simple_error("index out of bounds");
                     }
-                    object *r = binary_op( /* To operand */
+                    void *r = binary_op( /* To operand */
                         op,
                         (object *)j->value.arr.element->data[p], obj);
                     if (r == NULL) {
                         /* Operand error */
                         unsupport_operand_error(code_string[code]);
                     }
-                    replace_list(j->value.arr.element, p, r); /* Replace data */
+                    replace_list(j->value.arr.element, p, (object *)r); /* Replace data */
                 }
                 if (j->kind == OBJ_MAP) { /* Map */
                     /* Type check of K and V */
@@ -586,7 +644,10 @@ void eval() {
             case CALL_FUNC: { /* F */
                 int16_t off = GET_OFF();
                 list *arg = new_list();
-                while (off > 0) {
+                while (off > 0) { /* Skip function object */
+                    if (top_frame()->data->len - 1 <= 0) {
+                        simple_error("stack data error");
+                    }
                     append_list(arg, POP());
                     off --;
                 }
@@ -643,6 +704,10 @@ void eval() {
                     }
                     PUSH(p->ret);
                 }
+
+                free_list(p->data);
+                free_table(p->tb);
+
                 state.op = op_up; /* Reset pointer to main */
                 state.ip = ip_up;
                 break;
@@ -662,8 +727,9 @@ void eval() {
             case GET_OF: { /* N */
                 char *name = GET_NAME();
                 object *obj = POP();
-                if (obj->kind != OBJ_ENUM && obj->kind != OBJ_WHOLE && obj->kind != OBJ_TUP) {
-                    simple_error("only enum, tuple and whole type are supported");
+                if (obj->kind != OBJ_ENUM &&
+                    obj->kind != OBJ_WHOLE && obj->kind != OBJ_TUP && obj->kind != OBJ_FACE) {
+                        simple_error("only enum, face, tuple and whole type are supported");
                 }
                 if (obj->kind == OBJ_ENUM) { /* Enum */
                     list *elem = obj->value.enumeration.element;
@@ -710,6 +776,28 @@ void eval() {
                         simple_error("index out of bounds");
                     }
                     PUSH((object *)obj->value.tup.element->data[p]);
+                }
+                if (obj->kind == OBJ_FACE) { /* Face */
+                    if (obj->value.face.whole == NULL) {
+                        simple_error("interface is not initialized");
+                    }
+                    list *elem =
+                        obj->value.face.element; /* Face method */
+                    for (int i = 0; i < elem->len; i ++) {
+                        method *m =
+                            (method *)elem->data[i];
+                        if (strcmp(m->name, name) == 0) {
+                            object *wh =
+                                (object *)obj->value.face.whole; /* Get whole object */
+                            frame *fr =
+                                (frame *)wh->value.whole.fr; /* Get frame in whole */
+                            state.whole = wh;
+                            PUSH(
+                                (object *)get_table(fr->tb, name));
+                            goto next;
+                        }
+                    }
+                    simple_error("nonexistent member");
                 }
                 break;
             }
@@ -818,11 +906,11 @@ void eval() {
                 if (code == SE_ASS_MUL) op = TO_MUL; if (code == SE_ASS_DIV) op = TO_DIV;
                 if (code == SE_ASS_SUR) op = TO_SUR;
 
-                object *r = binary_op(op, (object *)ptr, val); /* To binary */
+                void *r = binary_op(op, (object *)ptr, val); /* To binary */
                 if (r == NULL) {
                     unsupport_operand_error(code_string[code]);
                 }
-                set_table(f->tb, name, r); /* Restore */
+                set_table(f->tb, name, (object *)r); /* Restore */
                 break;
             }
             case TO_RET:
@@ -838,13 +926,8 @@ void eval() {
                 }
                 break;
             }
-            case SET_MOD: { /* N */
-                top_frame()->module = GET_NAME();
-                break;
-            }
             case USE_MOD: { /* N */
-                char *name = GET_NAME();
-                printf("use module: %s\n", name);
+                load_module(GET_NAME());
                 break;
             }
             default: { /* Unreachable */
@@ -858,11 +941,12 @@ next:
 }
 
 /* Eval */
-vm_state evaluate(code_object *code) {
+vm_state evaluate(code_object *code, char *filename) {
     /* Set virtual machine state */
     state.frame = new_list();
     state.ip = 0;
     state.op = 0;
+    state.filename = filename;
 
     /* main frame */
     frame *main = new_frame(code);
@@ -872,4 +956,94 @@ vm_state evaluate(code_object *code) {
     return state;
 }
 
-void load_module() {}
+char *get_filename(const char *p) {
+    char *name = (char *)malloc(sizeof(char) * 64);
+    int j = 0;
+    for (int i = 0; p[i]; i ++)
+        if (p[i] == '/') j = i;
+    strcpy(name, &p[j]);
+    return name;
+}
+
+bool filename_eq(char *a, char *b) {
+    int i = 0;
+    for (; a[i] != '.'; i ++) {
+        if (a[i] == '\0' || b[i] != a[i]) {
+            return false;
+        }
+    }
+    return i == strlen(b);
+}
+
+list *read_path(const char *path) {
+    DIR *dir;
+    struct dirent *p;
+    list *pl = new_list();
+    if ((dir = opendir(path)) == NULL) {
+        simple_error("failed to open the std library directory  ");
+    }
+    while ((p = readdir(dir)) != NULL) {
+        /* if (p->d_type == 4 &&
+            strcmp(p->d_name, ".") != 0 && strcmp(p->d_name, "..") != 0) {
+        } */
+        if (p->d_type == 8) { /* File */
+            char *name = p->d_name;
+            int len = strlen(name) - 1;
+            if (name[len] == 't' &&
+                name[len - 1] == 'f' &&
+                name[len - 2] == '.') {
+                    pl = append_list(pl, name);
+                }
+        }
+    }
+    return pl;
+}
+
+void load_eval(const char *path) {
+    FILE *fp = fopen(path, "r"); /* Open file of path */
+    if (fp == NULL) {
+        printf("\033[1;31merror:\033[0m failed to read buffer of file: %s.\n", path);
+        exit(EXIT_FAILURE);
+    }
+    fseek(fp, 0, SEEK_END);
+    int fsize = ftell(fp); /* Returns the size of file */
+    fseek(fp, 0, SEEK_SET);
+    char *buf = (char *)malloc(fsize * sizeof(char));
+
+    fread(buf, fsize, sizeof(char), fp); /* Read file to buffer*/
+    buf[fsize] = '\0';
+
+    list *tokens = lexer(buf, fsize);
+    list *codes = compile(tokens);
+    vm_state state = evaluate(codes->data[0], get_filename(path));
+
+    printf("END\n");
+
+    free(buf);
+    free_list(tokens);
+    free_list(codes);
+
+    free(state.filename);
+}
+
+/* Load module by name */
+void load_module(char *name) {
+    void *path = getenv("FT_PATH");
+    if (path != NULL) {
+        /* Standard library */
+        list *pl = read_path((char *)path);
+    } else {
+        /* Current path */
+        list *pl = read_path(".");
+        for (int i = 0; i < pl->len; i ++) {
+            char *pname = (char *)pl->data[i];
+            if (filename_eq(state.filename, name)) {
+                continue; /* Current file */
+            }
+            // if (filename_eq(pname, name) == 0) {
+            //     return;
+            // }
+            printf("LOAD: %s\n", pname);
+        }
+    }
+}

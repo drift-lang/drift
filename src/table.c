@@ -77,4 +77,5 @@ void dissemble_table(table *t, const char *name) {
 void free_table(table *t) {
     free_list(t->name);
     free_list(t->objs);
+    free(t);
 }

@@ -964,13 +964,12 @@ statement cannot be used outside loop.\n", state.pre.line);
                 emit_top_code(RET_OF);
             }
             break;
-        case MOD:
         case USE: {
             token_kind kind = state.pre.kind;
             iter();
             if (state.pre.kind != LITERAL) syntax_error();
             emit_top_name(state.pre.literal);
-            emit_top_code(kind == MOD ? SET_MOD : USE_MOD);
+            emit_top_code(USE_MOD);
             break;
         }
         default:
@@ -1062,11 +1061,10 @@ void dissemble(code_object *code) {
             case ASS_ADD: case ASS_SUB: case ASS_MUL: case ASS_DIV:   case ASS_SUR:
             case SE_ASS_ADD: case SE_ASS_SUB: case SE_ASS_MUL: case SE_ASS_DIV: case SE_ASS_SUR:
             case SET_NAME:
-            case SET_MOD:
             case USE_MOD: {
                 int16_t *off = (int16_t *)code->offsets->data[p ++];
                 char *name = (char *)code->names->data[*off];
-                if (*inner == SET_NAME || *inner == SET_MOD || *inner == USE_MOD)
+                if (*inner == SET_NAME || *inner == USE_MOD)
                     printf("%4d '%s'\n", *off, name);
                 else
                     printf("%4d #%s\n", *off, name);
