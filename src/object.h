@@ -18,7 +18,7 @@
 typedef enum {
     OBJ_INT,  OBJ_FLOAT, OBJ_STRING, OBJ_CHAR, OBJ_BOOL,
     OBJ_ENUM, OBJ_FUNC,  OBJ_WHOLE,  OBJ_FACE, OBJ_ARR,
-    OBJ_TUP,  OBJ_MAP,   OBJ_MODULE
+    OBJ_TUP,  OBJ_MAP,   OBJ_MODULE, OBJ_NIL
 } obj_kind;
 
 /* Object system */

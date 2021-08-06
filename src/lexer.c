@@ -22,7 +22,7 @@ bool is_ident(char c) {
 
 /* Analyze the types of strings */
 token_kind to_keyword(const char *literal) {
-    for (int i = 39; i < 50; i ++) {
+    for (int i = 39; i < 51; i ++) {
         if (strcmp(literal, token_string[i]) == 0) {
             return i;
         }

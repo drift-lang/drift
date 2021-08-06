@@ -198,7 +198,6 @@ void jump(int16_t to) {
                     state.op -- : state.op ++;
                 break;
             case STORE_NAME: /* Two parameter */
-            case NEW_OBJ:
                 if (reverse)
                     state.op -= 2;
                 else
@@ -222,6 +221,13 @@ void *lookup(char *name) {
         }
     }
     return NULL;
+}
+
+/* nil */
+object *make_nil() {
+    object *obj = (object *)malloc(sizeof(object));
+    obj->kind = OBJ_NIL;
+    return obj;
 }
 
 /* Evaluate */
@@ -452,7 +458,7 @@ void eval() {
                     }
                     /* Not found */
                     if (i == obj->value.map.k->len) {
-                        simple_error("the map does not have this key");
+                        PUSH(make_nil());
                     }
                 }
                 break;
@@ -825,14 +831,22 @@ void eval() {
                 break;
             }
             case NEW_OBJ: { /* N F*/
-                char *name = GET_NAME();
                 int16_t count = GET_OFF();
-                void *wh = get_table(top_frame()->tb, name); /* Get whole */
-                if (wh == NULL) {
-                    undefined_error(name);
+
+                list *k = NULL; /* Key */
+                list *v = NULL;
+
+                while (count > 0) { /* Arguments */
+                    v = append_list(v, POP());
+                    k = append_list(k, POP());
+                    count -= 2;
                 }
 
-                object *obj = (object *)wh; /* To whole */
+                object *obj = POP();
+                if (obj->kind != OBJ_WHOLE) {
+                    simple_error("only whole object can be created");
+                }
+
                 object *new = (object *)malloc(sizeof(object)); /* Copy */
                 memcpy(new, obj, sizeof(object));
 
@@ -856,15 +870,17 @@ void eval() {
                 frame *f = (frame *)new->value.whole.fr;
 
                 /* Initialize member */
-                while (count > 0) {
-                    object *y = POP(); /* Get value */
-                    object *x = POP();
-                    void *ptr = get_table(f->tb, x->value.string);
-                    if (ptr == NULL) {
-                        undefined_error(name); /* Get key */
+                if (k != NULL) {
+                    for (int i = 0; i < k->len; i ++) {
+                        char *key = (
+                            (object *)k->data[i])->value.string;
+                        object *val = (object *)v->data[i]; /* Set into frame */
+                        void *p = get_table(f->tb, key);
+                        if (p == NULL) {
+                            undefined_error(key);
+                        }
+                        add_table(f->tb, key, val);
                     }
-                    add_table(f->tb, x->value.string, y);
-                    count -= 2;
                 }
 
                 new->value.whole.init = true; /* Whole object */

@@ -44,13 +44,13 @@ typedef enum {
     TO_REP_MUL,    // *
     TO_REP_DIV,    // *
     TO_REP_SUR,    // *
-    SE_ASS_ADD,   // N
-    SE_ASS_SUB,   // N
-    SE_ASS_MUL,   // N
-    SE_ASS_DIV,   // N
-    SE_ASS_SUR,   // N
+    SE_ASS_ADD,    // N
+    SE_ASS_SUB,    // N
+    SE_ASS_MUL,    // N
+    SE_ASS_DIV,    // N
+    SE_ASS_SUR,    // N
     SET_NAME,      // N
-    NEW_OBJ,       // N F
+    NEW_OBJ,       // F
     USE_MOD,       // N
     BUILD_ARR,     // F
     BUILD_TUP,     // F

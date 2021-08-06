@@ -19,7 +19,7 @@ typedef enum {
     EQ_EQ,     L_BRACE,   R_BRACE, L_PAREN,   R_PAREN,   L_BRACKET,
     R_BRACKET, UNDERLINE, SLASH,   DEF,       RET,       FOR,
     AOP,       IF,        EF,      NF,        NEW,       OUT,
-    GO,        USE
+    GO,        USE,       NIL
 } token_kind;
 
 /* Token string */
@@ -32,7 +32,7 @@ static const char *token_string[] = {
     "==",  "{",       "}",      "(",      ")",    "[",
     "]",   "_",       "\\",     "def",    "ret",  "for",
     "aop", "if",      "ef",     "nf",     "new",  "out",
-    "go",  "use"
+    "go",  "use",     "nil"
 };
 
 /* Token properties */

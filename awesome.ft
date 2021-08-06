@@ -101,7 +101,8 @@ print(
     n.name,
     n.age,
     n.call,
-    "hello drift!!"
+    "hello drift!!",
+    nil
 )
 new Man{}.say("你好呀！")
 print(n.call() == 1)
@@ -125,9 +126,8 @@ use os
 os.show()
 print(os.id, os.Dao)
 def dao Dao = os.Dao
-def u User = os.User
-def user User = new u{}
-print(u, user, dao)
+def user User = new os.User{}
+print(dao, user)
 user.login("bingxio", "1234")
 user.login("frank", "6431")
 user.login("beenp", "1574")

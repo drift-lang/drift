@@ -297,6 +297,9 @@ void literal() {
             obj->kind = OBJ_STRING;
             obj->value.string = tok.literal;
             break;
+        case NIL:
+            obj->kind = OBJ_NIL;
+            break;
     }
     emit_top_obj(obj);
     emit_top_code(CONST_OF);
@@ -475,7 +478,7 @@ void map() {
 /* NEW: T{K: V..} */
 void new() {
     iter();
-    token name = state.pre;
+    set_precedence(P_LOWEST);
     iter();
     expect_pre(L_BRACE);
     int count = 0;
@@ -493,7 +496,6 @@ void new() {
         expect_pre(COMMA);
     }
     emit_top_code(NEW_OBJ);
-    emit_top_name(name.literal);
     emit_top_offset(count);
 }
 
@@ -505,6 +507,7 @@ rule rules[] = {
     { FLOAT,     literal, NULL,    P_LOWEST  },
     { STRING,    literal, NULL,    P_LOWEST  },
     { CHAR,      literal, NULL,    P_LOWEST  },
+    { NIL,       literal, NULL,    P_LOWEST  }, // nil
     { BANG,      unary,   NULL,    P_LOWEST  }, // !
     { ADD,       NULL,    binary,  P_TERM    }, // +
     { SUB,       unary,   binary,  P_TERM    }, // -
@@ -1071,6 +1074,7 @@ void dissemble(code_object *code) {
                 break;
             }
             case CALL_FUNC:
+            case NEW_OBJ:
             case JUMP_TO:
             case T_JUMP_TO:
             case F_JUMP_TO: {
@@ -1090,13 +1094,6 @@ void dissemble(code_object *code) {
             case BUILD_ARR: case BUILD_TUP: case BUILD_MAP: {
                 int16_t *count = (int16_t *)code->offsets->data[p ++];
                 printf("%4d\n", *count);
-                break;
-            }
-            case NEW_OBJ: {
-                int16_t *x = (int16_t *)code->offsets->data[p];
-                int16_t *y = (int16_t *)code->offsets->data[p + 1];
-                printf("%4d #%s %d\n", *x, (char *)code->names->data[*x], *y);
-                p += 2;
                 break;
             }
             default: printf("\n");

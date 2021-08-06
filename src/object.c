@@ -14,6 +14,7 @@ const char *obj_string(object *obj) {
         case OBJ_STRING: sprintf(str, "string \"%s\"", obj->value.string);        return str;
         case OBJ_CHAR:   sprintf(str, "char '%c'", obj->value.ch);                return str;
         case OBJ_BOOL:   sprintf(str, "bool %s", obj->value.boolean ? "T" : "F"); return str;
+        case OBJ_NIL:    sprintf(str, "nil");                                      return str;
         case OBJ_ENUM:
             sprintf(str, "enum \"%s\"", obj->value.enumeration.name);
             return str;
@@ -382,6 +383,9 @@ object *binary_op(u_int8_t op, object *a, object *b) {
 
 /* The judgement type is the same */
 bool type_checker(type *tp, object *obj) {
+    if (obj->kind == OBJ_NIL) {
+        return true;
+    }
     switch (tp->kind) {
         case T_ARRAY:
         case T_TUPLE:
@@ -550,6 +554,7 @@ const char *obj_type_string(object *obj) {
         case OBJ_ENUM:   return "enum";
         case OBJ_WHOLE:  return "whole";
         case OBJ_FACE:   return "face";
+        case OBJ_NIL:    return "nil";
     }
 }
 
