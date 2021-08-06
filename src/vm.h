@@ -49,6 +49,7 @@ typedef struct {
 /* Load module by name */
 void load_module();
 
+/* Returns the file name of path string */
 char *get_filename(const char *p);
 
 /* Release frame struct */

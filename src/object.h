@@ -18,7 +18,7 @@
 typedef enum {
     OBJ_INT,  OBJ_FLOAT, OBJ_STRING, OBJ_CHAR, OBJ_BOOL,
     OBJ_ENUM, OBJ_FUNC,  OBJ_WHOLE,  OBJ_FACE, OBJ_ARR,
-    OBJ_TUP,  OBJ_MAP
+    OBJ_TUP,  OBJ_MAP,   OBJ_MODULE
 } obj_kind;
 
 /* Object system */
@@ -67,8 +67,7 @@ typedef struct {
             type *T2;
         } map; /* map */
         struct {
-            char *name;
-            struct frame *fr;
+            struct table *tb;
         } mod; /* module */
     } value; /* Inner value */
 } object;
@@ -103,5 +102,8 @@ bool obj_kind_eq(object *, object *);
 
 /* Type string of object */
 const char *obj_type_string(object *);
+
+/* Return the length of object */
+int obj_len(object *);
 
 #endif

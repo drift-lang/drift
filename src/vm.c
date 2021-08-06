@@ -20,19 +20,6 @@ frame *new_frame(code_object *code) {
 
 /* Release frame struct */
 void free_frame(frame *f) {
-    // code_object *code = f->code;
-    // free(code->description);
-    // free_list(code->names);
-    // free_list(code->codes);
-    // free_list(code->offsets);
-    // free_list(code->types);
-    // free_list(code->objects);
-    // free_list(code->lines);
-    // free_table(f->tb);
-    // free_list(f->data);
-    // free(f->ret);
-    // free(f->module);
-    // free(f);
 }
 
 /* Return font frame object */
@@ -123,13 +110,9 @@ void len(frame *f, list *arg) {
     if (arg->len != 1) {
         simple_error("'len' function require an argument");
     }
-    object *obj = (object *)pop_back_list(arg);
-    if (obj->kind != OBJ_STRING) {
-        simple_error("only string length can be obtained");
-    }
     object *len = (object *)malloc(sizeof(object));
     len->kind = OBJ_INT;
-    len->value.integer = strlen(obj->value.string);
+    len->value.integer = obj_len((object *)pop_back_list(arg));
     PUSH(len);
 }
 
@@ -285,8 +268,6 @@ void eval() {
                         resu = get_table(f->tb, name); /* Set to whole frame */
                         if (resu == NULL)
                             resu = get_builtin(name);
-                        else
-                            state.whole = NULL;
                     }
                     /* Builtin function */
                     else {
@@ -652,23 +633,24 @@ void eval() {
                     off --;
                 }
 
-                object *func = POP(); /* Function */
+                object *fn = POP(); /* Function */
                 for (int i = 0;
                     i < sizeof(bts) / sizeof(bts[0]); i ++) {
-                        if (strcmp(bts[i].name, func->value.func.name) == 0) {
+                        if (strcmp(bts[i].name, fn->value.func.name) == 0) {
                             bts[i].func(top_frame(), arg); /* Call builtin function */
                             goto next;
                         }
                 }
 
-                list *k = func->value.func.k;
-                list *v = func->value.func.v;
+                list *k = fn->value.func.k;
+                list *v = fn->value.func.v;
 
                 if (k->len != arg->len) {
                     simple_error("inconsistent funtion arguments");
                 }
+                
                 /* Call frame */
-                frame *f = new_frame(func->value.func.code); /* Func code object */
+                frame *f = new_frame(fn->value.func.code); /* Func code object */
 
                 /* Check arguments */
                 for (int i = 0; i < k->len; i ++) {
@@ -694,13 +676,13 @@ void eval() {
                 frame *p = (frame *)pop_back_list(state.frame); /* Evaluated */
 
                 /* Function return */
-                if (func->value.func.ret != NULL) {
+                if (fn->value.func.ret != NULL) {
                     if (p->ret == NULL ||
-                            !type_checker(func->value.func.ret, p->ret)) {
+                            !type_checker(fn->value.func.ret, p->ret)) {
                                 if (p->ret == NULL) {
                                     simple_error("function missing return value");
                                 }
-                        type_error(func->value.func.ret, p->ret); /* Ret type */
+                        type_error(fn->value.func.ret, p->ret); /* Ret type */
                     }
                     PUSH(p->ret);
                 }
@@ -728,8 +710,11 @@ void eval() {
                 char *name = GET_NAME();
                 object *obj = POP();
                 if (obj->kind != OBJ_ENUM &&
-                    obj->kind != OBJ_WHOLE && obj->kind != OBJ_TUP && obj->kind != OBJ_FACE) {
-                        simple_error("only enum, face, tuple and whole type are supported");
+                    obj->kind != OBJ_WHOLE &&
+                    obj->kind != OBJ_TUP && 
+                    obj->kind != OBJ_FACE &&
+                    obj->kind != OBJ_MODULE) {
+                        simple_error("only enum, face, module, tuple and whole type are supported");
                 }
                 if (obj->kind == OBJ_ENUM) { /* Enum */
                     list *elem = obj->value.enumeration.element;
@@ -798,6 +783,13 @@ void eval() {
                         }
                     }
                     simple_error("nonexistent member");
+                }
+                if (obj->kind == OBJ_MODULE) { /* Module */
+                    void *p = get_table((table *)obj->value.mod.tb, name);
+                    if (p == NULL) {
+                        undefined_error(name);
+                    }
+                    PUSH((object *)p);
                 }
                 break;
             }
@@ -947,6 +939,7 @@ vm_state evaluate(code_object *code, char *filename) {
     state.ip = 0;
     state.op = 0;
     state.filename = filename;
+    state.whole = NULL;
 
     /* main frame */
     frame *main = new_frame(code);
@@ -956,6 +949,7 @@ vm_state evaluate(code_object *code, char *filename) {
     return state;
 }
 
+/* Returns the file name of path string */
 char *get_filename(const char *p) {
     char *name = (char *)malloc(sizeof(char) * 64);
     int j = 0;
@@ -965,6 +959,7 @@ char *get_filename(const char *p) {
     return name;
 }
 
+/* Is file name equal others */
 bool filename_eq(char *a, char *b) {
     int i = 0;
     for (; a[i] != '.'; i ++) {
@@ -975,31 +970,39 @@ bool filename_eq(char *a, char *b) {
     return i == strlen(b);
 }
 
+/* Read files in path and directory */
 list *read_path(const char *path) {
     DIR *dir;
     struct dirent *p;
     list *pl = new_list();
     if ((dir = opendir(path)) == NULL) {
-        simple_error("failed to open the std library directory  ");
+        simple_error("failed to open the std library directory");
     }
     while ((p = readdir(dir)) != NULL) {
-        /* if (p->d_type == 4 &&
+        if (p->d_type == 4 &&
             strcmp(p->d_name, ".") != 0 && strcmp(p->d_name, "..") != 0) {
-        } */
+                /* Directory */
+                // printf("load directory\n");
+        }
         if (p->d_type == 8) { /* File */
             char *name = p->d_name;
+            if (
+                strcmp(state.filename, name) == 0) {
+                continue;
+            }
             int len = strlen(name) - 1;
             if (name[len] == 't' &&
                 name[len - 1] == 'f' &&
                 name[len - 2] == '.') {
-                    pl = append_list(pl, name);
+                    pl = append_list(pl, p->d_name);
                 }
         }
     }
     return pl;
 }
 
-void load_eval(const char *path) {
+/* Evaluate loaded module and set into the table items */
+void load_eval(const char *path, char *name) {
     FILE *fp = fopen(path, "r"); /* Open file of path */
     if (fp == NULL) {
         printf("\033[1;31merror:\033[0m failed to read buffer of file: %s.\n", path);
@@ -1013,21 +1016,37 @@ void load_eval(const char *path) {
     fread(buf, fsize, sizeof(char), fp); /* Read file to buffer*/
     buf[fsize] = '\0';
 
-    list *tokens = lexer(buf, fsize);
-    list *codes = compile(tokens);
-    vm_state state = evaluate(codes->data[0], get_filename(path));
+    int16_t ip_up = state.ip; /* Backup state */
+    int16_t op_up = state.op;
+    list *fr_up = state.frame;
 
-    printf("END\n");
+    list *tokens = lexer(buf, fsize); /* To evaluate */
+    list *codes = compile(tokens);
+    vm_state ps = evaluate(codes->data[0], get_filename(path));
+
+    frame *fr = (frame *)ps.frame->data[0]; /* Global frame */
+    table *tb = fr->tb; /* Global table environment */
+
+    object *obj = (object *)malloc(sizeof(object)); /* Module object */
+    obj->kind = OBJ_MODULE;
+    obj->value.mod.tb = (struct table *)tb;
+
+    state.ip = ip_up; /* Reset state */
+    state.op = op_up;
+    state.frame = fr_up;
+
+    add_table(top_frame()->tb, name, obj); /* Module object*/
 
     free(buf);
     free_list(tokens);
     free_list(codes);
-
-    free(state.filename);
 }
 
 /* Load module by name */
 void load_module(char *name) {
+    if (filename_eq(state.filename, name)) {
+        simple_error("you cannot reference yourself"); /* Current file */
+    }
     void *path = getenv("FT_PATH");
     if (path != NULL) {
         /* Standard library */
@@ -1036,14 +1055,12 @@ void load_module(char *name) {
         /* Current path */
         list *pl = read_path(".");
         for (int i = 0; i < pl->len; i ++) {
-            char *pname = (char *)pl->data[i];
             if (filename_eq(state.filename, name)) {
-                continue; /* Current file */
+                continue;
             }
-            // if (filename_eq(pname, name) == 0) {
-            //     return;
-            // }
-            printf("LOAD: %s\n", pname);
+            char *pname = (char *)pl->data[i];
+            // printf("LOAD: %s\n", pname);s
+            load_eval(pname, name);
         }
     }
 }

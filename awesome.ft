@@ -68,6 +68,7 @@ aop x < 100
     x += 1
     go x % 20 != 0
     print(x)
+# LOOP
 aop 1
     aop 1
         aop 1
@@ -76,7 +77,7 @@ aop 1
             out ->
         out ->
     out ->
-def  Human
+def Human
     \\ eat
     \\ call -> bool
     \string\ say
@@ -119,5 +120,16 @@ def (f Human) do_face
     print(f.call())
 do_face(h)
 print("TEST END!")
-use awesome
+#use awesome
 use os
+os.show()
+print(os.id, os.Dao)
+def dao Dao = os.Dao
+def u User = os.User
+def user User = new u{}
+print(u, user, dao)
+user.login("bingxio", "1234")
+user.login("frank", "6431")
+user.login("beenp", "1574")
+user.login("splle", "0764")
+print(user.exist("bingxio"), user.exist("aaaa"))

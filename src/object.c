@@ -552,3 +552,19 @@ const char *obj_type_string(object *obj) {
         case OBJ_FACE:   return "face";
     }
 }
+
+/* Return the length of object */
+int obj_len(object *obj) {
+    switch (obj->kind) {
+        case OBJ_STRING:
+            return strlen(obj->value.string);
+        case OBJ_ARR:
+            return obj->value.arr.element->len;
+        case OBJ_TUP:
+            return obj->value.tup.element->len;
+        case OBJ_MAP:
+            return obj->value.map.k->len;
+        default:
+            return -1;
+    }
+}
