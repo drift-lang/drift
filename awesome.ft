@@ -133,3 +133,6 @@ user.login("frank", "6431")
 user.login("beenp", "1574")
 user.login("splle", "0764")
 print(user.exist("bingxio"), user.exist("aaaa"))
+def x []int = [2, 4, 6]
+def y ()int = (8, 4, 0)
+print(x, len(x), y, len(y))

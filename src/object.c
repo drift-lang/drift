@@ -7,7 +7,7 @@
 
 /* Output object */
 const char *obj_string(object *obj) {
-    char *str = (char *) malloc(sizeof(char) * 128);
+    char *str = (char *)malloc(sizeof(char) * 128);
     switch (obj->kind) {
         case OBJ_INT:    sprintf(str, "int %d", obj->value.integer);              return str;
         case OBJ_FLOAT:  sprintf(str, "float %f", obj->value.floating);           return str;
@@ -41,7 +41,7 @@ const char *obj_string(object *obj) {
 
 /* Object's raw data */
 const char *obj_raw_string(object *obj) {
-    char *str = (char *) malloc(sizeof(char) * 128);
+    char *str = (char *)malloc(sizeof(char) * 128);
     switch (obj->kind) {
         case OBJ_INT:    sprintf(str, "%d", obj->value.integer);             return str;
         case OBJ_FLOAT:  sprintf(str, "%f", obj->value.floating);            return str;
@@ -55,10 +55,10 @@ const char *obj_raw_string(object *obj) {
                 return "[]";
             }
             sprintf(str, "[");
-            for (int i = 0; i < elem->len; i ++) {
+            for (int i = elem->len - 1; i >= 0; i --) {
                 strcat(str,
                     obj_raw_string((object *)elem->data[i]));
-                if (i + 1 != elem->len) {
+                if (i - 1 != -1) {
                     strcat(str, ", ");
                 }
             }
@@ -72,10 +72,10 @@ const char *obj_raw_string(object *obj) {
                 return "()";
             }
             sprintf(str, "(");
-            for (int i = 0; i < elem->len; i ++) {
+            for (int i = elem->len - 1; i  >= 0; i --) {
                 strcat(str,
                     obj_raw_string((object *)elem->data[i]));
-                if (i + 1 != elem->len) {
+                if (i - 1 != -1) {
                     strcat(str, ", ");
                 }
             }
@@ -90,13 +90,13 @@ const char *obj_raw_string(object *obj) {
                 return "{}";
             }
             sprintf(str, "{");
-            for (int i = 0; i < k->len; i ++) {
+            for (int i = k->len - 1; i >= 0; i --) {
                 strcat(str,
                     obj_raw_string((object *)k->data[i]));
                 strcat(str, ": ");
                 strcat(str,
                     obj_raw_string((object *)v->data[i]));
-                if (i + 1 != k->len) {
+                if (i - 1 != -1) {
                     strcat(str, ", ");
                 }
             }

@@ -7,7 +7,7 @@
 
 /* Output type */
 const char *type_string(type *t) {
-    char *str = (char *) malloc(sizeof(char) * 128);
+    char *str = (char *)malloc(sizeof(char) * 128);
     switch (t->kind) {
         case T_INT:    free(str); return "<int>";
         case T_FLOAT:  free(str); return "<float>";

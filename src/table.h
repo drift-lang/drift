@@ -32,9 +32,6 @@ void set_table(table *, char *, object *);
 /* Get value with key */
 void *get_table(table *, char *);
 
-/* Check if the key exists */
-bool exist(table *, char *);
-
 /* Dissemble */
 void dissemble_table(table *, const char *);
 

@@ -1,1 +1,1 @@
-find ./src -name *.[ch] | xargs wc -l
+find ./src/*.[ch] | xargs wc -l

@@ -177,9 +177,10 @@ object *get_builtin(char *name) {
 void jump(int16_t to) {
     state.op --; /* Step back the offset of the current jump */
     bool reverse = state.ip > to;
-    if (reverse)
+    if (reverse) {
         /* Inversion skip the jump bytecode */
         state.ip --;
+    }
     while (
         reverse ?
             state.ip >= to : /* Condition */
@@ -207,8 +208,9 @@ void jump(int16_t to) {
         reverse ? /* Set bytecode position */
             state.ip -- : state.ip ++;
     }
-    if (!reverse) /* Loop update */
+    if (!reverse) { /* Loop update */
         state.ip --;
+    }
 }
 
 /* Find object in overlay frames */
@@ -229,6 +231,8 @@ object *make_nil() {
     obj->kind = OBJ_NIL;
     return obj;
 }
+
+void load_module(char *); /* Load module by name */
 
 /* Evaluate */
 void eval() {
@@ -289,10 +293,11 @@ void eval() {
             case ASSIGN_TO: { /* N */
                 char *name = GET_NAME();
                 object *obj = POP();
-                if (!exist(top_frame()->tb, name)) { /* Get */
+                void *p = get_table(top_frame()->tb, name);
+                if (p == NULL) { /* Get */
                     undefined_error(name);
                 }
-                object *ori = (object *)get_table(top_frame()->tb, name);
+                object *ori = (object *)p;
                 if (!obj_kind_eq(ori, obj)) {
                     simple_error("inconsistent type");
                 }
@@ -317,16 +322,21 @@ void eval() {
                         if (fn->kind != OBJ_FUNC) {
                             simple_error("an interface can only be a method");
                         }
-                        if ( /* Check return type */
+                        /* Check return type */
+                        if (
                             !type_eq(m->ret, fn->value.func.ret)) {
                                 simple_error("return type in the method are inconsistent");
-                        } /* Check function arguments */
+                        }
+                        /* Check function arguments */
                         if (m->T->len != fn->value.func.v->len) {
                             simple_error("inconsistent method arguments");
-                        } /* Check function arguments type */
+                        }
+                        /* Check function arguments type */
                         for (int j = 0; j < m->T->len; j ++) {
-                            type *a = (type *)m->T->data[j];
-                            type *b = (type *)fn->value.func.v->data[j];
+                            type *a =
+                                (type *)m->T->data[j];
+                            type *b =
+                                (type *)fn->value.func.v->data[j];
                             if (!type_eq(a, b)) {
                                 simple_error("Inconsistent types of method arguments");
                             }
@@ -355,11 +365,11 @@ void eval() {
             case ASS_ADD: case ASS_SUB: case ASS_MUL: case ASS_DIV: case ASS_SUR: { /* N */
                 char *name = GET_NAME();
                 object *obj = POP();
-                if (!exist(top_frame()->tb, name)) {
+                void *p = get_table(top_frame()->tb, name);
+                if (p == NULL) {
                     undefined_error(name); /* Get name */
                 }
-                object *resu = (object *)
-                    get_table(top_frame()->tb, name); /* Get name */
+                object *resu = (object *)p; /* Get name */
                 u_int8_t op;
                 if (code == ASS_ADD) op = TO_ADD; if (code == ASS_SUB) op = TO_SUB;
                 if (code == ASS_MUL) op = TO_MUL; if (code == ASS_DIV) op = TO_DIV;
@@ -490,8 +500,12 @@ void eval() {
                 }
                 if (j->kind == OBJ_MAP) { /* Map */
                     /* Type check of K and V */
-                    if (!type_checker(j->value.map.T1, idx)) type_error(j->value.map.T1, idx);
-                    if (!type_checker(j->value.map.T2, obj)) type_error(j->value.map.T2, obj);
+                    if (!type_checker(j->value.map.T1, idx)) {
+                        type_error(j->value.map.T1, idx);
+                    }
+                    if (!type_checker(j->value.map.T2, obj)) {
+                        type_error(j->value.map.T2, obj);
+                    }
                     int p = -1; /* Find the location of the key */
                     for (int i = 0; i < j->value.map.k->len; i ++) {
                         if (obj_eq(
@@ -537,8 +551,12 @@ void eval() {
                 }
                 if (j->kind == OBJ_MAP) { /* Map */
                     /* Type check of K and V */
-                    if (!type_checker(j->value.map.T1, idx)) type_error(j->value.map.T1, idx);
-                    if (!type_checker(j->value.map.T2, obj)) type_error(j->value.map.T2, obj);
+                    if (!type_checker(j->value.map.T1, idx)) {
+                        type_error(j->value.map.T1, idx);
+                    }
+                    if (!type_checker(j->value.map.T2, obj)) {
+                        type_error(j->value.map.T2, obj);
+                    }
                     if (j->value.map.k->len == 0) {
                         simple_error("map entry is empty");
                     }
@@ -616,10 +634,12 @@ void eval() {
                 }
                 bool ok = /* Condition */
                     ((object *)POP())->value.boolean;
-                if (code == T_JUMP_TO && ok)
+                if (code == T_JUMP_TO && ok) {
                     jump(off);
-                if (code == F_JUMP_TO && ok == false)
+                }
+                if (code == F_JUMP_TO && ok == false) {
                     jump(off);
+                }
                 break;
             }
             case LOAD_FUNC: { /* J */
@@ -651,6 +671,7 @@ void eval() {
                 list *k = fn->value.func.k;
                 list *v = fn->value.func.v;
 
+                /* Arguments count */
                 if (k->len != arg->len) {
                     simple_error("inconsistent funtion arguments");
                 }
@@ -663,9 +684,11 @@ void eval() {
                     char *N = (char *)k->data[i]; /* Name */
                     type *T = (type *)v->data[i]; /* Type */
                     object *p = arg->data[-- arg->len]; /* Reverse */
+                    /* Check type consistent */
                     if (
-                        !type_checker(T, p) /* Check type consistent */
-                    ) type_error(T, p);
+                        !type_checker(T, p)) {
+                            type_error(T, p);
+                        }
                     /* Add to table of frame */
                     add_table(f->tb, N, p);
                 }
@@ -815,12 +838,13 @@ void eval() {
                 if (val->kind != j->kind) {
                     simple_error("wrong type set");
                 }
-                if (!basic(j)) /* Check basic object */
+                /* Check basic object */
+                if (!basic(j)) {
                     simple_error("only members of basic objects can be assign");
-
-                if (!obj_kind_eq(obj, val))
+                }
+                if (!obj_kind_eq(obj, val)) {
                     simple_error("inconsistent type");
-
+                }
                 set_table(fr->tb, name, val); /* Restore */
                 break;
             }
@@ -969,8 +993,11 @@ vm_state evaluate(code_object *code, char *filename) {
 char *get_filename(const char *p) {
     char *name = (char *)malloc(sizeof(char) * 64);
     int j = 0;
-    for (int i = 0; p[i]; i ++)
-        if (p[i] == '/') j = i;
+    for (int i = 0; p[i]; i ++) {
+        if (p[i] == '/') {
+            j = i;
+        }
+    }
     strcpy(name, &p[j]);
     return name;
 }

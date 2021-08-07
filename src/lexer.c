@@ -42,7 +42,9 @@ token *new_token(token_kind k, char *literal, int line, int off) {
 
 /* Determine whether the next character is the specified type */
 bool next(const char *buf, int *p, char c) {
-    if (*p + 1 > strlen(buf)) return false;
+    if (*p + 1 > strlen(buf)) {
+        return false;
+    }
     if (buf[*p + 1] == c) {
         *p += 2;
         return true;
@@ -81,15 +83,23 @@ list *lexer(const char *buf, int fsize) {
             c = buf[++ i];
             /* If it's a new line,
              * And it's dealing with spaces, increase indent */
-            if (new_line) off ++;
+            if (new_line) {
+                off ++;
+            }
         }
-        if (i >= fsize) break;
-        if (new_line) new_line = false; /* To catch indent */
+        if (i >= fsize) {
+            break;
+        }
+        if (new_line) {
+            new_line = false; /* To catch indent */
+        }
         if (is_digit(c)) { /* Digit */
             int p = 0;
             bool f = false;
             while (is_digit(c) || c == '.') {
-                if (c == '.') f = true;
+                if (c == '.') {
+                    f = true;
+                }
                 p ++;
                 c = buf[++ i];
             }

@@ -59,8 +59,9 @@ code_object *back() {
 /* Replace placeholder in offset list */
 void replace_holder(int16_t place, int16_t off) {
     code_object *obj = back();
-    if (obj->offsets == NULL)
+    if (obj->offsets == NULL) {
         return;
+    }
     for (int i = 0; i < obj->offsets->len; i ++) {
         if (
             *(int16_t *)(obj->offsets->data[i]) == place) {
@@ -82,8 +83,9 @@ int *get_top_offset_p() {
 /* Gets the top bytecode list length */
 int get_top_code_len() {
     code_object *obj = back();
-    if (obj->codes == NULL)
+    if (obj->codes == NULL) {
         return 0;
+    }
     return obj->codes->len; /* The offset used to insert the specified position */
 }
 
@@ -166,8 +168,9 @@ int p = 0; /* Traversal lexical list */
 /* Iterator of lexical list */
 void iter() {
     state.pre = state.cur;
-    if (p == state.tokens->len)
+    if (p == state.tokens->len) {
         return;
+    }
     state.cur = *(token *)state.tokens->data[p ++];
     state.p = p - 2; /* Always point to the current lexical subscript */
 }
@@ -372,7 +375,9 @@ void group() {
             set_precedence(P_LOWEST);
             count ++;
             iter();
-            if (state.pre.kind == R_PAREN) break;
+            if (state.pre.kind == R_PAREN) {
+                break;
+            }
             expect_pre(COMMA);
         }
         emit_top_code(BUILD_TUP);
@@ -416,7 +421,9 @@ void call() {
         set_precedence(P_LOWEST);
         count ++;
         iter();
-        if (state.pre.kind == R_PAREN) break;
+        if (state.pre.kind == R_PAREN) {
+            break;
+        }
         expect_pre(COMMA);
     }
     emit_top_code(CALL_FUNC);
@@ -450,7 +457,9 @@ void array() {
         set_precedence(P_LOWEST);
         count ++;
         iter();
-        if (state.pre.kind == R_BRACKET) break;
+        if (state.pre.kind == R_BRACKET) {
+            break;
+        }
         expect_pre(COMMA);
     }
     emit_top_code(BUILD_ARR);
@@ -468,7 +477,9 @@ void map() {
         set_precedence(P_LOWEST);
         iter();
         count += 2;
-        if (state.pre.kind == R_BRACE) break;
+        if (state.pre.kind == R_BRACE) {
+            break;
+        }
         expect_pre(COMMA);
     }
     emit_top_code(BUILD_MAP);
@@ -492,7 +503,9 @@ void new() {
         set_precedence(P_LOWEST);
         iter();
         count += 2;
-        if (state.pre.kind == R_BRACE) break;
+        if (state.pre.kind == R_BRACE) {
+            break;
+        }
         expect_pre(COMMA);
     }
     emit_top_code(NEW_OBJ);
@@ -636,7 +649,9 @@ void stmt() {
             int off = state.pre.off;
 
             if (state.pre.kind == SLASH) { /* Interface */
-                if (off <= tok->off) no_block_error();
+                if (off <= tok->off) {
+                    no_block_error();
+                }
 
                 object *fa = (object *)malloc(sizeof(object)); /* Object */
                 fa->kind = OBJ_FACE;
@@ -655,7 +670,9 @@ void stmt() {
                         while (true) { /* Parsing arguments */
                             arg = append_list(arg, set_type());
                             iter();
-                            if (state.pre.kind == SLASH) break;
+                            if (state.pre.kind == SLASH) {
+                                break;
+                            }
                             expect_pre(COMMA);
                         }
                         iter(); /* Skip right slash */
@@ -691,7 +708,9 @@ void stmt() {
 
                 if (state.pre.kind != R_PAREN) { /* Arguments */
                     while (true) {
-                        if (state.cur.kind == R_PAREN) break;
+                        if (state.cur.kind == R_PAREN) {
+                            break;
+                        }
 
                         K = append_list(K, state.pre.literal); /* Name */
                         if (state.cur.kind != COMMA) { /* And type */
@@ -703,7 +722,9 @@ void stmt() {
                             while (K->len != V->len) {
                                 V = append_list(V, T); /* One-on-one */
                             }
-                            if (state.pre.kind == R_PAREN) break;
+                            if (state.pre.kind == R_PAREN) {
+                                break;
+                            }
                             expect_pre(COMMA);
                         } else {
                             both_iter();
@@ -782,8 +803,12 @@ void stmt() {
                     emit_top_code(STORE_NAME);
                     emit_top_name(name.literal);
                 } else { /* Enumeration */
-                    if (T->kind != T_USER) syntax_error();
-                    if (off <= tok->off)   no_block_error();
+                    if (T->kind != T_USER) {
+                        syntax_error();
+                    }
+                    if (off <= tok->off) {
+                        no_block_error();
+                    }
                     
                     list *elem = new_list();
                     elem = append_list(elem, (char *)T->inner.name); /* Previous */

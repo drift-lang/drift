@@ -11,8 +11,8 @@
 
 #include "list.h"
 #include "code.h"
-#include "frame.h"
 #include "opcode.h"
+#include "table.h"
 
 #include "lexer.h"
 #include "compiler.h"
@@ -23,6 +23,14 @@
     #include <windows.h>
     #include <dirent.h>
 #endif
+
+/* Evaluate frame structure */
+typedef struct {
+    code_object *code; /* Code object list */
+    table *tb; /* Object mapping table */
+    list *data; /* Eval data stack */
+    object *ret; /* Return value of frame */
+} frame;
 
 /* Virtual machine state */
 typedef struct {
@@ -46,13 +54,22 @@ typedef struct {
     built func; /* Function handler */
 } builtin;
 
-/* Load module by name */
-void load_module();
-
 /* Returns the file name of path string */
 char *get_filename(const char *p);
 
 /* Release frame struct */
 void free_frame(frame *f);
+
+/*
+ * External API
+ */
+typedef void (* fn_impl)(vm_state *);
+
+typedef struct {
+    const char *name;
+    fn_impl fn;
+} reg;
+
+void reg_fn(reg *);
 
 #endif

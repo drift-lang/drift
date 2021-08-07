@@ -28,7 +28,9 @@ void run(char *source, int fsize, char *filename) {
 
     /* Compiler */
     list *codes = compile(tokens);
-    if (show_bytes) dissemble(codes->data[0]);
+    if (show_bytes) {
+        dissemble(codes->data[0]);
+    }
 
     /* Virtual machine */
     vm_state state = evaluate(codes->data[0], filename);
@@ -64,7 +66,9 @@ void usage() {
 
 /* ? */
 int main(int argc, char **argv) {
-    if (argc < 2) usage();
+    if (argc < 2) {
+        usage();
+    }
     if (argc == 2) {
         if (strcmp(argv[1], "-v") == 0) {
             printf("%s\n", COMPILER_VERSION);

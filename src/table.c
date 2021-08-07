@@ -20,7 +20,7 @@ int count_table(table *t) {
 
 /* Add key and value */
 void add_table(table *t, char *name, object *val) {
-    if (exist(t, name)) {
+    if (get_table(t, name) != NULL) {
         set_table(t, name, val);
         return;
     }
@@ -32,11 +32,10 @@ void add_table(table *t, char *name, object *val) {
 void set_table(table *t, char *name, object *val) {
     for (int i = 0; i < count_table(t); i ++) {
         if (
-            strcmp(name, (char *)t->name->data[i]) == 0
-        ) {
-            replace_list(t->objs, i, val);
-            break;
-        }
+            strcmp(name, (char *)t->name->data[i]) == 0) {
+                replace_list(t->objs, i, val);
+                break;
+            }
     }
 }
 
@@ -44,19 +43,11 @@ void set_table(table *t, char *name, object *val) {
 void *get_table(table *t, char *name) {
     for (int i = 0; i < count_table(t); i ++) {
         if (
-            strcmp(name, (char *)t->name->data[i]) == 0)
-        return t->objs->data[i];
+            strcmp(name, (char *)t->name->data[i]) == 0) {
+                return t->objs->data[i];
+            }
     }
     return NULL;
-}
-
-/* Check if the key exists */
-bool exist(table *t, char *name) {
-    if (count_table(t) == 0)
-        return false;
-    if (get_table(t, name) == NULL)
-        return false;
-    return true;
 }
 
 /* Dissemble */
