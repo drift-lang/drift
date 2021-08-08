@@ -13,7 +13,7 @@ I like all simple things, simple and beautiful, simple and strong. I know that a
 
 The official website is https://drift-lang.fun/, the document is being prepared.
 
-### Download and install
+### Build
 
 The number of source files for the drift compiler is small, building them is also very simple. Make sure the [GCC](https://www.gnu.org/software/gcc/) compiler and [Python3](https://www.python.org/) interpreter are installed. My GCC version is 8.3.0.
 

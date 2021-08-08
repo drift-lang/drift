@@ -2,7 +2,7 @@
  *
  * 	- https://drift-lang.fun/
  *
- * GPL 3.0 License - bingxio <3106740988@qq.com> */
+ * GPL v3 License - bingxio <bingxio@qq.com> */
 #ifndef FT_OBJECT_H
 #define FT_OBJECT_H
 

@@ -2,7 +2,7 @@
  *
  * 	- https://drift-lang.fun/
  *
- * GPL 3.0 License - bingxio <3106740988@qq.com> */
+ * GPL v3 License - bingxio <bingxio@qq.com> */
 #ifndef FT_TOKEN_H
 #define FT_TOKEN_H
 
@@ -71,7 +71,8 @@ static const char *token_string[] = {
     ",",   ":",       "=",      ";",      ">",    "<",     ">=",  "<=", "&",
     "|",   "!",       "!=",     "==",     "{",    "}",     "(",   ")",  "[",
     "]",   "_",       "\\",     "def",    "ret",  "for",   "aop", "if", "ef",
-    "nf",  "new",     "out",    "go",     "use",  "nil"};
+    "nf",  "new",     "out",    "go",     "use",  "nil",
+};
 
 /* Token properties */
 typedef struct {
