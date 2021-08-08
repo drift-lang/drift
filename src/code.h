@@ -10,13 +10,13 @@
 
 /* Generate object, subject data type. */
 typedef struct {
-    char *description; /* Description name */
-    list *names; /* Name set */
-    list *codes; /* Bytecode set */
-    list *offsets; /* Offset set */
-    list *types; /* Type set */
-    list *objects; /* Objects set */
-    list *lines; /* Lines set */
+  char *description; /* Description name */
+  list *names;       /* Name set */
+  list *codes;       /* Bytecode set */
+  list *offsets;     /* Offset set */
+  list *types;       /* Type set */
+  list *objects;     /* Objects set */
+  list *lines;       /* Lines set */
 } code_object;
 
 /* Allocate new code object */

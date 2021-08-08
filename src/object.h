@@ -6,77 +6,88 @@
 #ifndef FT_OBJECT_H
 #define FT_OBJECT_H
 
-#include <stdio.h>
 #include <stdbool.h>
+#include <stdio.h>
 
-#include "list.h"
-#include "type.h"
 #include "code.h"
+#include "list.h"
 #include "opcode.h"
+#include "type.h"
 
 /* Object type */
 typedef enum {
-    OBJ_INT,  OBJ_FLOAT, OBJ_STRING, OBJ_CHAR, OBJ_BOOL,
-    OBJ_ENUM, OBJ_FUNC,  OBJ_WHOLE,  OBJ_FACE, OBJ_ARR,
-    OBJ_TUP,  OBJ_MAP,   OBJ_MODULE, OBJ_NIL
+  OBJ_INT,
+  OBJ_FLOAT,
+  OBJ_STRING,
+  OBJ_CHAR,
+  OBJ_BOOL,
+  OBJ_ENUM,
+  OBJ_FUNC,
+  OBJ_WHOLE,
+  OBJ_FACE,
+  OBJ_ARR,
+  OBJ_TUP,
+  OBJ_MAP,
+  OBJ_MODULE,
+  OBJ_NIL
 } obj_kind;
 
 /* Object system */
 typedef struct {
-    u_int8_t kind; /* Kind */
-    union {
-        int integer; /* int */
-        double floating; /* float */
-        char *string; /* string */
-        char ch; /* char */
-        bool boolean; /* bool */
-        struct {
-            char *name;
-            list *element;
-        } enumeration; /* enum */
-        struct {
-            char *name;
-            list *k;
-            list *v;
-            type *ret;
-            code_object *code;
-        } func; /* function */
-        struct {
-            char *name;
-            list *element;
-            struct object *whole;
-        } face; /* interface */
-        struct {
-            char *name;
-            code_object *code;
-            struct frame *fr;
-            bool init;
-        } whole; /* whole */
-        struct {
-            list *element;
-            type *T;
-        } arr; /* array */
-        struct {
-            list *element;
-            type *T;
-        } tup; /* tuple */
-        struct {
-            list *k;
-            list *v;
-            type *T1;
-            type *T2;
-        } map; /* map */
-        struct {
-            struct table *tb;
-        } mod; /* module */
-    } value; /* Inner value */
+  u_int8_t kind; /* Kind */
+  union {
+    int integer;     /* int */
+    double floating; /* float */
+    char *string;    /* string */
+    char ch;         /* char */
+    bool boolean;    /* bool */
+    struct {
+      char *name;
+      list *element;
+    } enumeration; /* enum */
+    struct {
+      char *name;
+      list *k;
+      list *v;
+      type *ret;
+      code_object *code;
+    } func; /* function */
+    struct {
+      char *name;
+      list *element;
+      struct object *whole;
+    } face; /* interface */
+    struct {
+      char *name;
+      code_object *code;
+      struct frame *fr;
+      bool init;
+    } whole; /* whole */
+    struct {
+      list *element;
+      type *T;
+    } arr; /* array */
+    struct {
+      list *element;
+      type *T;
+    } tup; /* tuple */
+    struct {
+      list *k;
+      list *v;
+      type *T1;
+      type *T2;
+    } map; /* map */
+    struct {
+      struct table *tb;
+    } mod; /* module */
+  } value; /* Inner value */
 } object;
 
 /* Method structure of interface */
 typedef struct {
-    char *name; /* Face name */
-    list *T; /* Types of arguments */
-    type *ret; /* Return type */
+  char *name; /* Face name */
+  list *T;    /* Types of arguments */
+  type *ret;  /* Return type */
 } method;
 
 /* Output object */

@@ -6,24 +6,24 @@
 #ifndef FT_TYPE_H
 #define FT_TYPE_H
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
-#include <stdbool.h>
 
 #include "list.h"
 
 /* Type system */
 typedef enum {
-    T_INT,    // int
-    T_FLOAT,  // float
-    T_CHAR,   // char
-    T_STRING, // string
-    T_BOOL,   // bool
-    T_ARRAY,  // []T
-    T_TUPLE,  // ()T
-    T_MAP,    // {}<T1, T2>
-    T_FUNC,   // |[]T| -> T
-    T_USER,   // ?
+  T_INT,    // int
+  T_FLOAT,  // float
+  T_CHAR,   // char
+  T_STRING, // string
+  T_BOOL,   // bool
+  T_ARRAY,  // []T
+  T_TUPLE,  // ()T
+  T_MAP,    // {}<T1, T2>
+  T_FUNC,   // |[]T| -> T
+  T_USER,   // ?
 } type_kind;
 
 /*
@@ -36,19 +36,19 @@ typedef enum {
  *   9. function  10. user
  */
 typedef struct {
-    u_int8_t kind; /* Type system */
-    union {
-        struct type *single; /* Contains a single type */
-        const char *name; /* Customer type */
-        struct {
-            list *arg; /* Function arguments */
-            struct type *ret; /* Function returns */
-        } func;
-        struct {
-            struct type *T1;
-            struct type *T2;
-        } both; /* It contains two types */
-    } inner; 
+  u_int8_t kind; /* Type system */
+  union {
+    struct type *single; /* Contains a single type */
+    const char *name;    /* Customer type */
+    struct {
+      list *arg;        /* Function arguments */
+      struct type *ret; /* Function returns */
+    } func;
+    struct {
+      struct type *T1;
+      struct type *T2;
+    } both; /* It contains two types */
+  } inner;
 } type;
 
 /* Output type */

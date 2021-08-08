@@ -10,9 +10,9 @@
 
 /* My list structure */
 typedef struct {
-    void **data;
-    int len;
-    int cap;
+  void **data;
+  int len;
+  int cap;
 } list;
 
 /* Create an empty list */

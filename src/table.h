@@ -13,8 +13,8 @@
 
 /* Structure of key value mapping table */
 typedef struct {
-    list *name; /* K */
-    list *objs; /* V */
+  list *name; /* K */
+  list *objs; /* V */
 } table;
 
 /* New table */
