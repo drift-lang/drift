@@ -14,8 +14,6 @@
 #include "opcode.h"
 #include "table.h"
 
-#include "compiler.h"
-
 #if defined(__linux__) || defined(__APPLE__)
   #include <unistd.h>
 #elif defined(_WIN32)

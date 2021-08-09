@@ -107,7 +107,7 @@ extern list *lexer(const char *buf, int fsize) {
         p++;
         c = buf[++i];
       }
-      char *literal = (char *)malloc(p * sizeof(char));
+      char *literal = (char *)malloc((p + 1) * sizeof(char));
       paste_literal(literal, buf, &p, i);
       /* Append */
       tokens = append_list(tokens,
@@ -238,8 +238,13 @@ extern list *lexer(const char *buf, int fsize) {
           exit(EXIT_FAILURE);
         }
       }
-      char *literal = (char *)malloc((p + 1) * sizeof(char));
-      paste_literal(literal, buf, &p, i);
+      char *literal;
+      if (p == 0) {
+        literal = "";
+      } else {
+        literal = (char *)malloc((p + 1) * sizeof(char));
+        paste_literal(literal, buf, &p, i);
+      }
       i++;
       t.kind = STRING;
       t.literal = literal;

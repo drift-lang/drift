@@ -1,5 +1,5 @@
-# Awesome!!
-print("hello" + " world!")
+#Awesome!!
+print("hello, " + "world")
 def (a, b int) sum -> int
     if a == 3
         ret 9
@@ -13,9 +13,8 @@ def y int = Color.GREEN
 def member ()int = (4, 3, 7, 8, 5, 1)
 def p int = member.3
 def l int = y
-# y = 1
-# l = 3
-l = 3
+y = 1
+print("y = ", typeof(y), "l = ", typeof(l))
 def a []int = []
 a[3] = 34
 def as bool = a[0] == 34
@@ -26,8 +25,10 @@ def m {}<int, string> = {
 m[3] = "lang"
 m[2] = "drift"
 m[8] = "hello"
+print(a, as, m)
 def () show -> {}<int, int>
     ret {1: 34, 2: 65, 3: 11}
+#print(show()[2])
 def sc {}<int, int> = show()
 def () fl -> |int, int| -> int
     ret def (a, b int) _ -> int
@@ -58,17 +59,17 @@ k.x = 14
 def m int = k.x
 k.x += 3
 def m int = k.x # m: 17
-# m = "what?"
+#m = "what?"
 def max int = k.max(5, 9)
 for def i int = 0; i < 10; i += 1
     print("i = ", i)
-    # sleep(1000)
+    #sleep(0)
 def x int = 0
 aop x < 100
     x += 1
     go x % 20 != 0
     print(x)
-# LOOP
+#LOOP
 aop 1
     aop 1
         aop 1
@@ -111,10 +112,10 @@ print("Origi: ", h)
 h = n
 print("Store: ", h)
 print(h, n, h.say)
-new Man{}.say("我喜欢你~")
+new Man{}.say("我喜欢你!")
 h.say("i am bingxio.")
 h.say("love")
-# h.test()
+#h.test()
 def (f Human) do_face
     f.eat()
     f.say("Call inner")
@@ -136,3 +137,25 @@ print(user.exist("bingxio"), user.exist("aaaa"))
 def x []int = [2, 4, 6]
 def y ()int = (8, 4, 0)
 print(x, len(x), y, len(y))
+#my love
+def () heart
+    def x float = 0.
+    def y float = 0.
+
+    def s string = ""
+    def i float = 1.5
+
+    aop i > -1.5
+        s = ""
+        x = -1.5
+        aop x < 1.5
+            y = x * x + i * i - 1
+            if (y * y * y -
+                x * x * i * i * i) < 0.0
+                s += "*"
+            nf
+                s += " "
+            x += 0.05
+        print(s)
+        i -= 0.1
+heart()

@@ -3,31 +3,51 @@
  * 	- https://drift-lang.fun/
  *
  * GPL v3 License - bingxio <bingxio@qq.com> */
-#include "compiler.h"
+#include <stdbool.h>
+#include <stdio.h>
+
+#include "list.h"
+#include "object.h"
+#include "opcode.h"
+#include "token.h"
+#include "type.h"
+
+/* Compilation status*/
+typedef struct {
+  list *tokens;
+  token pre;   /* Last token */
+  token cur;   /* Current token */
+  int16_t iof; /* Offset of object */
+  int16_t inf; /* Offset of name */
+  int16_t itf; /* Offset of type */
+  int p;       /* Read position */
+  bool loop;   /* Is current handing loop statement? */
+  list *codes; /* Compiled code object */
+} compile_state;
 
 /* Allocate new code object */
 code_object *new_code(char *des) {
-  code_object *obj = (code_object *)malloc(sizeof(code_object));
-  obj->description = des;
-  obj->codes = NULL;
-  obj->lines = NULL;
-  obj->names = NULL;
-  obj->objects = NULL;
-  obj->offsets = NULL;
-  obj->types = NULL;
-  return obj;
+  code_object *code = (code_object *)malloc(sizeof(code_object));
+  code->description = des;
+  code->codes = NULL;
+  code->lines = NULL;
+  code->names = NULL;
+  code->objects = NULL;
+  code->offsets = NULL;
+  code->types = NULL;
+  return code;
 }
 
 /* Global state of compiler */
-compile_state state;
+compile_state cst;
 
 /* Backup global state */
 compile_state backup_state() {
   compile_state up;
-  up.iof = state.iof;
-  up.inf = state.inf;
-  up.itf = state.itf;
-  up.p = state.p;
+  up.iof = cst.iof;
+  up.inf = cst.inf;
+  up.itf = cst.itf;
+  up.p = cst.p;
   return up;
 }
 
@@ -41,92 +61,92 @@ void reset_state(compile_state *state, compile_state up) {
 
 /* New state */
 void clear_state() {
-  state.iof = 0;
-  state.inf = 0;
-  state.itf = 0;
+  cst.iof = 0;
+  cst.inf = 0;
+  cst.itf = 0;
 }
 
 /* Push new code object to list */
-void push_code_list(code_object *obj) {
-  state.codes = append_list(state.codes, obj);
+void push_code_list(code_object *code) {
+  cst.codes = append_list(cst.codes, code);
 }
 
 /* Get tail data */
-code_object *back() {
-  return (code_object *)back_list(state.codes);
+code_object *back_code() {
+  return (code_object *)back_list(cst.codes);
 }
 
 /* Replace placeholder in offset list */
 void replace_holder(int16_t place, int16_t off) {
-  code_object *obj = back();
-  if (obj->offsets == NULL) {
+  code_object *code = back_code();
+  if (code->offsets == NULL) {
     return;
   }
-  for (int i = 0; i < obj->offsets->len; i++) {
-    if (*(int16_t *)(obj->offsets->data[i]) == place) {
+  for (int i = 0; i < code->offsets->len; i++) {
+    if (*(int16_t *)(code->offsets->data[i]) == place) {
       int16_t *f = (int16_t *)malloc(sizeof(int16_t));
       *f = off;
-      obj->offsets->data[i] = f;
+      replace_list(code->offsets, i, f);
     }
   }
 }
 
 /* Gets the current offset list length */
-int *get_top_offset_p() {
-  code_object *obj = back();
-  int *p = (int *)malloc(sizeof(int));
-  *p = obj->offsets->len;
-  return p;
+int16_t *get_top_offset_p() {
+  code_object *code = back_code();
+  int16_t *f = (int16_t *)malloc(sizeof(int16_t));
+  *f = code->offsets->len;
+  return f;
 }
 
 /* Gets the top bytecode list length */
 int get_top_code_len() {
-  code_object *obj = back();
-  if (obj->codes == NULL) {
+  code_object *code = back_code();
+  if (code->codes == NULL) {
     return 0;
   }
-  return obj->codes->len; /* The offset used to insert the specified position */
+  return code->codes
+      ->len; /* The offset used to insert the specified position */
 }
 
 /* Insert offset position new element */
 void insert_top_offset(int p, int16_t off) {
-  code_object *obj = back();
+  code_object *code = back_code();
   int16_t *f = (int16_t *)malloc(sizeof(int16_t));
   *f = off;
-  insert_list(obj->offsets, p, f);
+  insert_list(code->offsets, p, f);
 }
 
 /* Offset */
 void emit_top_offset(int16_t off) {
-  code_object *obj = back();
+  code_object *code = back_code();
   int16_t *f = (int16_t *)malloc(sizeof(int16_t));
   *f = off;
-  obj->offsets = append_list(obj->offsets, f);
+  code->offsets = append_list(code->offsets, f);
 }
 
 /* Name */
 void emit_top_name(char *name) {
-  code_object *obj = back();
-  if (obj->names != NULL) {
-    for (int i = 0; i < obj->names->len; i++) {
+  code_object *code = back_code();
+  if (code->names != NULL) {
+    for (int i = 0; i < code->names->len; i++) {
       if (/* Duplicate reference to existing name */
-          strcmp((char *)obj->names->data[i], name) == 0) {
+          strcmp((char *)code->names->data[i], name) == 0) {
         emit_top_offset(i);
         return;
       }
     }
-  } else {
-    obj->names = append_list(obj->names, name);
-    emit_top_offset(state.inf++);
   }
+  code->names = append_list(code->names, name);
+  emit_top_offset(cst.inf++);
 }
 
 /* Type */
 void emit_top_type(type *t) {
-  code_object *obj = back();
-  if (obj->types != NULL) {
-    for (int i = 0; i < obj->types->len; i++) {
-      type *x = (type *)obj->types->data[i];
+  code_object *code = back_code();
+  if (code->types != NULL) {
+    for (int i = 0; i < code->types->len; i++) {
+      type *x = (type *)code->types->data[i];
       if (/* Basic types do not need to be recreated */
           (x->kind <= 4 && t->kind <= 4) && x->kind == t->kind) {
         free(t);
@@ -134,46 +154,39 @@ void emit_top_type(type *t) {
         return;
       }
     }
-  } else {
-    obj->types = append_list(obj->types, t);
-    emit_top_offset(state.itf++);
   }
+  code->types = append_list(code->types, t);
+  emit_top_offset(cst.itf++);
 }
 
 /* Object */
 void emit_top_obj(object *obj) {
-  code_object *code = back();
+  code_object *code = back_code();
   code->objects = append_list(code->objects, obj);
-  emit_top_offset(state.iof++);
-}
-
-/* Line */
-void emit_top_line(int *line) {
-  code_object *code = back();
-  code->lines = append_list(code->lines, line);
+  emit_top_offset(cst.iof++);
 }
 
 /* Code */
-void emit_top_code(u_int8_t code) {
-  code_object *obj = back();
+void emit_top_code(u_int8_t op) {
   op_code *c = (op_code *)malloc(sizeof(u_int8_t));
-  *c = code;
-  obj->codes = append_list(obj->codes, c);
+  *c = op;
   int *l = (int *)malloc(sizeof(int));
-  *l = state.pre.line;
-  emit_top_line(l);
+  *l = cst.pre.line;
+  code_object *code = back_code();
+  code->codes = append_list(code->codes, c);
+  code->lines = append_list(code->lines, l);
 }
 
 int p = 0; /* Traversal lexical list */
 
 /* Iterator of lexical list */
 void iter() {
-  state.pre = state.cur;
-  if (p == state.tokens->len) {
+  cst.pre = cst.cur;
+  if (p == cst.tokens->len) {
     return;
   }
-  state.cur = *(token *)state.tokens->data[p++];
-  state.p = p - 2; /* Always point to the current lexical subscript */
+  cst.cur = *(token *)cst.tokens->data[p++];
+  cst.p = p - 2; /* Always point to the current lexical subscript */
 }
 
 /* Operation expression priority
@@ -207,18 +220,18 @@ rule get_rule(token_kind kind);
 void set_precedence(int prec);
 
 int get_pre_prec() {
-  return get_rule(state.pre.kind).precedence;
+  return get_rule(cst.pre.kind).precedence;
 } /* Pre */
 
 int get_cur_prec() {
-  return get_rule(state.cur.kind).precedence;
+  return get_rule(cst.cur.kind).precedence;
 } /* Cur */
 
 /* Find whether the future is an assignment operation */
 bool ass_operator() {
-  return state.cur.kind == AS_ADD || state.cur.kind == AS_SUB ||
-         state.cur.kind == AS_MUL || state.cur.kind == AS_DIV ||
-         state.cur.kind == AS_SUR;
+  return cst.cur.kind == AS_ADD || cst.cur.kind == AS_SUB ||
+         cst.cur.kind == AS_MUL || cst.cur.kind == AS_DIV ||
+         cst.cur.kind == AS_SUR;
 }
 
 /* Bytecode returned by assignment operation */
@@ -267,10 +280,10 @@ void both_iter() {
 
 /* Expected current lexical type */
 void expect_pre(token_kind kind) {
-  if (state.pre.kind != kind) {
+  if (cst.pre.kind != kind) {
     fprintf(stderr,
             "\033[1;31mcompiler %d:\033[0m unexpected '%s' but found '%s'.\n",
-            state.pre.line, token_string[kind], state.pre.literal);
+            cst.pre.line, token_string[kind], cst.pre.literal);
     exit(EXIT_FAILURE);
   } else {
     iter();
@@ -279,10 +292,10 @@ void expect_pre(token_kind kind) {
 
 /* Expected next lexical type */
 void expect_cur(token_kind kind) {
-  if (state.cur.kind != kind) {
+  if (cst.cur.kind != kind) {
     fprintf(stderr,
             "\033[1;31mcompiler %d:\033[0m unexpected '%s' but found '%s'.\n",
-            state.cur.line, token_string[kind], state.cur.literal);
+            cst.cur.line, token_string[kind], cst.cur.literal);
     exit(EXIT_FAILURE);
   } else {
     iter();
@@ -291,26 +304,26 @@ void expect_cur(token_kind kind) {
 
 /* Output debug information. */
 void debug() {
-  printf("%s %s\n", state.pre.literal, state.cur.literal);
+  printf("%s %s\n", cst.pre.literal, cst.cur.literal);
 }
 
 /* Make simple error message in compiler */
 void syntax_error() {
   fprintf(stderr, "\033[1;31mcompiler %d:\033[0m syntax error.\n",
-          state.pre.line);
+          cst.pre.line);
   exit(EXIT_FAILURE);
 }
 
 /* No block error message */
 void no_block_error() {
   fprintf(stderr, "\033[1;31mcompiler %d:\033[0m no block statement.\n",
-          state.pre.line);
+          cst.pre.line);
   exit(EXIT_FAILURE);
 }
 
 /* LITERAL */
 void literal() {
-  token tok = state.pre;
+  token tok = cst.pre;
   object *obj = (object *)malloc(sizeof(object));
 
   switch (tok.kind) {
@@ -340,13 +353,13 @@ void literal() {
 
 /* NAME: <IDENT> */
 void name() {
-  token name = state.pre;
-  if (state.cur.kind == EQ) { /* = */
+  token name = cst.pre;
+  if (cst.cur.kind == EQ) { /* = */
     both_iter();
     set_precedence(P_LOWEST);
     emit_top_code(ASSIGN_TO);
   } else if (ass_operator()) { /* += -= *= /= %= */
-    token_kind operator= state.cur.kind;
+    token_kind operator= cst.cur.kind;
     both_iter();
     set_precedence(P_LOWEST);
     emit_top_code(get_ass_code(operator));
@@ -358,7 +371,7 @@ void name() {
 
 /* UNARY: ! - */
 void unary() {
-  token_kind operator= state.pre.kind;
+  token_kind operator= cst.pre.kind;
   iter();
   set_precedence(P_UNARY);
 
@@ -370,7 +383,7 @@ void unary() {
 
 /* BINARY: + - * / % */
 void binary() {
-  token_kind operator= state.pre.kind;
+  token_kind operator= cst.pre.kind;
 
   int prec = get_pre_prec();
   iter(); /* In order to resolve the next expression */
@@ -426,14 +439,14 @@ void binary() {
 /* GROUP OR TUP: (E) */
 void group() {
   iter();
-  if (state.cur.kind == R_PAREN || state.cur.kind == COMMA) {
+  if (cst.cur.kind == R_PAREN || cst.cur.kind == COMMA) {
     /* Tuple */
     int count = 0;
-    while (state.pre.kind != R_PAREN) {
+    while (cst.pre.kind != R_PAREN) {
       set_precedence(P_LOWEST);
       count++;
       iter();
-      if (state.pre.kind == R_PAREN) {
+      if (cst.pre.kind == R_PAREN) {
         break;
       }
       expect_pre(COMMA);
@@ -442,26 +455,25 @@ void group() {
     emit_top_offset(count);
     return;
   }
-  if (state.pre.kind == R_PAREN) { /* Empty tuple */
+  if (cst.pre.kind == R_PAREN) { /* Empty tuple */
     emit_top_code(BUILD_TUP);
     emit_top_offset(0);
     return;
   }
   set_precedence(P_LOWEST); /* Group */
-  iter();
-  expect_pre(R_PAREN);
+  expect_cur(R_PAREN);
 }
 
 /* GET: X.Y */
 void get() {
   iter();
-  token name = state.pre;
-  if (state.cur.kind == EQ) { /* = */
+  token name = cst.pre;
+  if (cst.cur.kind == EQ) { /* = */
     both_iter();
     set_precedence(P_LOWEST);
     emit_top_code(SET_OF);
   } else if (ass_operator()) { /* += -= *= /= %= */
-    token_kind operator= state.cur.kind;
+    token_kind operator= cst.cur.kind;
     both_iter();
     set_precedence(P_LOWEST);
     emit_top_code(get_set_ass_code(operator));
@@ -475,11 +487,11 @@ void get() {
 void call() {
   iter();
   int count = 0;
-  while (state.pre.kind != R_PAREN) {
+  while (cst.pre.kind != R_PAREN) {
     set_precedence(P_LOWEST);
     count++;
     iter();
-    if (state.pre.kind == R_PAREN) {
+    if (cst.pre.kind == R_PAREN) {
       break;
     }
     expect_pre(COMMA);
@@ -493,12 +505,12 @@ void indexes() {
   iter();
   set_precedence(P_LOWEST);
   expect_cur(R_BRACKET);
-  if (state.cur.kind == EQ) { /* = */
+  if (cst.cur.kind == EQ) { /* = */
     both_iter();
     set_precedence(P_LOWEST);
     emit_top_code(TO_REPLACE);
   } else if (ass_operator()) { /* += -= *= /= %= */
-    token_kind operator= state.cur.kind;
+    token_kind operator= cst.cur.kind;
     both_iter();
     set_precedence(P_LOWEST);
     emit_top_code(get_rep_ass_code(operator));
@@ -511,11 +523,11 @@ void indexes() {
 void array() {
   iter();
   int count = 0;
-  while (state.pre.kind != R_BRACKET) {
+  while (cst.pre.kind != R_BRACKET) {
     set_precedence(P_LOWEST);
     count++;
     iter();
-    if (state.pre.kind == R_BRACKET) {
+    if (cst.pre.kind == R_BRACKET) {
       break;
     }
     expect_pre(COMMA);
@@ -528,14 +540,14 @@ void array() {
 void map() {
   iter();
   int count = 0;
-  while (state.pre.kind != R_BRACE) {
+  while (cst.pre.kind != R_BRACE) {
     set_precedence(P_LOWEST);
     iter();
     expect_pre(COLON);
     set_precedence(P_LOWEST);
     iter();
     count += 2;
-    if (state.pre.kind == R_BRACE) {
+    if (cst.pre.kind == R_BRACE) {
       break;
     }
     expect_pre(COMMA);
@@ -551,18 +563,18 @@ void new () {
   iter();
   expect_pre(L_BRACE);
   int count = 0;
-  while (state.pre.kind != R_BRACE) {
-    if (state.pre.kind != LITERAL) {
+  while (cst.pre.kind != R_BRACE) {
+    if (cst.pre.kind != LITERAL) {
       syntax_error();
     }
     emit_top_code(SET_NAME);
-    emit_top_name(state.pre.literal);
+    emit_top_name(cst.pre.literal);
     iter();
     expect_pre(COLON);
     set_precedence(P_LOWEST);
     iter();
     count += 2;
-    if (state.pre.kind == R_BRACE) {
+    if (cst.pre.kind == R_BRACE) {
       break;
     }
     expect_pre(COMMA);
@@ -613,17 +625,17 @@ rule get_rule(token_kind kind) {
 
 /* Principal algorithm */
 void set_precedence(int precedence) {
-  rule prefix = get_rule(state.pre.kind); /* Get prefix */
+  rule prefix = get_rule(cst.pre.kind); /* Get prefix */
   if (prefix.prefix == NULL) {
     fprintf(stderr,
             "\033[1;31mcompiler %d:\033[0m not found prefix function of token "
             "'%s'.\n",
-            state.pre.line, state.pre.literal);
+            cst.pre.line, cst.pre.literal);
     exit(EXIT_FAILURE);
   }
-  prefix.prefix();                         /* Process prefix */
-  while (precedence < get_cur_prec()) {    /* Determine future priorities */
-    rule infix = get_rule(state.cur.kind); /* Get infix */
+  prefix.prefix();                       /* Process prefix */
+  while (precedence <= get_cur_prec()) {  /* Determine future priorities */
+    rule infix = get_rule(cst.cur.kind); /* Get infix */
     if (infix.infix != NULL) {
       iter();
       infix.infix(); /* Process infix */
@@ -635,7 +647,7 @@ void set_precedence(int precedence) {
 
 /* Type system */
 type *set_type() {
-  token now = state.pre;
+  token now = cst.pre;
   type *T = (type *)malloc(sizeof(type));
   switch (now.kind) {
   case LITERAL:
@@ -678,15 +690,15 @@ type *set_type() {
     iter();
     list *arg = new_list();
     type *ret;
-    while (state.pre.kind != OR) {
+    while (cst.pre.kind != OR) {
       arg = append_list(arg, set_type());
       iter();
-      if (state.pre.kind == OR) {
+      if (cst.pre.kind == OR) {
         break;
       }
       expect_pre(COMMA);
     }
-    if (state.cur.kind == R_ARROW) {
+    if (cst.cur.kind == R_ARROW) {
       both_iter();
       ret = set_type();
     }
@@ -702,24 +714,24 @@ void block(); /* Placeholder */
 
 /* Statements */
 void stmt() {
-  switch (state.pre.kind) {
+  switch (cst.pre.kind) {
   case DEF: {
     iter();
-    token name = state.pre;
+    token name = cst.pre;
     iter();
 
     /* Judge the original offset */
-    token *tok = state.tokens->data[state.p - 1];
-    int off = state.pre.off;
+    token *tok = cst.tokens->data[cst.p - 1];
+    int off = cst.pre.off;
 
-    if (state.pre.kind == SLASH) { /* Interface */
+    if (cst.pre.kind == SLASH) { /* Interface */
       if (off <= tok->off) {
         no_block_error();
       }
 
-      object *fa = (object *)malloc(sizeof(object)); /* Object */
-      fa->kind = OBJ_FACE;
-      fa->value.face.name = name.literal;
+      object *obj = (object *)malloc(sizeof(object)); /* Object */
+      obj->kind = OBJ_FACE;
+      obj->value.face.name = name.literal;
 
       /* Face block parsing */
       while (true) {
@@ -728,36 +740,36 @@ void stmt() {
         iter(); /* Skip left slash */
 
         /* Inner elements */
-        if (state.pre.kind != SLASH) { /* Have argument */
+        if (cst.pre.kind != SLASH) { /* Have argument */
           list *arg = new_list();
 
           while (true) { /* Parsing arguments */
             arg = append_list(arg, set_type());
             iter();
-            if (state.pre.kind == SLASH) {
+            if (cst.pre.kind == SLASH) {
               break;
             }
             expect_pre(COMMA);
           }
           iter(); /* Skip right slash */
 
-          m->name = state.pre.literal;
+          m->name = cst.pre.literal;
           m->T = arg;
         } else { /* No argument */
           iter();
-          m->name = state.pre.literal;
+          m->name = cst.pre.literal;
           m->T = new_list();
         }
 
-        if (state.cur.kind == R_ARROW) { /* Method return */
+        if (cst.cur.kind == R_ARROW) { /* Method return */
           both_iter();
           m->ret = set_type();
         }
 
-        fa->value.face.element = /* Method elements in faces */
-            append_list(fa->value.face.element, m);
+        obj->value.face.element = /* Method elements in faces */
+            append_list(obj->value.face.element, m);
 
-        if (state.cur.off == off) { /* To next statemt in block */
+        if (cst.cur.off == off) { /* To next statemt in block */
           iter();
         } else {
           break;
@@ -765,19 +777,19 @@ void stmt() {
       }
       /* Bytecode */
       emit_top_code(LOAD_FACE);
-      emit_top_obj(fa);
+      emit_top_obj(obj);
     } else if (name.kind == L_PAREN) { /* Function */
       list *K = new_list();            /* Argument name */
       list *V = new_list();            /* Argument type */
 
-      if (state.pre.kind != R_PAREN) { /* Arguments */
+      if (cst.pre.kind != R_PAREN) { /* Arguments */
         while (true) {
-          if (state.cur.kind == R_PAREN) {
+          if (cst.cur.kind == R_PAREN) {
             break;
           }
 
-          K = append_list(K, state.pre.literal); /* Name */
-          if (state.cur.kind != COMMA) {         /* And type */
+          K = append_list(K, cst.pre.literal); /* Name */
+          if (cst.cur.kind != COMMA) {         /* And type */
             iter();
             type *T = set_type(); /* Type */
             iter();
@@ -786,7 +798,7 @@ void stmt() {
             while (K->len != V->len) {
               V = append_list(V, T); /* One-on-one */
             }
-            if (state.pre.kind == R_PAREN) {
+            if (cst.pre.kind == R_PAREN) {
               break;
             }
             expect_pre(COMMA);
@@ -796,18 +808,18 @@ void stmt() {
         }
       }
 
-      object *func = (object *)malloc(sizeof(object)); /* Object */
-      func->kind = OBJ_FUNC;
-      func->value.func.k = K; /* Argument name */
-      func->value.func.v = V; /* Argument type */
+      object *fn = (object *)malloc(sizeof(object)); /* Object */
+      fn->kind = OBJ_FUNC;
+      fn->value.func.k = K; /* Argument name */
+      fn->value.func.v = V; /* Argument type */
 
       iter();
-      token name = state.pre; /* Function name */
+      token name = cst.pre; /* Function name */
       iter();
 
-      if (state.pre.kind == R_ARROW) { /* Function return */
+      if (cst.pre.kind == R_ARROW) { /* Function return */
         iter();
-        func->value.func.ret = set_type();
+        fn->value.func.ret = set_type();
         iter();
       }
 
@@ -822,17 +834,16 @@ void stmt() {
       block();              /* Function body */
 
       /* Reset status */
-      reset_state(&state, up_state);
+      reset_state(&cst, up_state);
 
-      code_object *ptr =
-          (code_object *)pop_back_list(state.codes); /* Pop back */
-      func->value.func.code = ptr;
-      func->value.func.name = ptr->description;
+      code_object *ptr = (code_object *)pop_back_list(cst.codes); /* Pop back */
+      fn->value.func.code = ptr;
+      fn->value.func.name = ptr->description;
 
       /* Bytecode */
       emit_top_code(LOAD_FUNC);
-      emit_top_obj(func);
-    } else if (state.pre.kind == DEF) {        /* Whole */
+      emit_top_obj(fn);
+    } else if (cst.pre.kind == DEF) {          /* Whole */
       compile_state up_state = backup_state(); /* Current state */
       clear_state();                           /* New state */
 
@@ -841,10 +852,9 @@ void stmt() {
       push_code_list(code); /* Code */
       block();              /* Body */
 
-      reset_state(&state, up_state); /* State */
+      reset_state(&cst, up_state); /* State */
 
-      code_object *ptr =
-          (code_object *)pop_back_list(state.codes); /* Pop back */
+      code_object *ptr = (code_object *)pop_back_list(cst.codes); /* Pop back */
       /* Object */
       object *wh = (object *)malloc(sizeof(object));
       wh->kind = OBJ_WHOLE;
@@ -859,7 +869,7 @@ void stmt() {
       iter();
 
       /* Variable: def <name> <type> = <stmt> */
-      if (state.pre.kind == EQ) {
+      if (cst.pre.kind == EQ) {
         iter();
         set_precedence(P_LOWEST); /* expression */
 
@@ -879,8 +889,8 @@ void stmt() {
         free(T);
         /* Enums */
         while (true) {
-          elem = append_list(elem, (char *)state.pre.literal);
-          if (state.cur.off == off) {
+          elem = append_list(elem, (char *)cst.pre.literal);
+          if (cst.cur.off == off) {
             iter();
           } else {
             break;
@@ -904,14 +914,14 @@ void stmt() {
     iter();
 
     emit_top_code(F_JUMP_TO);
-    int if_p = *get_top_offset_p(); /* TO: F_JUMP_TO */
-    block();                        /* if body */
+    int16_t if_p = *get_top_offset_p(); /* TO: F_JUMP_TO */
+    block();                            /* if body */
 
     /* Used to cache JUMP_TO where the bytecode is inserted */
     list *p = new_list();
 
     /* Conditional fetching is used to jump out of conditional statements */
-    if (state.cur.kind == EF || state.cur.kind == NF) {
+    if (cst.cur.kind == EF || cst.cur.kind == NF) {
       p = append_list(p, get_top_offset_p());
       emit_top_code(JUMP_TO);
     }
@@ -919,18 +929,18 @@ void stmt() {
     insert_top_offset(if_p, get_top_code_len());
 
     /* ef nodes */
-    while (state.cur.kind == EF) {
+    while (cst.cur.kind == EF) {
       both_iter();
       set_precedence(P_LOWEST); /* ef condition */
       iter();
 
       emit_top_code(F_JUMP_TO);
-      int ef_p = *get_top_offset_p(); /* TO: F_JUMP_TO */
-      block();                        /* ef body */
+      int16_t ef_p = *get_top_offset_p(); /* TO: F_JUMP_TO */
+      block();                            /* ef body */
 
       /* Jump out the statements */
-      if (state.cur.kind == EF || state.cur.kind == NF) {
-        int *f = get_top_offset_p();
+      if (cst.cur.kind == EF || cst.cur.kind == NF) {
+        int16_t *f = get_top_offset_p();
         *f += 1; /* The ef node has not yet inserted an offset,
         so a placeholder is added here. */
         p = append_list(p, f);
@@ -941,7 +951,7 @@ void stmt() {
     }
 
     /* nf node, direct resolution */
-    if (state.cur.kind == NF) {
+    if (cst.cur.kind == NF) {
       both_iter();
       block(); /* nf body */
     }
@@ -955,17 +965,17 @@ void stmt() {
     break;
   }
   case AOP: {
-    state.loop_handler = true;
+    cst.loop = true;
     iter();
 
     /* Expression position for loop return */
     int begin_p = get_top_code_len();
-    if (state.pre.kind != R_ARROW) {
+    if (cst.pre.kind != R_ARROW) {
       set_precedence(P_LOWEST); /* Condition */
       iter();
 
       emit_top_code(F_JUMP_TO);
-      int expr_p = *get_top_offset_p();
+      int16_t expr_p = *get_top_offset_p();
 
       block(); /* Loop block */
 
@@ -986,7 +996,7 @@ void stmt() {
     break;
   }
   case FOR: {
-    state.loop_handler = true;
+    cst.loop = true;
     iter();
 
     stmt(); /* Initial */
@@ -999,10 +1009,10 @@ void stmt() {
     iter();
     expect_pre(SEMICOLON);
     emit_top_code(F_JUMP_TO);
-    int expr_p = *get_top_offset_p();
+    int16_t expr_p = *get_top_offset_p();
 
     emit_top_code(JUMP_TO);
-    int body_p = *get_top_offset_p();
+    int16_t body_p = *get_top_offset_p();
 
     int update_p = get_top_code_len(); /* Bytecode pos */
     /* Expression update */
@@ -1026,15 +1036,15 @@ void stmt() {
   }
   case OUT:
   case GO:
-    if (!state.loop_handler) {
+    if (!cst.loop) {
       fprintf(stderr, "\033[1;31mcompiler %d:\033[0m Loop control \
 statement cannot be used outside loop.\n",
-              state.pre.line);
+              cst.pre.line);
       exit(EXIT_FAILURE);
     }
-    token_kind kind = state.pre.kind;
+    token_kind kind = cst.pre.kind;
     iter();
-    if (state.pre.kind == R_ARROW) {
+    if (cst.pre.kind == R_ARROW) {
       emit_top_code(JUMP_TO); /* No condition */
     } else {
       set_precedence(P_LOWEST);
@@ -1045,7 +1055,7 @@ statement cannot be used outside loop.\n",
     break;
   case RET:
     iter();
-    if (state.pre.kind == R_ARROW) {
+    if (cst.pre.kind == R_ARROW) {
       emit_top_code(TO_RET);
     } else {
       stmt();
@@ -1053,12 +1063,12 @@ statement cannot be used outside loop.\n",
     }
     break;
   case USE: {
-    token_kind kind = state.pre.kind;
+    token_kind kind = cst.pre.kind;
     iter();
-    if (state.pre.kind != LITERAL) {
+    if (cst.pre.kind != LITERAL) {
       syntax_error();
     }
-    emit_top_name(state.pre.literal);
+    emit_top_name(cst.pre.literal);
     emit_top_code(USE_MOD);
     break;
   }
@@ -1069,15 +1079,15 @@ statement cannot be used outside loop.\n",
 
 /* Compile block statement of the same level */
 void block() {
-  token *tok = (token *)state.tokens->data[state.p - 1];
-  int off = state.pre.off;
+  token *tok = (token *)cst.tokens->data[cst.p - 1];
+  int off = cst.pre.off;
   /* Block */
-  if (off <= tok->off) {
+  if (off < tok->off) {
     no_block_error();
   }
   while (true) {
-    stmt();                     /* Single statement */
-    if (state.cur.off == off) { /* Loop compilation multiple statements */
+    stmt();                   /* Single statement */
+    if (cst.cur.off == off) { /* Loop compilation multiple statements */
       iter();
     } else {
       break;
@@ -1086,12 +1096,12 @@ void block() {
 }
 
 /* Compiler */
-list *compile(list *t) {
+extern list *compile(list *t) {
   p = 0; /* Set state */
 
-  state.tokens = t;
-  state.codes = NULL;
-  state.p = 0;
+  cst.tokens = t;
+  cst.codes = NULL;
+  cst.p = 0;
   clear_state();
 
   both_iter();
@@ -1100,18 +1110,18 @@ list *compile(list *t) {
   code_object *code = new_code("main");
   push_code_list(code);
 
-  while (state.pre.kind != EOH) {
+  while (cst.pre.kind != EOH) {
     stmt();
     iter();
-    state.loop_handler = false;
+    cst.loop = false;
   }
 
   emit_top_code(TO_RET); /* End compile */
-  return state.codes;
+  return cst.codes;
 }
 
 /* Detailed information */
-void dissemble(code_object *code) {
+extern void dissemble(code_object *code) {
   printf("<%s>: %d code, %d name, %d type, %d object, %d offset\n",
          code->description, code->codes == NULL ? 0 : code->codes->len,
          code->names == NULL ? 0 : code->names->len,

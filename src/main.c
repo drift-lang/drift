@@ -3,7 +3,7 @@
  * 	- https://drift-lang.fun/
  *
  * GPL v3 License - bingxio <bingxio@qq.com> */
-#include "compiler.h"
+#include "token.h"
 #include "vm.h"
 
 #define COMPILER_VERSION "Drift 0.0.1 (MADE AT Jul 2021 29, 15:40:45)"
@@ -14,6 +14,8 @@ bool show_bytes;
 bool show_tb;
 
 extern list *lexer(const char *, int);
+extern list *compile(list *);
+extern void dissemble(code_object *);
 
 /* Run source code */
 void run(char *source, int fsize, char *filename) {
@@ -23,8 +25,8 @@ void run(char *source, int fsize, char *filename) {
   if (show_tokens) {
     for (int i = 0; i < tokens->len; i++) {
       token *t = tokens->data[i];
-      printf("[%3d]\t%-5d %-20s %-20d %d\n", i, t->kind, t->literal, t->line,
-             t->off);
+      printf("[%3d]\t%-5d %-5d %-5d %-30s\n", i, t->kind, t->line, t->off,
+             t->literal);
     }
   }
 
@@ -92,10 +94,10 @@ int main(int argc, char **argv) {
 
   fseek(fp, 0, SEEK_END);
   int fsize = ftell(fp); /* Returns the size of file */
-  fseek(fp, 0, SEEK_SET);
-  char *buf = (char *)malloc(fsize * sizeof(char));
+  rewind(fp);
+  char *buf = (char *)malloc(fsize + 1);
 
-  fread(buf, fsize, sizeof(char), fp); /* Read file to buffer*/
+  fread(buf, sizeof(char), fsize, fp); /* Read file to buffer*/
   buf[fsize] = '\0';
 
   run(buf, fsize, get_filename(path));

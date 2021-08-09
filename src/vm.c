@@ -5,8 +5,11 @@
  * GPL v3 License - bingxio <bingxio@qq.com> */
 #include "vm.h"
 
+extern list *lexer(const char *, int);
+extern list *compile(list *);
+
 /* Virtual machine state */
-vm_state state;
+vm_state vst;
 
 /* Create a frame object */
 frame *new_frame(code_object *code) {
@@ -23,47 +26,47 @@ void free_frame(frame *f) {
 }
 
 /* Return font frame object */
-frame *top_frame() {
-  return back_list(state.frame);
+frame *back_frame() {
+  return back_list(vst.frame);
 }
 
 /* Return main frame object */
 frame *main_frame() {
-  return (frame *)state.frame->data[0];
+  return (frame *)vst.frame->data[0];
 }
 
 /* Return code object of front frame */
 code_object *top_code() {
-  frame *f = top_frame();
+  frame *f = back_frame();
   return f->code;
 }
 
 /* Return data stack of front frame */
 list *top_data() {
-  frame *f = top_frame();
+  frame *f = back_frame();
   return f->data;
 }
 
 /* Push data stack */
-#define PUSH(obj)     top_frame()->data = append_list(top_frame()->data, obj)
+#define PUSH(obj)     back_frame()->data = append_list(back_frame()->data, obj)
 
 /* Pop data stack */
-#define POP()         (object *)pop_back_list(top_frame()->data)
+#define POP()         (object *)pop_back_list(back_frame()->data)
 
-#define GET_OFF()     *(int16_t *)top_code()->offsets->data[state.op++]
+#define GET_OFF()     *(int16_t *)top_code()->offsets->data[vst.op++]
 
 /* Data acquisition of code object */
 #define GET_NAME()    (char *)top_code()->names->data[GET_OFF()]
 #define GET_TYPE()    (type *)top_code()->types->data[GET_OFF()]
 #define GET_OBJ()     (object *)top_code()->objects->data[GET_OFF()]
 
-#define GET_LINE()    *(int *)top_code()->lines->data[state.ip]
-#define GET_CODE()    *(u_int8_t *)top_code()->codes->data[state.ip]
+#define GET_LINE()    *(int *)top_code()->lines->data[vst.ip]
+#define GET_CODE()    *(u_int8_t *)top_code()->codes->data[vst.ip]
 
-#define GET_PR_CODE() *(u_int8_t *)top_code()->codes->data[state.ip - 2]
+#define GET_PR_CODE() *(u_int8_t *)top_code()->codes->data[vst.ip - 2]
 #define GET_PR_OBJ() \
   (object *)top_code() \
-      ->objects->data[(*(int16_t *)top_code()->offsets->data[state.op - 1])]
+      ->objects->data[(*(int16_t *)top_code()->offsets->data[vst.op - 1])]
 
 /* Undefined error */
 void undefined_error(char *name) {
@@ -80,9 +83,9 @@ void type_error(type *T, object *obj) {
 }
 
 /* Operand error */
-void unsupport_operand_error(const char *code) {
+void unsupport_operand_error(const char *op) {
   fprintf(stderr, "\033[1;31mvm %d:\033[0m unsupport operand to '%s'.\n",
-          GET_LINE(), code);
+          GET_LINE(), op);
   exit(EXIT_FAILURE);
 }
 
@@ -140,6 +143,7 @@ void s_sleep(frame *f, list *arg) {
 #elif defined(_WIN32)
   Sleep(obj->value.integer);
 #endif
+  free(obj);
 }
 
 /* Builtin function list */
@@ -172,14 +176,14 @@ object *get_builtin(char *name) {
 /* Jumps to the specified bytecode position and
    moves the offset */
 void jump(int16_t to) {
-  state.op--; /* Step back the offset of the current jump */
-  bool reverse = state.ip > to;
+  vst.op--; /* Step back the offset of the current jump */
+  bool reverse = vst.ip > to;
   if (reverse) {
     /* Inversion skip the jump bytecode */
-    state.ip--;
+    vst.ip--;
   }
-  while (reverse ? state.ip >= to : /* Condition */
-             state.ip < to) {
+  while (reverse ? vst.ip >= to : /* Condition */
+             vst.ip < to) {
     switch (GET_CODE()) {
     case CONST_OF:
     case LOAD_OF:
@@ -209,28 +213,28 @@ void jump(int16_t to) {
     case T_JUMP_TO:
     case F_JUMP_TO:
       /* These bytecodes contain a parameter */
-      reverse ? state.op-- : state.op++;
+      reverse ? vst.op-- : vst.op++;
       break;
     case STORE_NAME: /* Two parameter */
       if (reverse)
-        state.op -= 2;
+        vst.op -= 2;
       else
-        state.op += 2;
+        vst.op += 2;
       break;
     }
     reverse ? /* Set bytecode position */
-        state.ip--
-            : state.ip++;
+        vst.ip--
+            : vst.ip++;
   }
   if (!reverse) { /* Loop update */
-    state.ip--;
+    vst.ip--;
   }
 }
 
 /* Find object in overlay frames */
 void *lookup(char *name) {
-  for (int i = state.frame->len - 1; i >= 0; i--) {
-    frame *f = (frame *)state.frame->data[i];
+  for (int i = vst.frame->len - 1; i >= 0; i--) {
+    frame *f = (frame *)vst.frame->data[i];
     void *ptr = get_table(f->tb, name);
     if (ptr != NULL) {
       return ptr;
@@ -250,8 +254,8 @@ void load_module(char *); /* Load module by name */
 
 /* Evaluate */
 void eval() {
-  while (state.ip < top_code()->codes->len) { /* Traversal bytecode list */
-    u_int8_t code = GET_CODE();               /* Bytecode */
+  while (vst.ip < top_code()->codes->len) { /* Traversal bytecode list */
+    u_int8_t code = GET_CODE();             /* Bytecode */
     switch (code) {
     case CONST_OF: { /* J */
       object *obj = GET_OBJ();
@@ -278,15 +282,15 @@ void eval() {
       object *new = (object *)malloc(sizeof(object));
       memcpy(new, obj, sizeof(object));
       /* Add to current table */
-      add_table(top_frame()->tb, name, new);
+      add_table(back_frame()->tb, name, new);
       break;
     }
     case LOAD_OF: { /* N */
       char *name = GET_NAME();
       void *resu = lookup(name); /* Lookup frames */
       if (resu == NULL) {
-        if (state.whole != NULL && state.frame->len > 1) {
-          frame *f = (frame *)state.whole->value.whole.fr;
+        if (vst.whole != NULL && vst.frame->len > 1) {
+          frame *f = (frame *)vst.whole->value.whole.fr;
           resu = get_table(f->tb, name); /* Set to whole frame */
           if (resu == NULL)
             resu = get_builtin(name);
@@ -305,7 +309,7 @@ void eval() {
     case ASSIGN_TO: { /* N */
       char *name = GET_NAME();
       object *obj = POP();
-      void *p = get_table(top_frame()->tb, name);
+      void *p = get_table(back_frame()->tb, name);
       if (p == NULL) { /* Get */
         undefined_error(name);
       }
@@ -356,7 +360,7 @@ void eval() {
         break;
       }
       /* Update the content of the table */
-      add_table(top_frame()->tb, name, obj);
+      add_table(back_frame()->tb, name, obj);
       break;
     }
     case TO_ADD:
@@ -388,7 +392,7 @@ void eval() {
     case ASS_SUR: { /* N */
       char *name = GET_NAME();
       object *obj = POP();
-      void *p = get_table(top_frame()->tb, name);
+      void *p = get_table(back_frame()->tb, name);
       if (p == NULL) {
         undefined_error(name); /* Get name */
       }
@@ -409,7 +413,7 @@ void eval() {
         unsupport_operand_error(code_string[code]);
       }
       /* Update */
-      add_table(top_frame()->tb, name, (object *)r);
+      add_table(back_frame()->tb, name, (object *)r);
       break;
     }
     case BUILD_ARR: { /* F */
@@ -646,11 +650,13 @@ void eval() {
       object *new = (object *)malloc(sizeof(object)); /* Alloc new */
       if (obj->kind == OBJ_INT) {
         new->value.integer = -obj->value.integer;
+        new->kind = OBJ_INT;
         PUSH(new);
         break;
       }
       if (obj->kind == OBJ_FLOAT) {
         new->value.floating = -obj->value.floating;
+        new->kind = OBJ_FLOAT;
         PUSH(new);
         break;
       }
@@ -677,14 +683,14 @@ void eval() {
     }
     case LOAD_FUNC: { /* J */
       object *obj = GET_OBJ();
-      add_table(top_frame()->tb, obj->value.func.name, obj); /* Func */
+      add_table(back_frame()->tb, obj->value.func.name, obj); /* Func */
       break;
     }
     case CALL_FUNC: { /* F */
       int16_t off = GET_OFF();
       list *arg = new_list();
       while (off > 0) { /* Skip function object */
-        if (top_frame()->data->len - 1 <= 0) {
+        if (back_frame()->data->len - 1 <= 0) {
           simple_error("stack data error");
         }
         append_list(arg, POP());
@@ -694,7 +700,7 @@ void eval() {
       object *fn = POP(); /* Function */
       for (int i = 0; i < sizeof(bts) / sizeof(bts[0]); i++) {
         if (strcmp(bts[i].name, fn->value.func.name) == 0) {
-          bts[i].func(top_frame(), arg); /* Call builtin function */
+          bts[i].func(back_frame(), arg); /* Call builtin function */
           goto next;
         }
       }
@@ -724,15 +730,15 @@ void eval() {
       }
 
       /* Backup pointer */
-      int16_t op_up = state.op;
-      int16_t ip_up = state.ip;
+      int16_t op_up = vst.op;
+      int16_t ip_up = vst.ip;
 
-      state.op = 0; /* Clear */
-      state.ip = 0;
-      state.frame = append_list(state.frame, f);
+      vst.op = 0; /* Clear */
+      vst.ip = 0;
+      vst.frame = append_list(vst.frame, f);
       eval();
 
-      frame *p = (frame *)pop_back_list(state.frame); /* Evaluated */
+      frame *p = (frame *)pop_back_list(vst.frame); /* Evaluated */
 
       /* Function return */
       if (fn->value.func.ret != NULL) {
@@ -748,18 +754,18 @@ void eval() {
       free_list(p->data);
       free_table(p->tb);
 
-      state.op = op_up; /* Reset pointer to main */
-      state.ip = ip_up;
+      vst.op = op_up; /* Reset pointer to main */
+      vst.ip = ip_up;
       break;
     }
     case LOAD_FACE: { /* J */
       object *obj = GET_OBJ();
-      add_table(top_frame()->tb, obj->value.face.name, obj); /* Face */
+      add_table(back_frame()->tb, obj->value.face.name, obj); /* Face */
       break;
     }
     case LOAD_ENUM: { /* J */
       object *obj = GET_OBJ();
-      add_table(top_frame()->tb, obj->value.enumeration.name, obj); /* Enum */
+      add_table(back_frame()->tb, obj->value.enumeration.name, obj); /* Enum */
       break;
     }
     case GET_OF: { /* N */
@@ -794,7 +800,7 @@ void eval() {
         if (ptr == NULL) {
           simple_error("nonexistent member");
         }
-        state.whole = obj; /* Record the whole that is currently invoke */
+        vst.whole = obj; /* Record the whole that is currently invoke */
         PUSH((object *)ptr);
       }
       if (obj->kind == OBJ_TUP) { /* Tuple */
@@ -825,7 +831,7 @@ void eval() {
           if (strcmp(m->name, name) == 0) {
             object *wh = (object *)obj->value.face.whole; /* Get whole object */
             frame *fr = (frame *)wh->value.whole.fr; /* Get frame in whole */
-            state.whole = wh;
+            vst.whole = wh;
             PUSH((object *)get_table(fr->tb, name));
             goto next;
           }
@@ -869,7 +875,7 @@ void eval() {
     }
     case LOAD_WHOLE: { /* J */
       object *obj = GET_OBJ();
-      add_table(top_frame()->tb, obj->value.whole.name, obj); /* Whole */
+      add_table(back_frame()->tb, obj->value.whole.name, obj); /* Whole */
       break;
     }
     case NEW_OBJ: { /* N F*/
@@ -895,18 +901,18 @@ void eval() {
       /* Evaluate frame of whole */
       new->value.whole.fr = (struct frame *)new_frame(obj->value.whole.code);
       /* Backup pointer */
-      int16_t op_up = state.op;
-      int16_t ip_up = state.ip;
+      int16_t op_up = vst.op;
+      int16_t ip_up = vst.ip;
 
-      state.op = 0;
-      state.ip = 0;
-      state.frame = append_list(state.frame, new->value.whole.fr);
+      vst.op = 0;
+      vst.ip = 0;
+      vst.frame = append_list(vst.frame, new->value.whole.fr);
       eval(); /* Evaluate */
 
-      pop_back_list(state.frame); /* Pop */
+      pop_back_list(vst.frame); /* Pop */
 
-      state.op = op_up; /* Reset pointer */
-      state.ip = ip_up;
+      vst.op = op_up; /* Reset pointer */
+      vst.ip = ip_up;
 
       frame *f = (frame *)new->value.whole.fr;
 
@@ -972,14 +978,14 @@ void eval() {
       break;
     }
     case TO_RET:
-    case RET_OF: {                              /* x */
-      state.ip = top_frame()->code->codes->len; /* Catch */
-      state.loop_ret = true;
+    case RET_OF: {                             /* x */
+      vst.ip = back_frame()->code->codes->len; /* Catch */
+      vst.loop_ret = true;
       if (code == RET_OF) { /* Return value */
         if (GET_PR_CODE() == LOAD_FUNC) {
-          top_frame()->ret = GET_PR_OBJ(); /* Grammar sugar */
+          back_frame()->ret = GET_PR_OBJ(); /* Grammar sugar */
         } else {
-          top_frame()->ret = POP();
+          back_frame()->ret = POP();
         }
       }
       break;
@@ -994,25 +1000,25 @@ void eval() {
     }
     }
   next:
-    state.ip++; /* IP */
+    vst.ip++; /* IP */
   }
 }
 
 /* Eval */
 vm_state evaluate(code_object *code, char *filename) {
   /* Set virtual machine state */
-  state.frame = new_list();
-  state.ip = 0;
-  state.op = 0;
-  state.filename = filename;
-  state.whole = NULL;
+  vst.frame = new_list();
+  vst.ip = 0;
+  vst.op = 0;
+  vst.filename = filename;
+  vst.whole = NULL;
 
   /* main frame */
   frame *main = new_frame(code);
-  state.frame = append_list(state.frame, main);
+  vst.frame = append_list(vst.frame, main);
 
   eval(); /* GO */
-  return state;
+  return vst;
 }
 
 /* Returns the file name of path string */
@@ -1055,7 +1061,7 @@ list *read_path(const char *path) {
     }
     if (p->d_type == 8) { /* File */
       char *name = p->d_name;
-      if (strcmp(state.filename, name) == 0) {
+      if (strcmp(vst.filename, name) == 0) {
         continue;
       }
       int len = strlen(name) - 1;
@@ -1066,8 +1072,6 @@ list *read_path(const char *path) {
   }
   return pl;
 }
-
-extern list *lexer(const char *, int);
 
 /* Evaluate loaded module and set into the table items */
 void load_eval(const char *path, char *name) {
@@ -1085,9 +1089,9 @@ void load_eval(const char *path, char *name) {
   fread(buf, fsize, sizeof(char), fp); /* Read file to buffer*/
   buf[fsize] = '\0';
 
-  int16_t ip_up = state.ip; /* Backup state */
-  int16_t op_up = state.op;
-  list *fr_up = state.frame;
+  int16_t ip_up = vst.ip; /* Backup state */
+  int16_t op_up = vst.op;
+  list *fr_up = vst.frame;
 
   list *tokens = lexer(buf, fsize); /* To evaluate */
   list *codes = compile(tokens);
@@ -1100,11 +1104,11 @@ void load_eval(const char *path, char *name) {
   obj->kind = OBJ_MODULE;
   obj->value.mod.tb = (struct table *)tb;
 
-  state.ip = ip_up; /* Reset state */
-  state.op = op_up;
-  state.frame = fr_up;
+  vst.ip = ip_up; /* Reset state */
+  vst.op = op_up;
+  vst.frame = fr_up;
 
-  add_table(top_frame()->tb, name, obj); /* Module object*/
+  add_table(back_frame()->tb, name, obj); /* Module object*/
 
   free(buf);
   free_list(tokens);
@@ -1114,10 +1118,10 @@ void load_eval(const char *path, char *name) {
 /* Load module by name */
 void load_module(char *name) {
   int i = 0;
-  if (filename_eq(state.filename, name)) {
+  if (filename_eq(vst.filename, name)) {
     simple_error("cannot reference itself"); /* Current file */
   }
-  void *path = getenv("FT_PATH");
+  void *path = getenv("FTPATH");
   if (path != NULL) {
     /* Standard library */
     list *pl = read_path((char *)path);
@@ -1125,7 +1129,7 @@ void load_module(char *name) {
     /* Current path */
     list *pl = read_path(".");
     for (; i < pl->len; i++) {
-      if (filename_eq(state.filename, name)) {
+      if (filename_eq(vst.filename, name)) {
         continue;
       }
       char *pname = (char *)pl->data[i];
