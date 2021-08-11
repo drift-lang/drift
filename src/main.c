@@ -43,10 +43,7 @@ void run(char *source, int fsize, char *filename) {
     dissemble_table(main->tb, main->code->description);
   }
 
-  free(source); /* Release memory */
-  free_list(tokens);
   free_list(codes);
-
   free(state.filename);
 }
 
@@ -81,13 +78,12 @@ int main(int argc, char **argv) {
   const char *path = argc == 3 ? argv[2] : argv[1];
   int len = strlen(path) - 1;
   if (path[len] != 't' || path[len - 1] != 'f' || path[len - 2] != '.') {
-    fprintf(stderr, "\033[1;31merror:\033[0m please load the source file with "
-                    ".ft sufix.\n");
+    fprintf(stderr, "\033[1;31merror:\033[0m no input file.\n");
     exit(EXIT_FAILURE);
   }
   FILE *fp = fopen(path, "r"); /* Open file of path */
   if (fp == NULL) {
-    printf("\033[1;31merror:\033[0m failed to read buffer of file: %s.\n",
+    printf("\033[1;31merror:\033[0m failed to read buffer of file: '%s'\n",
            path);
     exit(EXIT_FAILURE);
   }

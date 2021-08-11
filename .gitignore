@@ -8,3 +8,4 @@ os.ft
 .clang-format
 *.json
 node_modules
+gcc

@@ -14,16 +14,16 @@
 
 /* Type system */
 typedef enum {
-  T_INT,    // int
-  T_FLOAT,  // float
-  T_CHAR,   // char
-  T_STRING, // string
-  T_BOOL,   // bool
-  T_ARRAY,  // []T
-  T_TUPLE,  // ()T
-  T_MAP,    // {}<T1, T2>
-  T_FUNC,   // |[]T| -> T
-  T_USER,   // ?
+  T_INT,      // int
+  T_FLOAT,    // float
+  T_CHAR,     // char
+  T_STRING,   // string
+  T_BOOL,     // bool
+  T_ARRAY,    // []T
+  T_TUPLE,    // ()T
+  T_MAP,      // {}<T1, T2>
+  T_FUNCTION, // |[]T| -> T
+  T_USER,     // ?
 } type_kind;
 
 /*
@@ -43,7 +43,7 @@ typedef struct {
     struct {
       list *arg;        /* Function arguments */
       struct type *ret; /* Function returns */
-    } func;
+    } fn;
     struct {
       struct type *T1;
       struct type *T2;

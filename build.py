@@ -2,7 +2,7 @@
 import os
 
 # Modify it to your GCC command
-GCC = 'gcc-11'
+GCC = 'gcc'
 
 list = []
 path = './src/'

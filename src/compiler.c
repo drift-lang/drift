@@ -634,7 +634,7 @@ void set_precedence(int precedence) {
     exit(EXIT_FAILURE);
   }
   prefix.prefix();                       /* Process prefix */
-  while (precedence <= get_cur_prec()) {  /* Determine future priorities */
+  while (precedence <= get_cur_prec()) { /* Determine future priorities */
     rule infix = get_rule(cst.cur.kind); /* Get infix */
     if (infix.infix != NULL) {
       iter();
@@ -702,9 +702,9 @@ type *set_type() {
       both_iter();
       ret = set_type();
     }
-    T->kind = T_FUNC;
-    T->inner.func.arg = arg;
-    T->inner.func.ret = (struct type *)ret;
+    T->kind = T_FUNCTION;
+    T->inner.fn.arg = arg;
+    T->inner.fn.ret = (struct type *)ret;
     break;
   }
   return T;
@@ -730,8 +730,8 @@ void stmt() {
       }
 
       object *obj = (object *)malloc(sizeof(object)); /* Object */
-      obj->kind = OBJ_FACE;
-      obj->value.face.name = name.literal;
+      obj->kind = OBJ_INTERFACE;
+      obj->value.in.name = name.literal;
 
       /* Face block parsing */
       while (true) {
@@ -766,8 +766,8 @@ void stmt() {
           m->ret = set_type();
         }
 
-        obj->value.face.element = /* Method elements in faces */
-            append_list(obj->value.face.element, m);
+        obj->value.in.element = /* Method elements in faces */
+            append_list(obj->value.in.element, m);
 
         if (cst.cur.off == off) { /* To next statemt in block */
           iter();
@@ -809,9 +809,9 @@ void stmt() {
       }
 
       object *fn = (object *)malloc(sizeof(object)); /* Object */
-      fn->kind = OBJ_FUNC;
-      fn->value.func.k = K; /* Argument name */
-      fn->value.func.v = V; /* Argument type */
+      fn->kind = OBJ_FUNCTION;
+      fn->value.fn.k = K; /* Argument name */
+      fn->value.fn.v = V; /* Argument type */
 
       iter();
       token name = cst.pre; /* Function name */
@@ -819,7 +819,7 @@ void stmt() {
 
       if (cst.pre.kind == R_ARROW) { /* Function return */
         iter();
-        fn->value.func.ret = set_type();
+        fn->value.fn.ret = set_type();
         iter();
       }
 
@@ -837,8 +837,8 @@ void stmt() {
       reset_state(&cst, up_state);
 
       code_object *ptr = (code_object *)pop_back_list(cst.codes); /* Pop back */
-      fn->value.func.code = ptr;
-      fn->value.func.name = ptr->description;
+      fn->value.fn.code = ptr;
+      fn->value.fn.name = ptr->description;
 
       /* Bytecode */
       emit_top_code(LOAD_FUNC);
@@ -857,9 +857,9 @@ void stmt() {
       code_object *ptr = (code_object *)pop_back_list(cst.codes); /* Pop back */
       /* Object */
       object *wh = (object *)malloc(sizeof(object));
-      wh->kind = OBJ_WHOLE;
-      wh->value.whole.name = ptr->description;
-      wh->value.whole.code = ptr;
+      wh->kind = OBJ_CLASS;
+      wh->value.cl.name = ptr->description;
+      wh->value.cl.code = ptr;
 
       /* Bytecode */
       emit_top_code(LOAD_WHOLE);
@@ -898,9 +898,9 @@ void stmt() {
         }
         /* Enum object */
         object *en = (object *)malloc(sizeof(object));
-        en->kind = OBJ_ENUM;
-        en->value.enumeration.name = name.literal;
-        en->value.enumeration.element = elem;
+        en->kind = OBJ_ENUMERATE;
+        en->value.en.name = name.literal;
+        en->value.en.element = elem;
         /* Bytecode */
         emit_top_code(LOAD_ENUM);
         emit_top_obj(en);
@@ -1214,14 +1214,14 @@ extern void dissemble(code_object *code) {
     for (int i = 0; i < code->objects->len; i++) {
       object *obj = (object *)code->objects->data[i];
       /* Dissemble code object */
-      if (obj->kind == OBJ_FUNC) {
+      if (obj->kind == OBJ_FUNCTION) {
         /* printf("[Func %s]: %d arg, %s ret\n",
             obj->value.func.name,
             obj->value.func.k->len,
             type_string(obj->value.func.ret)); */
-        dissemble(obj->value.func.code);
-      } else if (obj->kind == OBJ_WHOLE) {
-        dissemble(obj->value.whole.code);
+        dissemble(obj->value.fn.code);
+      } else if (obj->kind == OBJ_CLASS) {
+        dissemble(obj->value.cl.code);
       }
     }
   }

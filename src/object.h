@@ -21,10 +21,10 @@ typedef enum {
   OBJ_STRING,
   OBJ_CHAR,
   OBJ_BOOL,
-  OBJ_ENUM,
-  OBJ_FUNC,
-  OBJ_WHOLE,
-  OBJ_FACE,
+  OBJ_ENUMERATE,
+  OBJ_FUNCTION,
+  OBJ_CLASS,
+  OBJ_INTERFACE,
   OBJ_ARR,
   OBJ_TUP,
   OBJ_MAP,
@@ -44,25 +44,25 @@ typedef struct {
     struct {
       char *name;
       list *element;
-    } enumeration; /* enum */
+    } en; /* enum */
     struct {
       char *name;
       list *k;
       list *v;
       type *ret;
       code_object *code;
-    } func; /* function */
+    } fn; /* function */
     struct {
       char *name;
       list *element;
       struct object *whole;
-    } face; /* interface */
+    } in; /* interface */
     struct {
       char *name;
       code_object *code;
       struct frame *fr;
       bool init;
-    } whole; /* whole */
+    } cl; /* class */
     struct {
       list *element;
       type *T;

@@ -27,17 +27,17 @@ const char *obj_string(object *obj) {
   case OBJ_NIL:
     sprintf(str, "nil");
     return str;
-  case OBJ_ENUM:
-    sprintf(str, "enum \"%s\"", obj->value.enumeration.name);
+  case OBJ_ENUMERATE:
+    sprintf(str, "enum \"%s\"", obj->value.en.name);
     return str;
-  case OBJ_FUNC:
-    sprintf(str, "func \"%s\"", obj->value.func.name);
+  case OBJ_FUNCTION:
+    sprintf(str, "func \"%s\"", obj->value.fn.name);
     return str;
-  case OBJ_FACE:
-    sprintf(str, "face \"%s\"", obj->value.face.name);
+  case OBJ_INTERFACE:
+    sprintf(str, "face \"%s\"", obj->value.in.name);
     return str;
-  case OBJ_WHOLE:
-    sprintf(str, "whole \"%s\"", obj->value.whole.name);
+  case OBJ_CLASS:
+    sprintf(str, "whole \"%s\"", obj->value.cl.name);
     return str;
   case OBJ_ARR:
     sprintf(str, "arr (%d)", obj->value.arr.element->len);
@@ -432,27 +432,27 @@ bool type_checker(type *tp, object *obj) {
       }
     }
     break;
-  case T_FUNC:
-    if (obj->kind != OBJ_FUNC)
+  case T_FUNCTION:
+    if (obj->kind != OBJ_FUNCTION)
       return false;
-    if (tp->inner.func.arg->len != obj->value.func.k->len)
+    if (tp->inner.fn.arg->len != obj->value.fn.k->len)
       return false;
-    if (tp->inner.func.ret != NULL) {
-      if (obj->value.func.ret == NULL) {
+    if (tp->inner.fn.ret != NULL) {
+      if (obj->value.fn.ret == NULL) {
         return false;
       }
-      if (((type *)tp->inner.func.ret)->kind !=
-          ((type *)obj->value.func.ret)->kind) {
+      if (((type *)tp->inner.fn.ret)->kind !=
+          ((type *)obj->value.fn.ret)->kind) {
         return false;
       }
     }
-    for (int i = 0; i < tp->inner.func.arg->len; i++) {
-      type *x = (type *)tp->inner.func.arg->data[i];
-      type *y = (type *)obj->value.func.v->data[i];
+    for (int i = 0; i < tp->inner.fn.arg->len; i++) {
+      type *x = (type *)tp->inner.fn.arg->data[i];
+      type *y = (type *)obj->value.fn.v->data[i];
       if (x->kind != y->kind) {
         return false;
       }
-      if (!type_checker(x, (object *)obj->value.func.v->data[i])) {
+      if (!type_checker(x, (object *)obj->value.fn.v->data[i])) {
         return false;
       }
     }
@@ -468,14 +468,13 @@ bool type_checker(type *tp, object *obj) {
       if (tp->kind == T_USER) {
         const char *name = tp->inner.name;
 
-        if ((obj->kind == OBJ_FUNC &&
-             strcmp(name, obj->value.func.name) != 0) ||
-            (obj->kind == OBJ_ENUM &&
-             strcmp(name, obj->value.enumeration.name) != 0) ||
-            (obj->kind == OBJ_FACE &&
-             strcmp(name, obj->value.face.name) != 0) ||
-            (obj->kind == OBJ_WHOLE &&
-             strcmp(name, obj->value.whole.name) != 0)) {
+        if ((obj->kind == OBJ_FUNCTION &&
+             strcmp(name, obj->value.fn.name) != 0) ||
+            (obj->kind == OBJ_ENUMERATE &&
+             strcmp(name, obj->value.en.name) != 0) ||
+            (obj->kind == OBJ_INTERFACE &&
+             strcmp(name, obj->value.in.name) != 0) ||
+            (obj->kind == OBJ_CLASS && strcmp(name, obj->value.cl.name) != 0)) {
           return false;
         }
       }
@@ -556,13 +555,13 @@ const char *obj_type_string(object *obj) {
     return "tuple";
   case OBJ_MAP:
     return "map";
-  case OBJ_FUNC:
+  case OBJ_FUNCTION:
     return "func";
-  case OBJ_ENUM:
+  case OBJ_ENUMERATE:
     return "enum";
-  case OBJ_WHOLE:
+  case OBJ_CLASS:
     return "whole";
-  case OBJ_FACE:
+  case OBJ_INTERFACE:
     return "face";
   case OBJ_NIL:
     return "nil";

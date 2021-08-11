@@ -34,28 +34,28 @@ const char *type_string(type *t) {
     sprintf(str, "{%s : %s}", type_string((type *)t->inner.both.T1),
             type_string((type *)t->inner.both.T2));
     return str;
-  case T_FUNC:
-    if (t->inner.func.arg == NULL && t->inner.func.ret == NULL) {
+  case T_FUNCTION:
+    if (t->inner.fn.arg == NULL && t->inner.fn.ret == NULL) {
       free(str);
       return "<|| -> None>";
     }
-    if (t->inner.func.arg != NULL) {
+    if (t->inner.fn.arg != NULL) {
       sprintf(str, "<|");
-      for (int i = 0; i < t->inner.func.arg->len; i++) {
-        strcat(str, type_string((type *)t->inner.func.arg->data[i]));
-        if (i + 1 != t->inner.func.arg->len) {
+      for (int i = 0; i < t->inner.fn.arg->len; i++) {
+        strcat(str, type_string((type *)t->inner.fn.arg->data[i]));
+        if (i + 1 != t->inner.fn.arg->len) {
           strcat(str, ", ");
         }
       }
       strcat(str, "|>");
-      if (t->inner.func.ret != NULL) {
+      if (t->inner.fn.ret != NULL) {
         strcat(str, " -> ");
-        strcat(str, type_string((type *)t->inner.func.ret));
+        strcat(str, type_string((type *)t->inner.fn.ret));
       }
       return str;
     }
-    if (t->inner.func.arg == NULL && t->inner.func.ret != NULL) {
-      sprintf(str, "<|| -> %s>", type_string((type *)t->inner.func.ret));
+    if (t->inner.fn.arg == NULL && t->inner.fn.ret != NULL) {
+      sprintf(str, "<|| -> %s>", type_string((type *)t->inner.fn.ret));
       return str;
     }
   case T_USER:
@@ -97,24 +97,24 @@ bool type_eq(type *a, type *b) {
     if (!type_eq((type *)a->inner.both.T2, (type *)b->inner.both.T2))
       return false;
   }
-  if (a->kind == T_FUNC) {
-    if (b->kind != T_FUNC)
+  if (a->kind == T_FUNCTION) {
+    if (b->kind != T_FUNCTION)
       return false;
-    if (a->inner.func.ret != NULL) {
-      if (b->inner.func.ret == NULL)
+    if (a->inner.fn.ret != NULL) {
+      if (b->inner.fn.ret == NULL)
         return false;
-      if (!type_eq((type *)a->inner.func.ret, (type *)b->inner.func.ret))
+      if (!type_eq((type *)a->inner.fn.ret, (type *)b->inner.fn.ret))
         return false;
     }
-    if (a->inner.func.ret == NULL) {
-      if (b->inner.func.ret != NULL)
+    if (a->inner.fn.ret == NULL) {
+      if (b->inner.fn.ret != NULL)
         return false;
     }
-    if (a->inner.func.arg->len != b->inner.func.arg->len)
+    if (a->inner.fn.arg->len != b->inner.fn.arg->len)
       return false;
-    for (int i = 0; i < a->inner.func.arg->len; i++) {
-      type *A = (type *)a->inner.func.arg->data[i];
-      type *B = (type *)b->inner.func.arg->data[i];
+    for (int i = 0; i < a->inner.fn.arg->len; i++) {
+      type *A = (type *)a->inner.fn.arg->data[i];
+      type *B = (type *)b->inner.fn.arg->data[i];
       if (!type_eq(A, B)) {
         return false;
       }

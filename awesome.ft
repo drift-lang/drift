@@ -150,11 +150,11 @@ def () heart
         x = -1.5
         aop x < 1.5
             y = x * x + i * i - 1
-            if (y * y * y -
-                x * x * i * i * i) < 0.0
-                s += "*"
-            nf
-                s += " "
+#            if (y * y * y -
+#                x * x * i * i * i) < 0.0
+#                s += "*"
+#            nf
+#                s += " "
             x += 0.05
         print(s)
         i -= 0.1
