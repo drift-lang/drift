@@ -57,9 +57,7 @@ char *get_filename(const char *p);
 /* Release frame struct */
 void free_frame(frame *f);
 
-/*
- * External API
- */
+/* External api */
 typedef void (*fn_impl)(vm_state *);
 
 /* API Structure */

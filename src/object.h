@@ -14,6 +14,9 @@
 #include "opcode.h"
 #include "type.h"
 
+#define DEBUG_OBJ_STR_CAP 32
+#define STRING_CAP 128
+
 /* Object type */
 typedef enum {
   OBJ_INT,

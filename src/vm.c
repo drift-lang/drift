@@ -13,7 +13,7 @@ vm_state vst;
 
 /* Create a frame object */
 frame *new_frame(code_object *code) {
-  frame *f = (frame *)malloc(sizeof(frame));
+  frame *f = malloc(sizeof(frame));
   f->code = code;
   f->data = new_list();
   f->ret = NULL;
@@ -23,6 +23,7 @@ frame *new_frame(code_object *code) {
 
 /* Release frame struct */
 void free_frame(frame *f) {
+  // GC here
 }
 
 /* Return font frame object */
@@ -112,7 +113,7 @@ void len(frame *f, list *arg) {
   if (arg->len != 1) {
     simple_error("'len' function require an argument");
   }
-  object *len = (object *)malloc(sizeof(object));
+  object *len = malloc(sizeof(object));
   len->kind = OBJ_INT;
   len->value.integer = obj_len((object *)pop_back_list(arg));
   PUSH(len);
@@ -123,7 +124,7 @@ void ob_type(frame *f, list *arg) {
   if (arg->len != 1) {
     simple_error("'typeof' function require an argument");
   }
-  object *str = (object *)malloc(sizeof(object));
+  object *str = malloc(sizeof(object));
   str->kind = OBJ_STRING;
   str->value.string = (char *)obj_type_string((object *)pop_back_list(arg));
   PUSH(str);
@@ -164,7 +165,7 @@ object *get_builtin(char *name) {
     }
   }
   if (p != -1) { /* Placeholder object */
-    object *f = (object *)malloc(sizeof(object));
+    object *f = malloc(sizeof(object));
     f->kind = OBJ_FUNCTION;
     f->value.fn.name = name;
     return f;
@@ -187,8 +188,8 @@ void jump(int16_t to) {
     switch (GET_CODE()) {
     case CONST_OF:
     case LOAD_OF:
-    case LOAD_ENUM:
-    case LOAD_FUNC:
+    case LOAD_ENUMERATE:
+    case LOAD_FUNCTION:
     case LOAD_FACE:
     case ASSIGN_TO:
     case GET_OF:
@@ -245,7 +246,7 @@ void *lookup(char *name) {
 
 /* nil */
 object *make_nil() {
-  object *obj = (object *)malloc(sizeof(object));
+  object *obj = malloc(sizeof(object));
   obj->kind = OBJ_NIL;
   return obj;
 }
@@ -279,7 +280,7 @@ void eval() {
         obj->value.map.T2 = (type *)T->inner.both.T2;
       }
       /* Interface */
-      object *new = (object *)malloc(sizeof(object));
+      object *new = malloc(sizeof(object));
       memcpy(new, obj, sizeof(object));
       /* Add to current table */
       add_table(back_frame()->tb, name, new);
@@ -378,6 +379,13 @@ void eval() {
     case TO_OR: {
       object *b = POP(); /* P2 */
       object *a = POP(); /* P1 */
+      if (a->kind == OBJ_STRING && b->kind == OBJ_STRING) {
+        int la = strlen(a->value.string);
+        int lb = strlen(b->value.string);
+        if (la + lb > STRING_CAP) {
+          simple_error("number of characters is greater than 128-bit bytes");
+        }
+      }
       void *r = binary_op(code, a, b);
       if (r == NULL) { /* Operand error */
         unsupport_operand_error(code_string[code]);
@@ -396,7 +404,6 @@ void eval() {
       if (p == NULL) {
         undefined_error(name); /* Get name */
       }
-      object *resu = (object *)p; /* Get name */
       u_int8_t op;
       if (code == ASS_ADD)
         op = TO_ADD;
@@ -408,7 +415,7 @@ void eval() {
         op = TO_DIV;
       if (code == ASS_SUR)
         op = TO_SUR;
-      void *r = binary_op(op, (object *)resu, obj); /* To operation */
+      void *r = binary_op(op, (object *)p, obj); /* To operation */
       if (r == NULL) {
         unsupport_operand_error(code_string[code]);
       }
@@ -418,7 +425,7 @@ void eval() {
     }
     case BUILD_ARR: { /* F */
       int16_t count = GET_OFF();
-      object *obj = (object *)malloc(sizeof(object));
+      object *obj = malloc(sizeof(object));
       obj->kind = OBJ_ARR;
       obj->value.arr.element = new_list();
       if (count == 0) {
@@ -426,7 +433,7 @@ void eval() {
         break;
       }
       while (count > 0) { /* Build data */
-        append_list(obj->value.arr.element, POP());
+        insert_list(obj->value.arr.element, 0, POP());
         count--;
       }
       PUSH(obj);
@@ -434,7 +441,7 @@ void eval() {
     }
     case BUILD_TUP: { /* F */
       int16_t count = GET_OFF();
-      object *obj = (object *)malloc(sizeof(object));
+      object *obj = malloc(sizeof(object));
       obj->kind = OBJ_TUP;
       obj->value.tup.element = new_list();
       if (count == 0) {
@@ -442,7 +449,7 @@ void eval() {
         break;
       }
       while (count > 0) {
-        append_list(obj->value.tup.element, POP());
+        insert_list(obj->value.tup.element, 0, POP());
         count--;
       }
       PUSH(obj);
@@ -450,7 +457,7 @@ void eval() {
     }
     case BUILD_MAP: { /* N */
       int16_t count = GET_OFF();
-      object *obj = (object *)malloc(sizeof(object));
+      object *obj = malloc(sizeof(object));
       obj->kind = OBJ_MAP;
       obj->value.map.k = new_list(); /* K */
       obj->value.map.v = new_list(); /* V */
@@ -471,8 +478,10 @@ void eval() {
     case TO_INDEX: { /* x */
       object *p = POP();
       object *obj = POP();
-      if (obj->kind != OBJ_ARR && obj->kind != OBJ_MAP) { /* Array and Map */
-        simple_error("only array and map can be called with subscipt");
+      if (obj->kind != OBJ_ARR &&
+          obj->kind != OBJ_STRING && /* Array, String and Map */
+          obj->kind != OBJ_MAP) {
+        simple_error("only array, string and map can be called with subscipt");
       }
       if (obj->kind == OBJ_ARR) { /* Array */
         if (p->kind != OBJ_INT) {
@@ -481,6 +490,9 @@ void eval() {
         }
         if (obj->value.arr.element->len == 0) { /* None elements */
           simple_error("array entry is empty");
+        }
+        if (p->value.integer >= obj->value.arr.element->len) { /* Index out */
+          simple_error("index out of bounds");
         }
         PUSH((object *)obj->value.arr.element
                  ->data[p->value.integer /* Get indexes add to table */
@@ -503,6 +515,22 @@ void eval() {
         if (i == obj->value.map.k->len) {
           PUSH(make_nil());
         }
+      }
+      if (obj->kind == OBJ_STRING) { /* String*/
+        if (p->kind != OBJ_INT) {
+          simple_error("get value using integer subscript"); /* Integer index */
+        }
+        int len = strlen(obj->value.string);
+        if (len == 0) {
+          simple_error("empty string");
+        }
+        if (p->value.integer >= len) {
+          simple_error("index out of bounds"); /* Index out */
+        }
+        object *ch = malloc(sizeof(object));
+        ch->kind = OBJ_CHAR;
+        ch->value.ch = obj->value.string[p->value.integer];
+        PUSH(ch);
       }
       break;
     }
@@ -621,7 +649,7 @@ void eval() {
     }
     case TO_BANG: { /* !P */
       object *obj = POP();
-      object *new = (object *)malloc(sizeof(object)); /* Alloc new */
+      object *new = malloc(sizeof(object)); /* Alloc new */
       switch (obj->kind) {
       case OBJ_INT:
         new->value.boolean = !obj->value.integer;
@@ -647,7 +675,7 @@ void eval() {
     }
     case TO_NOT: { /* -P */
       object *obj = POP();
-      object *new = (object *)malloc(sizeof(object)); /* Alloc new */
+      object *new = malloc(sizeof(object)); /* Alloc new */
       if (obj->kind == OBJ_INT) {
         new->value.integer = -obj->value.integer;
         new->kind = OBJ_INT;
@@ -681,7 +709,7 @@ void eval() {
       }
       break;
     }
-    case LOAD_FUNC: { /* J */
+    case LOAD_FUNCTION: { /* J */
       object *obj = GET_OBJ();
       add_table(back_frame()->tb, obj->value.fn.name, obj); /* Func */
       break;
@@ -738,7 +766,8 @@ void eval() {
       vst.frame = append_list(vst.frame, f);
       eval();
 
-      frame *p = (frame *)pop_back_list(vst.frame); /* Evaluated and pop frame */
+      frame *p =
+          (frame *)pop_back_list(vst.frame); /* Evaluated and pop frame */
 
       /* Function return */
       if (fn->value.fn.ret != NULL) {
@@ -751,9 +780,6 @@ void eval() {
         PUSH(p->ret); /* Push to back frame */
       }
 
-      // free_list(p->data);
-      // free_table(p->tb);
-
       vst.op = op_up; /* Reset pointer to main */
       vst.ip = ip_up;
       break;
@@ -763,7 +789,7 @@ void eval() {
       add_table(back_frame()->tb, obj->value.in.name, obj); /* Face */
       break;
     }
-    case LOAD_ENUM: { /* J */
+    case LOAD_ENUMERATE: { /* J */
       object *obj = GET_OBJ();
       add_table(back_frame()->tb, obj->value.en.name, obj); /* Enum */
       break;
@@ -780,7 +806,7 @@ void eval() {
       if (obj->kind == OBJ_ENUMERATE) { /* Enum */
         list *elem = obj->value.en.element;
         /* Enumeration get integer */
-        object *p = (object *)malloc(sizeof(object));
+        object *p = malloc(sizeof(object));
         p->kind = OBJ_INT;
         p->value.integer = -1; /* Origin value */
         for (int i = 0; i < elem->len; i++) {
@@ -870,10 +896,10 @@ void eval() {
       if (!obj_kind_eq(obj, val)) {
         simple_error("inconsistent type");
       }
-      set_table(fr->tb, name, val); /* Restore */
+      add_table(fr->tb, name, val); /* Restore */
       break;
     }
-    case LOAD_WHOLE: { /* J */
+    case LOAD_CLASS: { /* J */
       object *obj = GET_OBJ();
       add_table(back_frame()->tb, obj->value.cl.name, obj); /* Whole */
       break;
@@ -895,7 +921,7 @@ void eval() {
         simple_error("only whole object can be created");
       }
 
-      object *new = (object *)malloc(sizeof(object)); /* Copy */
+      object *new = malloc(sizeof(object)); /* Copy */
       memcpy(new, obj, sizeof(object));
 
       /* Evaluate frame of whole */
@@ -935,7 +961,7 @@ void eval() {
     }
     case SET_NAME: { /* N */
       char *name = GET_NAME();
-      object *n = (object *)malloc(sizeof(object));
+      object *n = malloc(sizeof(object));
       n->kind = OBJ_STRING;
       n->value.string = name;
       PUSH(n); /* Push name of string object */
@@ -974,7 +1000,7 @@ void eval() {
       if (r == NULL) {
         unsupport_operand_error(code_string[code]);
       }
-      set_table(f->tb, name, (object *)r); /* Restore */
+      add_table(f->tb, name, (object *)r); /* Restore */
       break;
     }
     case TO_RET:
@@ -982,7 +1008,7 @@ void eval() {
       vst.ip = back_frame()->code->codes->len; /* Catch */
       vst.loop_ret = true;
       if (code == RET_OF) { /* Return value */
-        if (GET_PR_CODE() == LOAD_FUNC) {
+        if (GET_PR_CODE() == LOAD_FUNCTION) {
           back_frame()->ret = GET_PR_OBJ(); /* Grammar sugar */
         } else {
           back_frame()->ret = POP();
@@ -1023,7 +1049,7 @@ vm_state evaluate(code_object *code, char *filename) {
 
 /* Returns the file name of path string */
 char *get_filename(const char *p) {
-  char *name = (char *)malloc(sizeof(char) * 64);
+  char *name = malloc(sizeof(char) * 64);
   int j = 0;
   for (int i = 0; p[i]; i++) {
     if (p[i] == '/') {
@@ -1062,8 +1088,8 @@ list *read_path(list *pl, char *path) {
       char *name = p->d_name;
       int len = strlen(name) - 1;
       if (name[len] == 't' && name[len - 1] == 'f' && name[len - 2] == '.') {
-        char *addr = (char *)malloc(sizeof(char) * 64);
-        sprintf(addr, "%s%s%s", path, "/", name);
+        char *addr = malloc(sizeof(char) * 64);
+        sprintf(addr, "%s/%s", path, name);
         pl = append_list(pl, addr);
       }
     }
@@ -1082,7 +1108,7 @@ void load_eval(const char *path, char *name) {
   fseek(fp, 0, SEEK_END);
   int fsize = ftell(fp); /* Returns the size of file */
   fseek(fp, 0, SEEK_SET);
-  char *buf = (char *)malloc(fsize * sizeof(char));
+  char *buf = malloc(fsize + 1);
 
   fread(buf, fsize, sizeof(char), fp); /* Read file to buffer*/
   buf[fsize] = '\0';
@@ -1098,7 +1124,7 @@ void load_eval(const char *path, char *name) {
   frame *fr = (frame *)ps.frame->data[0]; /* Global frame */
   table *tb = fr->tb;                     /* Global table environment */
 
-  object *obj = (object *)malloc(sizeof(object)); /* Module object */
+  object *obj = malloc(sizeof(object)); /* Module object */
   obj->kind = OBJ_MODULE;
   obj->value.mod.tb = (struct table *)tb;
 

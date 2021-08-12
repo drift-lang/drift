@@ -26,14 +26,11 @@ int count_table(table *);
 /* Add key and value */
 void add_table(table *, char *, object *);
 
-/* Set the value corresponding to the key */
-void set_table(table *, char *, object *);
-
 /* Get value with key */
 void *get_table(table *, char *);
 
-/* Dissemble */
-void dissemble_table(table *, const char *);
+/* Dis */
+void disassemble_table(table *, const char *);
 
 /* Free */
 void free_table(table *);

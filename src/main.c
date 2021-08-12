@@ -15,7 +15,7 @@ bool show_tb;
 
 extern list *lexer(const char *, int);
 extern list *compile(list *);
-extern void dissemble(code_object *);
+extern void disassemble_code(code_object *);
 
 /* Run source code */
 void run(char *source, int fsize, char *filename) {
@@ -33,14 +33,14 @@ void run(char *source, int fsize, char *filename) {
   /* Compiler */
   list *codes = compile(tokens);
   if (show_bytes) {
-    dissemble(codes->data[0]);
+    disassemble_code(codes->data[0]);
   }
 
   /* Virtual machine */
   vm_state state = evaluate(codes->data[0], filename);
   if (show_tb) {
     frame *main = (frame *)state.frame->data[0];
-    dissemble_table(main->tb, main->code->description);
+    disassemble_table(main->tb, main->code->description);
   }
 
   free_list(codes);
@@ -91,7 +91,7 @@ int main(int argc, char **argv) {
   fseek(fp, 0, SEEK_END);
   int fsize = ftell(fp); /* Returns the size of file */
   rewind(fp);
-  char *buf = (char *)malloc(fsize + 1);
+  char *buf = malloc(fsize + 1);
 
   fread(buf, sizeof(char), fsize, fp); /* Read file to buffer*/
   buf[fsize] = '\0';

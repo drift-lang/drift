@@ -7,53 +7,53 @@
 
 /* Output object */
 const char *obj_string(object *obj) {
-  char *str = (char *)malloc(sizeof(char) * 128);
+  char *str = malloc(sizeof(char) * DEBUG_OBJ_STR_CAP);
   switch (obj->kind) {
   case OBJ_INT:
-    sprintf(str, "int %d", obj->value.integer);
+    sprintf(str, "int(%d)", obj->value.integer);
     return str;
   case OBJ_FLOAT:
-    sprintf(str, "float %f", obj->value.floating);
+    sprintf(str, "float(%f)", obj->value.floating);
     return str;
   case OBJ_STRING:
-    sprintf(str, "string \"%s\"", obj->value.string);
+    sprintf(str, "string(\"%s\")", obj->value.string);
     return str;
   case OBJ_CHAR:
-    sprintf(str, "char '%c'", obj->value.ch);
+    sprintf(str, "char('%c')", obj->value.ch);
     return str;
   case OBJ_BOOL:
-    sprintf(str, "bool %s", obj->value.boolean ? "T" : "F");
+    sprintf(str, "bool(%s)", obj->value.boolean ? "T" : "F");
     return str;
   case OBJ_NIL:
     sprintf(str, "nil");
     return str;
   case OBJ_ENUMERATE:
-    sprintf(str, "enum \"%s\"", obj->value.en.name);
+    sprintf(str, "enumerate(\"%s\")", obj->value.en.name);
     return str;
   case OBJ_FUNCTION:
-    sprintf(str, "func \"%s\"", obj->value.fn.name);
+    sprintf(str, "function(\"%s\")", obj->value.fn.name);
     return str;
   case OBJ_INTERFACE:
-    sprintf(str, "face \"%s\"", obj->value.in.name);
+    sprintf(str, "interface(\"%s\")", obj->value.in.name);
     return str;
   case OBJ_CLASS:
-    sprintf(str, "whole \"%s\"", obj->value.cl.name);
+    sprintf(str, "class(\"%s\")", obj->value.cl.name);
     return str;
   case OBJ_ARR:
-    sprintf(str, "arr (%d)", obj->value.arr.element->len);
+    sprintf(str, "arr(%d)", obj->value.arr.element->len);
     return str;
   case OBJ_TUP:
-    sprintf(str, "tup (%d)", obj->value.tup.element->len);
+    sprintf(str, "tup(%d)", obj->value.tup.element->len);
     return str;
   case OBJ_MAP:
-    sprintf(str, "map (%d)", obj->value.map.v->len);
+    sprintf(str, "map(%d)", obj->value.map.v->len);
     return str;
   }
 }
 
 /* Object's raw data */
 const char *obj_raw_string(object *obj) {
-  char *str = (char *)malloc(sizeof(char) * 128);
+  char *str = malloc(sizeof(char) * STRING_CAP);
   switch (obj->kind) {
   case OBJ_INT:
     sprintf(str, "%d", obj->value.integer);
@@ -185,17 +185,14 @@ bool je_ins = false;
 
 /* Binary operation */
 object *binary_op(u_int8_t op, object *a, object *b) {
-  object *je = (object *)malloc(sizeof(object));
+  object *je = malloc(sizeof(object));
   switch (op) {
   case TO_ADD:
     OP_A(a, b, je, +)
     if (a->kind == OBJ_STRING && b->kind == OBJ_STRING) { /* string + string */
       je->kind = OBJ_STRING;
-
-      char *new = malloc(sizeof(char) * strlen(a->value.string));
-      strcpy(new, a->value.string); /* Copy string */
-      strcat(new, b->value.string); /* To new string*/
-
+      char *new = malloc(sizeof(char) * STRING_CAP);
+      sprintf(new, "%s%s", a->value.string, b->value.string);
       je->value.string = new;
       je_ins = true;
     }

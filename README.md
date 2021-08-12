@@ -19,6 +19,8 @@ The number of source files for the drift compiler is small, building them is als
 
 Then use the <code>python</code> command to execute the <code>build.py</code> file in the directory to compile. The directory will generate the executable file of drift. Execute it without parameters and get the prompt information.
 
+Accessing the **-bug** parameter at the back indicates the GCC parameter **-fsanitize=address**, which is used for memory and bug detection.
+
 ### Why create this project
 
 Drift is a fixed-type language, any object has its type attribute, and each variable declaration needs to specify the type.

@@ -7,7 +7,7 @@
 
 /* Create an empty list */
 list *new_list() {
-  list *l = (list *)malloc(sizeof(list));
+  list *l = malloc(sizeof(list));
   l->data = NULL;
   l->len = 0;
   l->cap = 0;
@@ -66,7 +66,6 @@ void replace_list(list *l, int p, void *ptr) {
   if (p < 0) {
     return;
   }
-  // free(l->data[p]);
   l->data[p] = ptr;
 }
 

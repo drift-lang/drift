@@ -12,6 +12,8 @@
 
 #include "list.h"
 
+#define DEBUG_TYPE_STR_CAP 128
+
 /* Type system */
 typedef enum {
   T_INT,      // int

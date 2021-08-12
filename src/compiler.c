@@ -84,7 +84,7 @@ void replace_holder(int16_t place, int16_t off) {
   }
   for (int i = 0; i < code->offsets->len; i++) {
     if (*(int16_t *)(code->offsets->data[i]) == place) {
-      int16_t *f = (int16_t *)malloc(sizeof(int16_t));
+      int16_t *f = malloc(sizeof(int16_t));
       *f = off;
       replace_list(code->offsets, i, f);
     }
@@ -94,7 +94,7 @@ void replace_holder(int16_t place, int16_t off) {
 /* Gets the current offset list length */
 int16_t *get_top_offset_p() {
   code_object *code = back_code();
-  int16_t *f = (int16_t *)malloc(sizeof(int16_t));
+  int16_t *f = malloc(sizeof(int16_t));
   *f = code->offsets->len;
   return f;
 }
@@ -112,7 +112,7 @@ int get_top_code_len() {
 /* Insert offset position new element */
 void insert_top_offset(int p, int16_t off) {
   code_object *code = back_code();
-  int16_t *f = (int16_t *)malloc(sizeof(int16_t));
+  int16_t *f = malloc(sizeof(int16_t));
   *f = off;
   insert_list(code->offsets, p, f);
 }
@@ -120,7 +120,7 @@ void insert_top_offset(int p, int16_t off) {
 /* Offset */
 void emit_top_offset(int16_t off) {
   code_object *code = back_code();
-  int16_t *f = (int16_t *)malloc(sizeof(int16_t));
+  int16_t *f = malloc(sizeof(int16_t));
   *f = off;
   code->offsets = append_list(code->offsets, f);
 }
@@ -170,7 +170,7 @@ void emit_top_obj(object *obj) {
 void emit_top_code(u_int8_t op) {
   op_code *c = (op_code *)malloc(sizeof(u_int8_t));
   *c = op;
-  int *l = (int *)malloc(sizeof(int));
+  int *l = malloc(sizeof(int));
   *l = cst.pre.line;
   code_object *code = back_code();
   code->codes = append_list(code->codes, c);
@@ -324,7 +324,7 @@ void no_block_error() {
 /* LITERAL */
 void literal() {
   token tok = cst.pre;
-  object *obj = (object *)malloc(sizeof(object));
+  object *obj = malloc(sizeof(object));
 
   switch (tok.kind) {
   case NUMBER:
@@ -557,7 +557,7 @@ void map() {
 }
 
 /* NEW: T{K: V..} */
-void new () {
+void tnew() {
   iter();
   set_precedence(P_LOWEST);
   iter();
@@ -598,7 +598,7 @@ rule rules[] = {
     {MUL, NULL, binary, P_FACTOR},       // *
     {DIV, NULL, binary, P_FACTOR},       // /
     {SUR, NULL, binary, P_FACTOR},       // %
-    {NEW, new, NULL, P_NEW},             // new
+    {NEW, tnew, NULL, P_NEW},            // new
     {OR, NULL, binary, P_OR},            // |
     {ADDR, NULL, binary, P_AND},         // &
     {EQ_EQ, NULL, binary, P_EQ},         // ==
@@ -648,7 +648,7 @@ void set_precedence(int precedence) {
 /* Type system */
 type *set_type() {
   token now = cst.pre;
-  type *T = (type *)malloc(sizeof(type));
+  type *T = malloc(sizeof(type));
   switch (now.kind) {
   case LITERAL:
     if (strcmp(now.literal, "int") == 0)
@@ -689,7 +689,7 @@ type *set_type() {
   case OR: /* Function */
     iter();
     list *arg = new_list();
-    type *ret;
+    type *ret = NULL;
     while (cst.pre.kind != OR) {
       arg = append_list(arg, set_type());
       iter();
@@ -729,13 +729,15 @@ void stmt() {
         no_block_error();
       }
 
-      object *obj = (object *)malloc(sizeof(object)); /* Object */
+      object *obj = malloc(sizeof(object)); /* Object */
       obj->kind = OBJ_INTERFACE;
       obj->value.in.name = name.literal;
+      obj->value.in.element = NULL;
 
       /* Face block parsing */
       while (true) {
-        method *m = (method *)malloc(sizeof(method));
+        method *m = malloc(sizeof(method));
+        m->ret = NULL;
 
         iter(); /* Skip left slash */
 
@@ -808,10 +810,10 @@ void stmt() {
         }
       }
 
-      object *fn = (object *)malloc(sizeof(object)); /* Object */
-      fn->kind = OBJ_FUNCTION;
-      fn->value.fn.k = K; /* Argument name */
-      fn->value.fn.v = V; /* Argument type */
+      object *obj = malloc(sizeof(object)); /* Object */
+      obj->kind = OBJ_FUNCTION;
+      obj->value.fn.k = K; /* Argument name */
+      obj->value.fn.v = V; /* Argument type */
 
       iter();
       token name = cst.pre; /* Function name */
@@ -819,8 +821,10 @@ void stmt() {
 
       if (cst.pre.kind == R_ARROW) { /* Function return */
         iter();
-        fn->value.fn.ret = set_type();
+        obj->value.fn.ret = set_type();
         iter();
+      } else {
+        obj->value.fn.ret = NULL;
       }
 
       /* Back up the current compilation state,
@@ -837,13 +841,13 @@ void stmt() {
       reset_state(&cst, up_state);
 
       code_object *ptr = (code_object *)pop_back_list(cst.codes); /* Pop back */
-      fn->value.fn.code = ptr;
-      fn->value.fn.name = ptr->description;
+      obj->value.fn.code = ptr;
+      obj->value.fn.name = ptr->description;
 
       /* Bytecode */
-      emit_top_code(LOAD_FUNC);
-      emit_top_obj(fn);
-    } else if (cst.pre.kind == DEF) {          /* Whole */
+      emit_top_code(LOAD_FUNCTION);
+      emit_top_obj(obj);
+    } else if (cst.pre.kind == DEF) {          /* Class */
       compile_state up_state = backup_state(); /* Current state */
       clear_state();                           /* New state */
 
@@ -856,14 +860,16 @@ void stmt() {
 
       code_object *ptr = (code_object *)pop_back_list(cst.codes); /* Pop back */
       /* Object */
-      object *wh = (object *)malloc(sizeof(object));
-      wh->kind = OBJ_CLASS;
-      wh->value.cl.name = ptr->description;
-      wh->value.cl.code = ptr;
+      object *obj = malloc(sizeof(object));
+      obj->kind = OBJ_CLASS;
+      obj->value.cl.name = ptr->description;
+      obj->value.cl.code = ptr;
+      obj->value.cl.fr = NULL;
+      obj->value.cl.init = false;
 
       /* Bytecode */
-      emit_top_code(LOAD_WHOLE);
-      emit_top_obj(wh);
+      emit_top_code(LOAD_CLASS);
+      emit_top_obj(obj);
     } else {
       type *T = set_type();
       iter();
@@ -897,13 +903,13 @@ void stmt() {
           }
         }
         /* Enum object */
-        object *en = (object *)malloc(sizeof(object));
-        en->kind = OBJ_ENUMERATE;
-        en->value.en.name = name.literal;
-        en->value.en.element = elem;
+        object *obj = malloc(sizeof(object));
+        obj->kind = OBJ_ENUMERATE;
+        obj->value.en.name = name.literal;
+        obj->value.en.element = elem;
         /* Bytecode */
-        emit_top_code(LOAD_ENUM);
-        emit_top_obj(en);
+        emit_top_code(LOAD_ENUMERATE);
+        emit_top_obj(obj);
       }
     }
     break;
@@ -1121,7 +1127,7 @@ extern list *compile(list *t) {
 }
 
 /* Detailed information */
-extern void dissemble(code_object *code) {
+extern void disassemble_code(code_object *code) {
   printf("<%s>: %d code, %d name, %d type, %d object, %d offset\n",
          code->description, code->codes == NULL ? 0 : code->codes->len,
          code->names == NULL ? 0 : code->names->len,
@@ -1147,10 +1153,10 @@ extern void dissemble(code_object *code) {
     printf("%2d %10s", b, code_string[*inner]);
     switch (*inner) {
     case CONST_OF:
-    case LOAD_ENUM:
-    case LOAD_FUNC:
+    case LOAD_ENUMERATE:
+    case LOAD_FUNCTION:
     case LOAD_FACE:
-    case LOAD_WHOLE: {
+    case LOAD_CLASS: {
       int16_t *off = (int16_t *)code->offsets->data[p++];
       object *obj = (object *)code->objects->data[*off];
       printf("%4d %3s\n", *off, obj_string(obj));
@@ -1219,9 +1225,9 @@ extern void dissemble(code_object *code) {
             obj->value.func.name,
             obj->value.func.k->len,
             type_string(obj->value.func.ret)); */
-        dissemble(obj->value.fn.code);
+        disassemble_code(obj->value.fn.code);
       } else if (obj->kind == OBJ_CLASS) {
-        dissemble(obj->value.cl.code);
+        disassemble_code(obj->value.cl.code);
       }
     }
   }

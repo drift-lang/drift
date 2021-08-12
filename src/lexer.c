@@ -36,7 +36,7 @@ token_kind to_keyword(const char *literal) {
 
 /* Build token */
 token *new_token(token_kind k, char *literal, int line, int off) {
-  token *tok = (token *)malloc(sizeof(token));
+  token *tok = malloc(sizeof(token));
   tok->kind = k;
   tok->literal = literal;
   tok->line = line;
@@ -107,7 +107,7 @@ extern list *lexer(const char *buf, int fsize) {
         p++;
         c = buf[++i];
       }
-      char *literal = (char *)malloc((p + 1) * sizeof(char));
+      char *literal = malloc((p + 1) * sizeof(char));
       paste_literal(literal, buf, &p, i);
       /* Append */
       tokens = append_list(tokens,
@@ -120,7 +120,7 @@ extern list *lexer(const char *buf, int fsize) {
         p++;
         c = buf[++i];
       }
-      char *literal = (char *)malloc((p + 1) * sizeof(char));
+      char *literal = malloc((p + 1) * sizeof(char));
       paste_literal(literal, buf, &p, i);
       /* Append */
       tokens = append_list(tokens,
@@ -210,7 +210,7 @@ extern list *lexer(const char *buf, int fsize) {
       continue;
     case '\'': { /* Char */
       i++;
-      char *literal = (char *)malloc(sizeof(char));
+      char *literal = malloc(sizeof(char));
       literal[0] = buf[i++];
       c = buf[i];
       if (c != '\'') {
@@ -242,7 +242,7 @@ extern list *lexer(const char *buf, int fsize) {
       if (p == 0) {
         literal = "";
       } else {
-        literal = (char *)malloc((p + 1) * sizeof(char));
+        literal = malloc((p + 1) * sizeof(char));
         paste_literal(literal, buf, &p, i);
       }
       i++;
@@ -333,8 +333,9 @@ extern list *lexer(const char *buf, int fsize) {
       t.literal = "\\";
       break;
     default:
-      fprintf(stderr, "\033[1;31mlexer %d:\033[0m unknown character '%c'.\n",
-              line, c);
+      fprintf(stderr,
+              "\033[1;31mlexer %d:\033[0m unknown character '%c' ASCII %d.\n",
+              line, c, c);
       exit(EXIT_FAILURE);
     }
     /* Other */

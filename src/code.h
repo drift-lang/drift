@@ -15,8 +15,8 @@ typedef struct {
   list *codes;       /* Bytecode set */
   list *offsets;     /* Offset set */
   list *types;       /* Type set */
-  list *objects;     /* Objects set */
-  list *lines;       /* Lines set */
+  list *objects;     /* Object set */
+  list *lines;       /* Line set */
 } code_object;
 
 #endif
