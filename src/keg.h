@@ -8,33 +8,33 @@
 
 #include <stdlib.h>
 
-/* My list structure */
+/* My keg structure */
 typedef struct {
   void **data;
-  int len;
+  int item;
   int cap;
-} list;
+} keg;
 
-/* Create an empty list */
-list *new_list();
+/* Create an empty keg */
+keg *new_keg();
 
 /* The tail is added,
  * and the capacity is expanded twice automatically */
-list *append_list(list *, void *);
+keg *append_keg(keg *, void *);
 
 /* Tail data */
-void *back_list(list *);
+void *back_keg(keg *);
 
 /* Pop up tail data */
-void *pop_back_list(list *);
+void *pop_back_keg(keg *);
 
 /* Insert element at specified location */
-void insert_list(list *, int, void *);
+void insert_keg(keg *, int, void *);
 
-/* Replace data in list subscript */
-void replace_list(list *, int, void *);
+/* Replace data in keg subscript */
+void replace_keg(keg *, int, void *);
 
-/* Release the list elements and themselves */
-void free_list(list *);
+/* Release the keg elements and themselves */
+void free_keg(keg *);
 
 #endif

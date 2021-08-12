@@ -41,9 +41,9 @@ const char *type_string(type *t) {
     }
     if (t->inner.fn.arg != NULL) {
       sprintf(str, "<|");
-      for (int i = 0; i < t->inner.fn.arg->len; i++) {
+      for (int i = 0; i < t->inner.fn.arg->item; i++) {
         strcat(str, type_string((type *)t->inner.fn.arg->data[i]));
-        if (i + 1 != t->inner.fn.arg->len) {
+        if (i + 1 != t->inner.fn.arg->item) {
           strcat(str, ", ");
         }
       }
@@ -110,9 +110,9 @@ bool type_eq(type *a, type *b) {
       if (b->inner.fn.ret != NULL)
         return false;
     }
-    if (a->inner.fn.arg->len != b->inner.fn.arg->len)
+    if (a->inner.fn.arg->item != b->inner.fn.arg->item)
       return false;
-    for (int i = 0; i < a->inner.fn.arg->len; i++) {
+    for (int i = 0; i < a->inner.fn.arg->item; i++) {
       type *A = (type *)a->inner.fn.arg->data[i];
       type *B = (type *)b->inner.fn.arg->data[i];
       if (!type_eq(A, B)) {

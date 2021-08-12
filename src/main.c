@@ -13,17 +13,17 @@ bool show_tokens; /* Exec arguments */
 bool show_bytes;
 bool show_tb;
 
-extern list *lexer(const char *, int);
-extern list *compile(list *);
+extern keg *lexer(const char *, int);
+extern keg *compile(keg *);
 extern void disassemble_code(code_object *);
 
 /* Run source code */
 void run(char *source, int fsize, char *filename) {
   /* Lexical analysis */
-  list *tokens = lexer(source, fsize);
+  keg *tokens = lexer(source, fsize);
 
   if (show_tokens) {
-    for (int i = 0; i < tokens->len; i++) {
+    for (int i = 0; i < tokens->item; i++) {
       token *t = tokens->data[i];
       printf("[%3d]\t%-5d %-5d %-5d %-30s\n", i, t->kind, t->line, t->off,
              t->literal);
@@ -31,7 +31,7 @@ void run(char *source, int fsize, char *filename) {
   }
 
   /* Compiler */
-  list *codes = compile(tokens);
+  keg *codes = compile(tokens);
   if (show_bytes) {
     disassemble_code(codes->data[0]);
   }
@@ -43,7 +43,7 @@ void run(char *source, int fsize, char *filename) {
     disassemble_table(main->tb, main->code->description);
   }
 
-  free_list(codes);
+  free_keg(codes);
   free(state.filename);
 }
 
@@ -52,7 +52,7 @@ void usage() {
   printf("usage: drift <option> FILE(.ft)\n \
 \n\
 command: \n\
-  token       show lexical list\n\
+  token       show lexical keg\n\
   op          show bytecode\n\
   tb          after exec, show environment mapping\n\n\
 version:  %s\n\

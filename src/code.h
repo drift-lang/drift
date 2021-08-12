@@ -6,17 +6,17 @@
 #ifndef FT_CODE_H
 #define FT_CODE_H
 
-#include "list.h"
+#include "keg.h"
 
 /* Generate object, subject data type. */
 typedef struct {
   char *description; /* Description name */
-  list *names;       /* Name set */
-  list *codes;       /* Bytecode set */
-  list *offsets;     /* Offset set */
-  list *types;       /* Type set */
-  list *objects;     /* Object set */
-  list *lines;       /* Line set */
+  keg *names;        /* Name set */
+  keg *codes;        /* Bytecode set */
+  keg *offsets;      /* Offset set */
+  keg *types;        /* Type set */
+  keg *objects;      /* Object set */
+  keg *lines;        /* Line set */
 } code_object;
 
 #endif

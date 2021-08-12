@@ -10,12 +10,12 @@
 #include <stdio.h>
 
 #include "code.h"
-#include "list.h"
+#include "keg.h"
 #include "opcode.h"
 #include "type.h"
 
 #define DEBUG_OBJ_STR_CAP 32
-#define STRING_CAP 128
+#define STRING_CAP        128
 
 /* Object type */
 typedef enum {
@@ -46,18 +46,18 @@ typedef struct {
     bool boolean;    /* bool */
     struct {
       char *name;
-      list *element;
+      keg *element;
     } en; /* enum */
     struct {
       char *name;
-      list *k;
-      list *v;
+      keg *k;
+      keg *v;
       type *ret;
       code_object *code;
     } fn; /* function */
     struct {
       char *name;
-      list *element;
+      keg *element;
       struct object *whole;
     } in; /* interface */
     struct {
@@ -67,16 +67,16 @@ typedef struct {
       bool init;
     } cl; /* class */
     struct {
-      list *element;
+      keg *element;
       type *T;
     } arr; /* array */
     struct {
-      list *element;
+      keg *element;
       type *T;
     } tup; /* tuple */
     struct {
-      list *k;
-      list *v;
+      keg *k;
+      keg *v;
       type *T1;
       type *T2;
     } map; /* map */
@@ -89,7 +89,7 @@ typedef struct {
 /* Method structure of interface */
 typedef struct {
   char *name; /* Face name */
-  list *T;    /* Types of arguments */
+  keg *T;     /* Types of arguments */
   type *ret;  /* Return type */
 } method;
 

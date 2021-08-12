@@ -10,43 +10,43 @@ const char *obj_string(object *obj) {
   char *str = malloc(sizeof(char) * DEBUG_OBJ_STR_CAP);
   switch (obj->kind) {
   case OBJ_INT:
-    sprintf(str, "int(%d)", obj->value.integer);
+    sprintf(str, "int %d", obj->value.integer);
     return str;
   case OBJ_FLOAT:
-    sprintf(str, "float(%f)", obj->value.floating);
+    sprintf(str, "float %f", obj->value.floating);
     return str;
   case OBJ_STRING:
-    sprintf(str, "string(\"%s\")", obj->value.string);
+    sprintf(str, "string \"%s\"", obj->value.string);
     return str;
   case OBJ_CHAR:
-    sprintf(str, "char('%c')", obj->value.ch);
+    sprintf(str, "char '%c'", obj->value.ch);
     return str;
   case OBJ_BOOL:
-    sprintf(str, "bool(%s)", obj->value.boolean ? "T" : "F");
+    sprintf(str, "bool %s", obj->value.boolean ? "T" : "F");
     return str;
   case OBJ_NIL:
     sprintf(str, "nil");
     return str;
   case OBJ_ENUMERATE:
-    sprintf(str, "enumerate(\"%s\")", obj->value.en.name);
+    sprintf(str, "enumerate \"%s\"", obj->value.en.name);
     return str;
   case OBJ_FUNCTION:
-    sprintf(str, "function(\"%s\")", obj->value.fn.name);
+    sprintf(str, "function \"%s\"", obj->value.fn.name);
     return str;
   case OBJ_INTERFACE:
-    sprintf(str, "interface(\"%s\")", obj->value.in.name);
+    sprintf(str, "interface \"%s\"", obj->value.in.name);
     return str;
   case OBJ_CLASS:
-    sprintf(str, "class(\"%s\")", obj->value.cl.name);
+    sprintf(str, "class \"%s\"", obj->value.cl.name);
     return str;
   case OBJ_ARR:
-    sprintf(str, "arr(%d)", obj->value.arr.element->len);
+    sprintf(str, "arr %d", obj->value.arr.element->item);
     return str;
   case OBJ_TUP:
-    sprintf(str, "tup(%d)", obj->value.tup.element->len);
+    sprintf(str, "tup %d", obj->value.tup.element->item);
     return str;
   case OBJ_MAP:
-    sprintf(str, "map(%d)", obj->value.map.v->len);
+    sprintf(str, "map %d", obj->value.map.v->item);
     return str;
   }
 }
@@ -71,13 +71,13 @@ const char *obj_raw_string(object *obj) {
     sprintf(str, "%s", obj->value.boolean ? "T" : "F");
     return str;
   case OBJ_ARR: { /* Array */
-    list *elem = obj->value.arr.element;
-    if (elem->len == 0) {
+    keg *elem = obj->value.arr.element;
+    if (elem->item == 0) {
       free(str);
       return "[]";
     }
     sprintf(str, "[");
-    for (int i = elem->len - 1; i >= 0; i--) {
+    for (int i = elem->item - 1; i >= 0; i--) {
       strcat(str, obj_raw_string((object *)elem->data[i]));
       if (i - 1 != -1) {
         strcat(str, ", ");
@@ -87,13 +87,13 @@ const char *obj_raw_string(object *obj) {
     return str;
   }
   case OBJ_TUP: { /* Tuple */
-    list *elem = obj->value.arr.element;
-    if (elem->len == 0) {
+    keg *elem = obj->value.arr.element;
+    if (elem->item == 0) {
       free(str);
       return "()";
     }
     sprintf(str, "(");
-    for (int i = elem->len - 1; i >= 0; i--) {
+    for (int i = elem->item - 1; i >= 0; i--) {
       strcat(str, obj_raw_string((object *)elem->data[i]));
       if (i - 1 != -1) {
         strcat(str, ", ");
@@ -103,14 +103,14 @@ const char *obj_raw_string(object *obj) {
     return str;
   }
   case OBJ_MAP: { /* Map */
-    list *k = obj->value.map.k;
-    list *v = obj->value.map.v;
-    if (k->len == 0) {
+    keg *k = obj->value.map.k;
+    keg *v = obj->value.map.v;
+    if (k->item == 0) {
       free(str);
       return "{}";
     }
     sprintf(str, "{");
-    for (int i = k->len - 1; i >= 0; i--) {
+    for (int i = k->item - 1; i >= 0; i--) {
       strcat(str, obj_raw_string((object *)k->data[i]));
       strcat(str, ": ");
       strcat(str, obj_raw_string((object *)v->data[i]));
@@ -399,13 +399,13 @@ bool type_checker(type *tp, object *obj) {
       return false;
     if (tp->kind == T_TUPLE && obj->kind != OBJ_TUP)
       return false;
-    list *elem;
+    keg *elem;
     if (tp->kind == T_ARRAY)
       elem = obj->value.arr.element;
     if (tp->kind == T_TUPLE)
       elem = obj->value.tup.element;
-    if (elem->len != 0) {
-      for (int i = 0; i < elem->len; i++) {
+    if (elem->item != 0) {
+      for (int i = 0; i < elem->item; i++) {
         object *x = (object *)elem->data[i];
         if (!type_checker((type *)tp->inner.single, x)) {
           return false;
@@ -416,14 +416,14 @@ bool type_checker(type *tp, object *obj) {
   case T_MAP:
     if (obj->kind != OBJ_MAP)
       return false;
-    list *k = obj->value.map.k;
-    list *v = obj->value.map.v;
-    for (int i = 0; i < k->len; i++) {
+    keg *k = obj->value.map.k;
+    keg *v = obj->value.map.v;
+    for (int i = 0; i < k->item; i++) {
       if (!type_checker((type *)tp->inner.both.T1, (object *)k->data[i])) {
         return false;
       }
     }
-    for (int i = 0; i < v->len; i++) {
+    for (int i = 0; i < v->item; i++) {
       if (!type_checker((type *)tp->inner.both.T2, (object *)v->data[i])) {
         return false;
       }
@@ -432,7 +432,7 @@ bool type_checker(type *tp, object *obj) {
   case T_FUNCTION:
     if (obj->kind != OBJ_FUNCTION)
       return false;
-    if (tp->inner.fn.arg->len != obj->value.fn.k->len)
+    if (tp->inner.fn.arg->item != obj->value.fn.k->item)
       return false;
     if (tp->inner.fn.ret != NULL) {
       if (obj->value.fn.ret == NULL) {
@@ -443,7 +443,7 @@ bool type_checker(type *tp, object *obj) {
         return false;
       }
     }
-    for (int i = 0; i < tp->inner.fn.arg->len; i++) {
+    for (int i = 0; i < tp->inner.fn.arg->item; i++) {
       type *x = (type *)tp->inner.fn.arg->data[i];
       type *y = (type *)obj->value.fn.v->data[i];
       if (x->kind != y->kind) {
@@ -571,11 +571,11 @@ int obj_len(object *obj) {
   case OBJ_STRING:
     return strlen(obj->value.string);
   case OBJ_ARR:
-    return obj->value.arr.element->len;
+    return obj->value.arr.element->item;
   case OBJ_TUP:
-    return obj->value.tup.element->len;
+    return obj->value.tup.element->item;
   case OBJ_MAP:
-    return obj->value.map.k->len;
+    return obj->value.map.k->item;
   default:
     return -1;
   }

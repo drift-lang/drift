@@ -10,7 +10,7 @@
 #include <stdio.h>
 
 #include "code.h"
-#include "list.h"
+#include "keg.h"
 #include "opcode.h"
 #include "table.h"
 
@@ -23,15 +23,15 @@
 
 /* Evaluate frame structure */
 typedef struct {
-  code_object *code; /* Code object list */
+  code_object *code; /* Code object keg */
   table *tb;         /* Object mapping table */
-  list *data;        /* Eval data stack */
+  keg *data;         /* Eval data stack */
   object *ret;       /* Return value of frame */
 } frame;
 
 /* Virtual machine state */
 typedef struct {
-  list *frame;    /* Frame list */
+  keg *frame;     /* Frame keg */
   int16_t op;     /* Position of offset */
   int16_t ip;     /* IP */
   bool loop_ret;  /* Break loop */
@@ -43,7 +43,7 @@ typedef struct {
 vm_state evaluate(code_object *, char *);
 
 /* Built in function prototype */
-typedef void (*built)(frame *, list *);
+typedef void (*built)(frame *, keg *);
 
 /* Builtin function */
 typedef struct {

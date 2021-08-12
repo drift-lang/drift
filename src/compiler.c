@@ -6,7 +6,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-#include "list.h"
+#include "keg.h"
 #include "object.h"
 #include "opcode.h"
 #include "token.h"
@@ -14,7 +14,7 @@
 
 /* Compilation status*/
 typedef struct {
-  list *tokens;
+  keg *tokens;
   token pre;   /* Last token */
   token cur;   /* Current token */
   int16_t iof; /* Offset of object */
@@ -22,7 +22,7 @@ typedef struct {
   int16_t itf; /* Offset of type */
   int p;       /* Read position */
   bool loop;   /* Is current handing loop statement? */
-  list *codes; /* Compiled code object */
+  keg *codes;  /* Compiled code object */
 } compile_state;
 
 /* Allocate new code object */
@@ -66,47 +66,47 @@ void clear_state() {
   cst.itf = 0;
 }
 
-/* Push new code object to list */
-void push_code_list(code_object *code) {
-  cst.codes = append_list(cst.codes, code);
+/* Push new code object to keg */
+void push_code_keg(code_object *code) {
+  cst.codes = append_keg(cst.codes, code);
 }
 
 /* Get tail data */
 code_object *back_code() {
-  return (code_object *)back_list(cst.codes);
+  return (code_object *)back_keg(cst.codes);
 }
 
-/* Replace placeholder in offset list */
+/* Replace placeholder in offset keg */
 void replace_holder(int16_t place, int16_t off) {
   code_object *code = back_code();
   if (code->offsets == NULL) {
     return;
   }
-  for (int i = 0; i < code->offsets->len; i++) {
+  for (int i = 0; i < code->offsets->item; i++) {
     if (*(int16_t *)(code->offsets->data[i]) == place) {
       int16_t *f = malloc(sizeof(int16_t));
       *f = off;
-      replace_list(code->offsets, i, f);
+      replace_keg(code->offsets, i, f);
     }
   }
 }
 
-/* Gets the current offset list length */
+/* Gets the current offset keg length */
 int16_t *get_top_offset_p() {
   code_object *code = back_code();
   int16_t *f = malloc(sizeof(int16_t));
-  *f = code->offsets->len;
+  *f = code->offsets->item;
   return f;
 }
 
-/* Gets the top bytecode list length */
+/* Gets the top bytecode keg length */
 int get_top_code_len() {
   code_object *code = back_code();
   if (code->codes == NULL) {
     return 0;
   }
   return code->codes
-      ->len; /* The offset used to insert the specified position */
+      ->item; /* The offset used to insert the specified position */
 }
 
 /* Insert offset position new element */
@@ -114,7 +114,7 @@ void insert_top_offset(int p, int16_t off) {
   code_object *code = back_code();
   int16_t *f = malloc(sizeof(int16_t));
   *f = off;
-  insert_list(code->offsets, p, f);
+  insert_keg(code->offsets, p, f);
 }
 
 /* Offset */
@@ -122,14 +122,14 @@ void emit_top_offset(int16_t off) {
   code_object *code = back_code();
   int16_t *f = malloc(sizeof(int16_t));
   *f = off;
-  code->offsets = append_list(code->offsets, f);
+  code->offsets = append_keg(code->offsets, f);
 }
 
 /* Name */
 void emit_top_name(char *name) {
   code_object *code = back_code();
   if (code->names != NULL) {
-    for (int i = 0; i < code->names->len; i++) {
+    for (int i = 0; i < code->names->item; i++) {
       if (/* Duplicate reference to existing name */
           strcmp((char *)code->names->data[i], name) == 0) {
         emit_top_offset(i);
@@ -137,7 +137,7 @@ void emit_top_name(char *name) {
       }
     }
   }
-  code->names = append_list(code->names, name);
+  code->names = append_keg(code->names, name);
   emit_top_offset(cst.inf++);
 }
 
@@ -145,7 +145,7 @@ void emit_top_name(char *name) {
 void emit_top_type(type *t) {
   code_object *code = back_code();
   if (code->types != NULL) {
-    for (int i = 0; i < code->types->len; i++) {
+    for (int i = 0; i < code->types->item; i++) {
       type *x = (type *)code->types->data[i];
       if (/* Basic types do not need to be recreated */
           (x->kind <= 4 && t->kind <= 4) && x->kind == t->kind) {
@@ -155,14 +155,14 @@ void emit_top_type(type *t) {
       }
     }
   }
-  code->types = append_list(code->types, t);
+  code->types = append_keg(code->types, t);
   emit_top_offset(cst.itf++);
 }
 
 /* Object */
 void emit_top_obj(object *obj) {
   code_object *code = back_code();
-  code->objects = append_list(code->objects, obj);
+  code->objects = append_keg(code->objects, obj);
   emit_top_offset(cst.iof++);
 }
 
@@ -173,16 +173,16 @@ void emit_top_code(u_int8_t op) {
   int *l = malloc(sizeof(int));
   *l = cst.pre.line;
   code_object *code = back_code();
-  code->codes = append_list(code->codes, c);
-  code->lines = append_list(code->lines, l);
+  code->codes = append_keg(code->codes, c);
+  code->lines = append_keg(code->lines, l);
 }
 
-int p = 0; /* Traversal lexical list */
+int p = 0; /* Traversal lexical keg */
 
-/* Iterator of lexical list */
+/* Iterator of lexical keg */
 void iter() {
   cst.pre = cst.cur;
-  if (p == cst.tokens->len) {
+  if (p == cst.tokens->item) {
     return;
   }
   cst.cur = *(token *)cst.tokens->data[p++];
@@ -441,10 +441,10 @@ void group() {
   iter();
   if (cst.cur.kind == R_PAREN || cst.cur.kind == COMMA) {
     /* Tuple */
-    int count = 0;
+    int item = 0;
     while (cst.pre.kind != R_PAREN) {
       set_precedence(P_LOWEST);
-      count++;
+      item++;
       iter();
       if (cst.pre.kind == R_PAREN) {
         break;
@@ -452,7 +452,7 @@ void group() {
       expect_pre(COMMA);
     }
     emit_top_code(BUILD_TUP);
-    emit_top_offset(count);
+    emit_top_offset(item);
     return;
   }
   if (cst.pre.kind == R_PAREN) { /* Empty tuple */
@@ -486,10 +486,10 @@ void get() {
 /* CALL: X(Y..) */
 void call() {
   iter();
-  int count = 0;
+  int item = 0;
   while (cst.pre.kind != R_PAREN) {
     set_precedence(P_LOWEST);
-    count++;
+    item++;
     iter();
     if (cst.pre.kind == R_PAREN) {
       break;
@@ -497,7 +497,7 @@ void call() {
     expect_pre(COMMA);
   }
   emit_top_code(CALL_FUNC);
-  emit_top_offset(count);
+  emit_top_offset(item);
 }
 
 /* INDEX: E[E] */
@@ -522,10 +522,10 @@ void indexes() {
 /* ARRAY: [E..] */
 void array() {
   iter();
-  int count = 0;
+  int item = 0;
   while (cst.pre.kind != R_BRACKET) {
     set_precedence(P_LOWEST);
-    count++;
+    item++;
     iter();
     if (cst.pre.kind == R_BRACKET) {
       break;
@@ -533,27 +533,27 @@ void array() {
     expect_pre(COMMA);
   }
   emit_top_code(BUILD_ARR);
-  emit_top_offset(count);
+  emit_top_offset(item);
 }
 
 /* MAP: {K1: V2..} */
 void map() {
   iter();
-  int count = 0;
+  int item = 0;
   while (cst.pre.kind != R_BRACE) {
     set_precedence(P_LOWEST);
     iter();
     expect_pre(COLON);
     set_precedence(P_LOWEST);
     iter();
-    count += 2;
+    item += 2;
     if (cst.pre.kind == R_BRACE) {
       break;
     }
     expect_pre(COMMA);
   }
   emit_top_code(BUILD_MAP);
-  emit_top_offset(count);
+  emit_top_offset(item);
 }
 
 /* NEW: T{K: V..} */
@@ -562,7 +562,7 @@ void tnew() {
   set_precedence(P_LOWEST);
   iter();
   expect_pre(L_BRACE);
-  int count = 0;
+  int item = 0;
   while (cst.pre.kind != R_BRACE) {
     if (cst.pre.kind != LITERAL) {
       syntax_error();
@@ -573,14 +573,14 @@ void tnew() {
     expect_pre(COLON);
     set_precedence(P_LOWEST);
     iter();
-    count += 2;
+    item += 2;
     if (cst.pre.kind == R_BRACE) {
       break;
     }
     expect_pre(COMMA);
   }
   emit_top_code(NEW_OBJ);
-  emit_top_offset(count);
+  emit_top_offset(item);
 }
 
 /* Rules */
@@ -688,10 +688,10 @@ type *set_type() {
     break;
   case OR: /* Function */
     iter();
-    list *arg = new_list();
+    keg *arg = new_keg();
     type *ret = NULL;
     while (cst.pre.kind != OR) {
-      arg = append_list(arg, set_type());
+      arg = append_keg(arg, set_type());
       iter();
       if (cst.pre.kind == OR) {
         break;
@@ -743,10 +743,10 @@ void stmt() {
 
         /* Inner elements */
         if (cst.pre.kind != SLASH) { /* Have argument */
-          list *arg = new_list();
+          keg *arg = new_keg();
 
           while (true) { /* Parsing arguments */
-            arg = append_list(arg, set_type());
+            arg = append_keg(arg, set_type());
             iter();
             if (cst.pre.kind == SLASH) {
               break;
@@ -760,7 +760,7 @@ void stmt() {
         } else { /* No argument */
           iter();
           m->name = cst.pre.literal;
-          m->T = new_list();
+          m->T = new_keg();
         }
 
         if (cst.cur.kind == R_ARROW) { /* Method return */
@@ -769,7 +769,7 @@ void stmt() {
         }
 
         obj->value.in.element = /* Method elements in faces */
-            append_list(obj->value.in.element, m);
+            append_keg(obj->value.in.element, m);
 
         if (cst.cur.off == off) { /* To next statemt in block */
           iter();
@@ -781,8 +781,8 @@ void stmt() {
       emit_top_code(LOAD_FACE);
       emit_top_obj(obj);
     } else if (name.kind == L_PAREN) { /* Function */
-      list *K = new_list();            /* Argument name */
-      list *V = new_list();            /* Argument type */
+      keg *K = new_keg();              /* Argument name */
+      keg *V = new_keg();              /* Argument type */
 
       if (cst.pre.kind != R_PAREN) { /* Arguments */
         while (true) {
@@ -790,15 +790,15 @@ void stmt() {
             break;
           }
 
-          K = append_list(K, cst.pre.literal); /* Name */
-          if (cst.cur.kind != COMMA) {         /* And type */
+          K = append_keg(K, cst.pre.literal); /* Name */
+          if (cst.cur.kind != COMMA) {        /* And type */
             iter();
             type *T = set_type(); /* Type */
             iter();
 
             /* Type alignment for multiple argument types */
-            while (K->len != V->len) {
-              V = append_list(V, T); /* One-on-one */
+            while (K->item != V->item) {
+              V = append_keg(V, T); /* One-on-one */
             }
             if (cst.pre.kind == R_PAREN) {
               break;
@@ -834,18 +834,18 @@ void stmt() {
 
       /* New code object */
       code_object *code = new_code(name.literal);
-      push_code_list(code); /* To top */
-      block();              /* Function body */
+      push_code_keg(code); /* To top */
+      block();             /* Function body */
 
       /* Reset status */
       reset_state(&cst, up_state);
 
-      code_object *ptr = (code_object *)pop_back_list(cst.codes); /* Pop back */
+      code_object *ptr = (code_object *)pop_back_keg(cst.codes); /* Pop back */
       obj->value.fn.code = ptr;
       obj->value.fn.name = ptr->description;
 
       /* Bytecode */
-      emit_top_code(LOAD_FUNCTION);
+      emit_top_code(FUNCTION);
       emit_top_obj(obj);
     } else if (cst.pre.kind == DEF) {          /* Class */
       compile_state up_state = backup_state(); /* Current state */
@@ -853,12 +853,12 @@ void stmt() {
 
       /* Code */
       code_object *code = new_code(name.literal);
-      push_code_list(code); /* Code */
-      block();              /* Body */
+      push_code_keg(code); /* Code */
+      block();             /* Body */
 
       reset_state(&cst, up_state); /* State */
 
-      code_object *ptr = (code_object *)pop_back_list(cst.codes); /* Pop back */
+      code_object *ptr = (code_object *)pop_back_keg(cst.codes); /* Pop back */
       /* Object */
       object *obj = malloc(sizeof(object));
       obj->kind = OBJ_CLASS;
@@ -868,7 +868,7 @@ void stmt() {
       obj->value.cl.init = false;
 
       /* Bytecode */
-      emit_top_code(LOAD_CLASS);
+      emit_top_code(CLASS);
       emit_top_obj(obj);
     } else {
       type *T = set_type();
@@ -890,12 +890,12 @@ void stmt() {
           no_block_error();
         }
 
-        list *elem = new_list();
-        elem = append_list(elem, (char *)T->inner.name); /* Previous */
+        keg *elem = new_keg();
+        elem = append_keg(elem, (char *)T->inner.name); /* Previous */
         free(T);
         /* Enums */
         while (true) {
-          elem = append_list(elem, (char *)cst.pre.literal);
+          elem = append_keg(elem, (char *)cst.pre.literal);
           if (cst.cur.off == off) {
             iter();
           } else {
@@ -908,7 +908,7 @@ void stmt() {
         obj->value.en.name = name.literal;
         obj->value.en.element = elem;
         /* Bytecode */
-        emit_top_code(LOAD_ENUMERATE);
+        emit_top_code(ENUMERATE);
         emit_top_obj(obj);
       }
     }
@@ -924,11 +924,11 @@ void stmt() {
     block();                            /* if body */
 
     /* Used to cache JUMP_TO where the bytecode is inserted */
-    list *p = new_list();
+    keg *p = new_keg();
 
     /* Conditional fetching is used to jump out of conditional statements */
     if (cst.cur.kind == EF || cst.cur.kind == NF) {
-      p = append_list(p, get_top_offset_p());
+      p = append_keg(p, get_top_offset_p());
       emit_top_code(JUMP_TO);
     }
     /* TO: if condition(F_JUMP_TO) */
@@ -949,7 +949,7 @@ void stmt() {
         int16_t *f = get_top_offset_p();
         *f += 1; /* The ef node has not yet inserted an offset,
         so a placeholder is added here. */
-        p = append_list(p, f);
+        p = append_keg(p, f);
         emit_top_code(JUMP_TO);
       }
       /* TO: ef condition(F_JUMP_TO) */
@@ -963,11 +963,11 @@ void stmt() {
     }
 
     /* The position of the jump out conditional statements is here */
-    for (int i = 0; i < p->len; i++)
+    for (int i = 0; i < p->item; i++)
       insert_top_offset(*(int *)(p->data[i]) + 1,
                         /* Skip to the current bytecode position */
                         get_top_code_len());
-    free_list(p); /* Release cache list */
+    free_keg(p); /* Release cache keg */
     break;
   }
   case AOP: {
@@ -996,7 +996,7 @@ void stmt() {
       emit_top_code(JUMP_TO);
       emit_top_offset(begin_p);
     }
-    /* Replace placeholder in offset list */
+    /* Replace placeholder in offset keg */
     replace_holder(-1, get_top_code_len());
     replace_holder(-2, begin_p);
     break;
@@ -1035,7 +1035,7 @@ void stmt() {
 
     insert_top_offset(expr_p, get_top_code_len());
 
-    /* Replace placeholder in offset list */
+    /* Replace placeholder in offset keg */
     replace_holder(-1, get_top_code_len());
     replace_holder(-2, update_p);
     break;
@@ -1102,7 +1102,7 @@ void block() {
 }
 
 /* Compiler */
-extern list *compile(list *t) {
+extern keg *compile(keg *t) {
   p = 0; /* Set state */
 
   cst.tokens = t;
@@ -1114,7 +1114,7 @@ extern list *compile(list *t) {
 
   /* Push global object */
   code_object *code = new_code("main");
-  push_code_list(code);
+  push_code_keg(code);
 
   while (cst.pre.kind != EOH) {
     stmt();
@@ -1129,16 +1129,13 @@ extern list *compile(list *t) {
 /* Detailed information */
 extern void disassemble_code(code_object *code) {
   printf("<%s>: %d code, %d name, %d type, %d object, %d offset\n",
-         code->description, code->codes == NULL ? 0 : code->codes->len,
-         code->names == NULL ? 0 : code->names->len,
-         code->types == NULL ? 0 : code->types->len,
-         code->objects == NULL ? 0 : code->objects->len,
-         code->offsets == NULL ? 0 : code->offsets->len);
+         code->description, code->codes == NULL ? 0 : code->codes->item,
+         code->names == NULL ? 0 : code->names->item,
+         code->types == NULL ? 0 : code->types->item,
+         code->objects == NULL ? 0 : code->objects->item,
+         code->offsets == NULL ? 0 : code->offsets->item);
 
-  // for (int i = 0; i < code->offsets->len; i ++) printf("%d\n", *(int16_t
-  // *)code->offsets->data[i]);
-
-  for (int b = 0, p = 0, pl = -1; b < code->codes->len; b++) {
+  for (int b = 0, p = 0, pl = -1; b < code->codes->item; b++) {
     int line = *(int *)code->lines->data[b];
     if (line != pl) {
       // if (pl != -1)
@@ -1153,10 +1150,10 @@ extern void disassemble_code(code_object *code) {
     printf("%2d %10s", b, code_string[*inner]);
     switch (*inner) {
     case CONST_OF:
-    case LOAD_ENUMERATE:
-    case LOAD_FUNCTION:
+    case ENUMERATE:
+    case FUNCTION:
     case LOAD_FACE:
-    case LOAD_CLASS: {
+    case CLASS: {
       int16_t *off = (int16_t *)code->offsets->data[p++];
       object *obj = (object *)code->objects->data[*off];
       printf("%4d %3s\n", *off, obj_string(obj));
@@ -1206,8 +1203,8 @@ extern void disassemble_code(code_object *code) {
     case BUILD_ARR:
     case BUILD_TUP:
     case BUILD_MAP: {
-      int16_t *count = (int16_t *)code->offsets->data[p++];
-      printf("%4d\n", *count);
+      int16_t *item = (int16_t *)code->offsets->data[p++];
+      printf("%4d\n", *item);
       break;
     }
     default:
@@ -1217,7 +1214,7 @@ extern void disassemble_code(code_object *code) {
 
   /* Output the details of the objects in it */
   if (code->objects != NULL) {
-    for (int i = 0; i < code->objects->len; i++) {
+    for (int i = 0; i < code->objects->item; i++) {
       object *obj = (object *)code->objects->data[i];
       /* Dissemble code object */
       if (obj->kind == OBJ_FUNCTION) {

@@ -8,26 +8,26 @@
 /* New table */
 table *new_table() {
   table *t = malloc(sizeof(table));
-  t->name = new_list();
-  t->objs = new_list();
+  t->name = new_keg();
+  t->objs = new_keg();
   return t;
 }
 
 /* Count of table values */
 int count_table(table *t) {
-  return t->name->len;
+  return t->name->item;
 }
 
 /* Add key and value */
 void add_table(table *t, char *name, object *val) {
   for (int i = 0; i < count_table(t); i++) {
     if (strcmp(name, (char *)t->name->data[i]) == 0) {
-      replace_list(t->objs, i, val);
+      replace_keg(t->objs, i, val);
       return;
     }
   }
-  t->name = append_list(t->name, name);
-  t->objs = append_list(t->objs, val);
+  t->name = append_keg(t->name, name);
+  t->objs = append_keg(t->objs, val);
 }
 
 /* Get value with key */
@@ -51,7 +51,7 @@ void disassemble_table(table *t, const char *name) {
 
 /* Free */
 void free_table(table *t) {
-  free_list(t->name);
-  free_list(t->objs);
+  free_keg(t->name);
+  free_keg(t->objs);
   free(t);
 }

@@ -5,6 +5,7 @@ drift.exe
 .idea
 *.swp
 os.ft
+love.ft
 .clang-format
 *.json
 node_modules

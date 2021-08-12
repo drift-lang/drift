@@ -10,7 +10,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "list.h"
+#include "keg.h"
 
 #define DEBUG_TYPE_STR_CAP 128
 
@@ -43,7 +43,7 @@ typedef struct {
     struct type *single; /* Contains a single type */
     const char *name;    /* Customer type */
     struct {
-      list *arg;        /* Function arguments */
+      keg *arg;         /* Function arguments */
       struct type *ret; /* Function returns */
     } fn;
     struct {

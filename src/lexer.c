@@ -6,7 +6,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-#include "list.h"
+#include "keg.h"
 #include "token.h"
 
 /* Whether the symbol is a space, carriage return, line feed, indent */
@@ -69,8 +69,8 @@ void paste_literal(char *literal, const char *buf, int *p, int i) {
 }
 
 /* Lexical analysis */
-extern list *lexer(const char *buf, int fsize) {
-  list *tokens = NULL;
+extern keg *lexer(const char *buf, int fsize) {
+  keg *tokens = NULL;
   bool new_line = true; /* Indent judgement */
   for (int i = 0, line = 1, off = 0; i < fsize;) {
     char c = buf[i];
@@ -110,8 +110,8 @@ extern list *lexer(const char *buf, int fsize) {
       char *literal = malloc((p + 1) * sizeof(char));
       paste_literal(literal, buf, &p, i);
       /* Append */
-      tokens = append_list(tokens,
-                           new_token(f ? FLOAT : NUMBER, literal, line, off));
+      tokens =
+          append_keg(tokens, new_token(f ? FLOAT : NUMBER, literal, line, off));
       continue;
     }
     if (is_ident(c)) { /* Ident */
@@ -123,8 +123,8 @@ extern list *lexer(const char *buf, int fsize) {
       char *literal = malloc((p + 1) * sizeof(char));
       paste_literal(literal, buf, &p, i);
       /* Append */
-      tokens = append_list(tokens,
-                           new_token(to_keyword(literal), literal, line, off));
+      tokens = append_keg(tokens,
+                          new_token(to_keyword(literal), literal, line, off));
       continue;
     }
     token t = {.line = line, .off = off}; /* Others */
@@ -339,15 +339,15 @@ extern list *lexer(const char *buf, int fsize) {
       exit(EXIT_FAILURE);
     }
     /* Other */
-    tokens = append_list(tokens, new_token(t.kind, t.literal, t.line, t.off));
+    tokens = append_keg(tokens, new_token(t.kind, t.literal, t.line, t.off));
   }
   /* Terminator */
   if (tokens != NULL) {
-    token *end = back_list(tokens);
+    token *end = back_keg(tokens);
     token *eoh = new_token(EOH, "EOF", end->line + 1, 0);
-    tokens = append_list(tokens, eoh); /* End of handler */
+    tokens = append_keg(tokens, eoh); /* End of handler */
   } else {
-    tokens = append_list(tokens, new_token(EOH, "EOF", 0, 0)); /* No token */
+    tokens = append_keg(tokens, new_token(EOH, "EOF", 0, 0)); /* No token */
   }
   return tokens;
 }

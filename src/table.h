@@ -8,13 +8,13 @@
 
 #include <stdbool.h>
 
-#include "list.h"
+#include "keg.h"
 #include "object.h"
 
 /* Structure of key value mapping table */
 typedef struct {
-  list *name; /* K */
-  list *objs; /* V */
+  keg *name; /* K */
+  keg *objs; /* V */
 } table;
 
 /* New table */
