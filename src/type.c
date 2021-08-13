@@ -25,19 +25,19 @@ const char *type_string(type *t) {
     free(str);
     return "<bool>";
   case T_ARRAY:
-    sprintf(str, "[%s]", type_string((type *)t->inner.single));
+    sprintf(str, "[]%s", type_string((type *)t->inner.single));
     return str;
   case T_TUPLE:
-    sprintf(str, "(%s)", type_string((type *)t->inner.single));
+    sprintf(str, "()%s", type_string((type *)t->inner.single));
     return str;
   case T_MAP:
-    sprintf(str, "{%s : %s}", type_string((type *)t->inner.both.T1),
+    sprintf(str, "{}<%s : %s>", type_string((type *)t->inner.both.T1),
             type_string((type *)t->inner.both.T2));
     return str;
   case T_FUNCTION:
     if (t->inner.fn.arg == NULL && t->inner.fn.ret == NULL) {
       free(str);
-      return "<|| -> None>";
+      return "<|| -> none>";
     }
     if (t->inner.fn.arg != NULL) {
       sprintf(str, "<|");

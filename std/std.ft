@@ -1,0 +1,14 @@
+# std.ft
+# 2021-08-13 10:00:32
+
+def T bool = 1
+def F bool = 0
+
+def (x any) print;
+def (x any) println;
+
+def (x any) len -> int;
+
+def (x any) typeof -> string;
+
+def (x, y int) rand -> int;

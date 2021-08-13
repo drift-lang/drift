@@ -1,0 +1,7 @@
+# math.ft
+# 2021-08-13 15:13:47
+
+def (a, b int) max -> int
+    if a > b
+        ret a
+    ret b

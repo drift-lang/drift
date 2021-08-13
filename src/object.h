@@ -54,6 +54,7 @@ typedef struct {
       keg *v;
       type *ret;
       code_object *code;
+      bool std;
     } fn; /* function */
     struct {
       char *name;

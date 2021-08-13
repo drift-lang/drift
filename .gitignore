@@ -4,9 +4,8 @@ drift.exe
 .vscode
 .idea
 *.swp
-os.ft
-love.ft
 .clang-format
 *.json
 node_modules
 gcc
+test.ft

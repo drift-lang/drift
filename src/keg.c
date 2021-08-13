@@ -69,6 +69,17 @@ void replace_keg(keg *g, int p, void *ptr) {
   g->data[p] = ptr;
 }
 
+/* Remove the element at the specified position*/
+void remove_keg(keg *g, int i) {
+  if (i < 0 || i > g->item - 1) {
+    return;
+  }
+  for (int j = i; j <= g->item; j++) {
+    g->data[j] = g->data[j + 1];
+  }
+  g->item--;
+}
+
 /* Release the keg elements and themselves */
 void free_keg(keg *g) {
   if (g->data != NULL) {

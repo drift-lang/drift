@@ -1,0 +1,44 @@
+# love.ft
+# 2021-08-13 14:23:37
+
+use std
+use os
+use list
+
+def lit []string = ["*", "#", "m", "@", "$", "."]
+
+def (p string) heart
+    def x float = 0.
+    def y float = 0.
+
+    def s string = ""
+    def i float = 1.5
+
+    aop i > -1.5
+        s = ""
+        x = -1.5
+        aop x < 1.5
+            y = x * x + i * i - 1
+            if (y * y * y -
+                x * x * i * i * i) < 0
+                s += p
+            nf
+                s += " "
+            x += 0.05
+        std.println(s)
+        i -= 0.1
+
+def () show
+    for def i int = 0; i < 6; i += 1
+        def x int = std.rand(0, std.len(lit))
+        heart(lit[x])
+        os.sleep(1000)
+        list.remove(lit, x)
+    std.println("
+    ❤   ❤
+   ❤  ❤  ❤
+    ❤   ❤
+      ❤
+            👨‍💻🤪 👏 happy to you!
+    ")
+show()

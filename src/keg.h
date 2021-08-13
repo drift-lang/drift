@@ -34,6 +34,9 @@ void insert_keg(keg *, int, void *);
 /* Replace data in keg subscript */
 void replace_keg(keg *, int, void *);
 
+/* Remove the element at the specified position */
+void remove_keg(keg *, int);
+
 /* Release the keg elements and themselves */
 void free_keg(keg *);
 

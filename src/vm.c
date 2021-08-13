@@ -96,49 +96,36 @@ void simple_error(const char *msg) {
   exit(EXIT_FAILURE);
 }
 
-/* Builtin function: print(object...) */
-void print(frame *f, keg *arg) {
-  if (arg->item == 0) {
-    printf("\n");
-    return;
-  }
-  for (int i = arg->item - 1; i >= 0; i--) {
-    printf("%s\t", obj_raw_string((object *)arg->data[i]));
-  }
+/* Builtin function: (any) println */
+void println(frame *f, keg *arg) {
+  printf("%s", obj_raw_string((object *)arg->data[0]));
   printf("\n");
 }
 
-/* Builtin function: len(object) -> int */
+/* Builtin function: (any) print */
+void print(frame *f, keg *arg) {
+  printf("%s", obj_raw_string((object *)arg->data[0]));
+}
+
+/* Builtin function: (any) len -> int */
 void len(frame *f, keg *arg) {
-  if (arg->item != 1) {
-    simple_error("'len' function require an argument");
-  }
   object *len = malloc(sizeof(object));
   len->kind = OBJ_INT;
   len->value.integer = obj_len((object *)pop_back_keg(arg));
   PUSH(len);
 }
 
-/* Builtin function: typeof(object) -> string */
+/* Builtin function: (any) typeof -> string */
 void ob_type(frame *f, keg *arg) {
-  if (arg->item != 1) {
-    simple_error("'typeof' function require an argument");
-  }
   object *str = malloc(sizeof(object));
   str->kind = OBJ_STRING;
   str->value.string = (char *)obj_type_string((object *)pop_back_keg(arg));
   PUSH(str);
 }
 
-/* Builtin function: sleep(int) */
+/* Builtin function: (int) sleep */
 void s_sleep(frame *f, keg *arg) {
-  if (arg->item != 1) {
-    simple_error("'typeof' function require an argument");
-  }
   object *obj = (object *)pop_back_keg(arg);
-  if (obj->kind != OBJ_INT) {
-    simple_error("'typeof' function receive an integer object");
-  }
 #if defined(__linux__) || defined(__APPLE__)
   sleep(obj->value.integer / 1000);
 #elif defined(_WIN32)
@@ -146,16 +133,10 @@ void s_sleep(frame *f, keg *arg) {
 #endif
 }
 
-/* Builtin function: rand(int, int) -> int */
+/* Builtin function: (int, int) rand -> int */
 void rand_int(frame *f, keg *arg) {
-  if (arg->item != 2) {
-    simple_error("'rand' function require two arguments");
-  }
   object *b = (object *)pop_back_keg(arg);
   object *a = (object *)pop_back_keg(arg);
-  if (a->kind != OBJ_INT || b->kind != OBJ_INT) {
-    simple_error("function header is: def (start, end int) rand -> int");
-  }
   int x = b->value.integer;
   int y = a->value.integer;
 #include <time.h>
@@ -166,30 +147,37 @@ void rand_int(frame *f, keg *arg) {
   PUSH(obj);
 }
 
+/* Builtin function: ([]any, any) append_entry */
+void append_entry(frame *f, keg *arg) {
+  object *arr = (object *)pop_back_keg(arg);
+  object *val = (object *)pop_back_keg(arg);
+  type *T = arr->value.arr.T;
+  if (!type_checker(T, val)) {
+    type_error(T, val);
+  }
+  append_keg(arr->value.arr.element, val);
+}
+
+/* Builtin function: ([]any, int) remove_entry */
+void remove_entry(frame *f, keg *arg) {
+  object *arr = (object *)pop_back_keg(arg);
+  int idx = ((object *)pop_back_keg(arg))->value.integer;
+  keg *elem = arr->value.arr.element;
+  if (elem->item == 0) {
+    simple_error("empty array can not to remove entry");
+  }
+  if (idx < 0 || idx > elem->item - 1) {
+    simple_error("index out of bounds");
+  }
+  remove_keg(elem, idx);
+}
+
 /* Builtin function keg */
 builtin bts[] = {
-    {"print", print},   {"len", len},       {"typeof", ob_type},
-    {"sleep", s_sleep}, {"rand", rand_int},
+    {"println", println},     {"print", print},         {"len", len},
+    {"typeof", ob_type},      {"sleep", s_sleep},       {"rand", rand_int},
+    {"append", append_entry}, {"remove", remove_entry},
 };
-
-/* Get builtin function with name */
-object *get_builtin(char *name) {
-  int p = -1;
-  for (int i = 0; i < sizeof(bts) / sizeof(bts[0]); i++) {
-    if (strcmp(bts[i].name, name) == 0) {
-      p = i;
-      break;
-    }
-  }
-  if (p != -1) { /* Placeholder object */
-    object *f = malloc(sizeof(object));
-    f->kind = OBJ_FUNCTION;
-    f->value.fn.name = name;
-    return f;
-  } else {
-    return NULL;
-  }
-}
 
 /* Jumps to the specified bytecode position and
    moves the offset */
@@ -284,6 +272,10 @@ void eval() {
       type *T = GET_TYPE();
       char *name = GET_NAME();
       object *obj = POP();
+      if (T->kind == T_BOOL && obj->kind == OBJ_INT) { /* int to bool */
+        obj->value.boolean = obj->value.integer > 0;
+        obj->kind = OBJ_BOOL;
+      }
       if (/* Store and object type check */
           !type_checker(T, obj)) {
         type_error(T, obj);
@@ -310,12 +302,6 @@ void eval() {
         if (vst.whole != NULL && vst.frame->item > 1) {
           frame *f = (frame *)vst.whole->value.cl.fr;
           resu = get_table(f->tb, name); /* Set to whole frame */
-          if (resu == NULL)
-            resu = get_builtin(name);
-        }
-        /* Builtin function */
-        else {
-          resu = get_builtin(name);
         }
       }
       if (resu == NULL) {
@@ -743,12 +729,6 @@ void eval() {
       }
 
       object *fn = POP(); /* Function */
-      for (int i = 0; i < sizeof(bts) / sizeof(bts[0]); i++) {
-        if (strcmp(bts[i].name, fn->value.fn.name) == 0) {
-          bts[i].func(back_frame(), arg); /* Call builtin function */
-          goto next;
-        }
-      }
 
       keg *k = fn->value.fn.k;
       keg *v = fn->value.fn.v;
@@ -756,6 +736,25 @@ void eval() {
       /* Arguments item */
       if (k->item != arg->item) {
         simple_error("inconsistent funtion arguments");
+      }
+
+      if (fn->value.fn.std) {
+        for (int i = 0; i < sizeof(bts) / sizeof(bts[0]); i++) {
+          if (strcmp(bts[i].name, fn->value.fn.name) == 0) {
+            {
+              for (int i = 0, j = arg->item; i < k->item; i++) {
+                type *T = (type *)v->data[i]; /* Arg type */
+                object *obj = arg->data[--j]; /* Arg object */
+                if (!type_checker(T, obj)) {
+                  type_error(T, obj);
+                }
+              }
+            }
+            /* Call std function */
+            bts[i].func(back_frame(), arg);
+            goto next;
+          }
+        }
       }
 
       /* Call frame */
@@ -893,16 +892,23 @@ void eval() {
       char *name = GET_NAME();
       object *val = POP(); /* Will set value */
       object *obj = POP();
-      if (obj->kind != OBJ_CLASS) {
-        simple_error("only members of whole can be set");
+      if (obj->kind != OBJ_CLASS && obj->kind != OBJ_MODULE) {
+        simple_error("only members of class and module can be set");
       }
-      frame *fr = (frame *)obj->value.cl.fr; /* Whole frame */
-      void *ptr = get_table(fr->tb, name);
+      table *tb = NULL;
+      if (obj->kind == OBJ_CLASS) {
+        frame *fr = (frame *)obj->value.cl.fr; /* frame */
+        tb = fr->tb;
+      }
+      if (obj->kind == OBJ_MODULE) {
+        tb = (table *)obj->value.mod.tb;
+      }
+      void *ptr = get_table(tb, name);
       if (ptr == NULL) {
         simple_error("nonexistent member");
       }
       object *j = (object *)ptr; /* Origin value */
-      if (val->kind != j->kind) {
+      if (val->kind != j->kind && j->kind != OBJ_NIL) {
         simple_error("wrong type set");
       }
       /* Check basic object */
@@ -912,12 +918,12 @@ void eval() {
       if (!obj_kind_eq(obj, val)) {
         simple_error("inconsistent type");
       }
-      add_table(fr->tb, name, val); /* Restore */
+      add_table(tb, name, val); /* Restore */
       break;
     }
     case CLASS: { /* J */
       object *obj = GET_OBJ();
-      add_table(back_frame()->tb, obj->value.cl.name, obj); /* Whole */
+      add_table(back_frame()->tb, obj->value.cl.name, obj); /* Class */
       break;
     }
     case NEW_OBJ: { /* N F*/
@@ -940,7 +946,7 @@ void eval() {
       object *new = malloc(sizeof(object)); /* Copy */
       memcpy(new, obj, sizeof(object));
 
-      /* Evaluate frame of whole */
+      /* Evaluate frame of class */
       new->value.cl.fr = (struct frame *)new_frame(obj->value.cl.code);
       /* Backup pointer */
       int16_t op_up = vst.op;
@@ -971,7 +977,7 @@ void eval() {
         }
       }
 
-      new->value.cl.init = true; /* Whole object */
+      new->value.cl.init = true; /* Class object */
       PUSH(new);
       break;
     }
@@ -1092,6 +1098,7 @@ keg *read_path(keg *pl, char *path) {
   DIR *dir;
   struct dirent *p;
   if ((dir = opendir(path)) == NULL) {
+    printf("%s\n", path);
     simple_error("failed to open the std library or current directory");
   }
   while ((p = readdir(dir)) != NULL) {
@@ -1155,7 +1162,7 @@ void load_eval(const char *path, char *name) {
 /* Load module by name
    Load the FTPATH directory first, and then load the project directory */
 void load_module(char *name) {
-  int i = 0;
+  bool is = false;
   if (filename_eq(vst.filename, name)) {
     simple_error("cannot reference itself"); /* Current file */
   }
@@ -1165,14 +1172,15 @@ void load_module(char *name) {
     pl = read_path(pl, (char *)path); /* Standard library */
   }
   pl = read_path(pl, "."); /* Current path */
-  for (; i < pl->item; i++) {
+  for (int i = 0; i < pl->item; i++) {
     char *addr = (char *)pl->data[i];
     if (filename_eq(get_filename(addr), name)) {
       load_eval(addr, name); /* To eval */
+      is = true;
       break;
     }
   }
-  if (i == 0) { /* Not found module */
+  if (!is) { /* Not found module */
     fprintf(stderr, "\033[1;31mvm %d:\033[0m undefined module '%s'.\n",
             GET_LINE(), name);
     exit(EXIT_FAILURE);

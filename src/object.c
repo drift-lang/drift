@@ -65,7 +65,7 @@ const char *obj_raw_string(object *obj) {
     sprintf(str, "%s", obj->value.string);
     return str;
   case OBJ_CHAR:
-    sprintf(str, "%c", obj->value.ch);
+    sprintf(str, "'%c'", obj->value.ch);
     return str;
   case OBJ_BOOL:
     sprintf(str, "%s", obj->value.boolean ? "T" : "F");
@@ -77,9 +77,9 @@ const char *obj_raw_string(object *obj) {
       return "[]";
     }
     sprintf(str, "[");
-    for (int i = elem->item - 1; i >= 0; i--) {
+    for (int i = 0; i < elem->item; i++) {
       strcat(str, obj_raw_string((object *)elem->data[i]));
-      if (i - 1 != -1) {
+      if (i + 1 != elem->item) {
         strcat(str, ", ");
       }
     }
@@ -93,9 +93,9 @@ const char *obj_raw_string(object *obj) {
       return "()";
     }
     sprintf(str, "(");
-    for (int i = elem->item - 1; i >= 0; i--) {
+    for (int i = 0; i < elem->item; i++) {
       strcat(str, obj_raw_string((object *)elem->data[i]));
-      if (i - 1 != -1) {
+      if (i + 1 != elem->item) {
         strcat(str, ", ");
       }
     }
@@ -110,11 +110,11 @@ const char *obj_raw_string(object *obj) {
       return "{}";
     }
     sprintf(str, "{");
-    for (int i = k->item - 1; i >= 0; i--) {
+    for (int i = 0; i < k->item; i++) {
       strcat(str, obj_raw_string((object *)k->data[i]));
       strcat(str, ": ");
       strcat(str, obj_raw_string((object *)v->data[i]));
-      if (i - 1 != -1) {
+      if (i + 1 != k->item) {
         strcat(str, ", ");
       }
     }
@@ -463,7 +463,7 @@ bool type_checker(type *tp, object *obj) {
       return false;
     } else {
       if (tp->kind == T_USER) {
-        const char *name = tp->inner.name;
+        const char *name = tp->inner.name; /* Often deal with 'any' type here */
 
         if ((obj->kind == OBJ_FUNCTION &&
              strcmp(name, obj->value.fn.name) != 0) ||
@@ -515,7 +515,7 @@ bool basic(object *obj) {
   if (obj->kind == OBJ_INT || obj->kind == OBJ_FLOAT ||
       obj->kind == OBJ_STRING || obj->kind == OBJ_CHAR ||
       obj->kind == OBJ_BOOL || obj->kind == OBJ_ARR || obj->kind == OBJ_TUP ||
-      obj->kind == OBJ_MAP) {
+      obj->kind == OBJ_MAP || obj->kind == OBJ_NIL) {
     return true;
   }
   return false;
@@ -553,13 +553,15 @@ const char *obj_type_string(object *obj) {
   case OBJ_MAP:
     return "map";
   case OBJ_FUNCTION:
-    return "func";
+    return "function";
   case OBJ_ENUMERATE:
-    return "enum";
+    return "enumerate";
   case OBJ_CLASS:
-    return "whole";
+    return "class";
   case OBJ_INTERFACE:
-    return "face";
+    return "interface";
+  case OBJ_MODULE:
+    return "module";
   case OBJ_NIL:
     return "nil";
   }

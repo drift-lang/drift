@@ -827,22 +827,29 @@ void stmt() {
         obj->value.fn.ret = NULL;
       }
 
-      /* Back up the current compilation state,
-         It will create a new object to parse the function body */
-      compile_state up_state = backup_state();
-      clear_state(); /* New state */
+      if (cst.pre.kind == SEMICOLON) { /* Std function */
+        obj->value.fn.std = true;
+        obj->value.fn.name = name.literal;
+        obj->value.fn.code = NULL;
+      } else {
+        /* Back up the current compilation state,
+           It will create a new object to parse the function body */
+        compile_state up_state = backup_state();
+        clear_state(); /* New state */
 
-      /* New code object */
-      code_object *code = new_code(name.literal);
-      push_code_keg(code); /* To top */
-      block();             /* Function body */
+        /* New code object */
+        code_object *code = new_code(name.literal);
+        push_code_keg(code); /* To top */
+        block();             /* Function body */
 
-      /* Reset status */
-      reset_state(&cst, up_state);
+        /* Reset status */
+        reset_state(&cst, up_state);
 
-      code_object *ptr = (code_object *)pop_back_keg(cst.codes); /* Pop back */
-      obj->value.fn.code = ptr;
-      obj->value.fn.name = ptr->description;
+        code_object *ptr =
+            (code_object *)pop_back_keg(cst.codes); /* Pop back */
+        obj->value.fn.code = ptr;
+        obj->value.fn.name = ptr->description;
+      }
 
       /* Bytecode */
       emit_top_code(FUNCTION);
