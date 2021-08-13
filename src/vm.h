@@ -13,6 +13,7 @@
 #include "keg.h"
 #include "opcode.h"
 #include "table.h"
+#include "token.h"
 
 #if defined(__linux__) || defined(__APPLE__)
   #include <unistd.h>
@@ -54,8 +55,11 @@ typedef struct {
 /* Returns the file name of path string */
 char *get_filename(const char *p);
 
-/* Release frame struct */
+/* Free frame struct */
 void free_frame(frame *f);
+
+/* Free lexical token list */
+void free_tokens(keg *);
 
 /* External api */
 typedef void (*fn_impl)(vm_state *);

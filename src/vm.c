@@ -21,9 +21,22 @@ frame *new_frame(code_object *code) {
   return f;
 }
 
-/* Release frame struct */
+/* Free frame struct */
 void free_frame(frame *f) {
   // GC here
+}
+
+/* Free lexical token list */
+void free_tokens(keg *g) {
+  for (int i = 0; i < g->item; i++) {
+    token *tok = (token *)g->data[i];
+    if (tok->kind == FLOAT || tok->kind == NUMBER || tok->kind == CHAR ||
+        tok->kind >= 39) {
+      free(tok->literal);
+    }
+    free(tok);
+  }
+  free_keg(g);
 }
 
 /* Return font frame object */
@@ -71,8 +84,8 @@ keg *top_data() {
 
 /* Undefined error */
 void undefined_error(char *name) {
-  fprintf(stderr, "\033[1;31mvm %d:\033[0m undefined name '%s'.\n", GET_LINE(),
-          name);
+  fprintf(stderr, "\033[1;31mvm %s %d:\033[0m undefined name '%s'.\n",
+          vst.filename, GET_LINE(), name);
   exit(EXIT_FAILURE);
 }
 
@@ -172,11 +185,22 @@ void remove_entry(frame *f, keg *arg) {
   remove_keg(elem, idx);
 }
 
+/* Builtin function: () input -> string */
+void input(frame *f, keg *arg) {
+  char *literal = malloc(sizeof(char) * 32);
+  fgets(literal, 32, stdin);
+  literal[strlen(literal) - 1] = '\0';
+  object *obj = malloc(sizeof(object));
+  obj->kind = OBJ_STRING;
+  obj->value.string = literal;
+  PUSH(obj);
+}
+
 /* Builtin function keg */
 builtin bts[] = {
     {"println", println},     {"print", print},         {"len", len},
     {"typeof", ob_type},      {"sleep", s_sleep},       {"rand", rand_int},
-    {"append", append_entry}, {"remove", remove_entry},
+    {"append", append_entry}, {"remove", remove_entry}, {"input", input},
 };
 
 /* Jumps to the specified bytecode position and
@@ -258,6 +282,43 @@ object *make_nil() {
 
 void load_module(char *); /* Load module by name */
 
+/* The interface implementation of the test class */
+void check_interface(object *in, object *cl) {
+  if (cl->value.cl.init == false) {
+    simple_error("class is not initialized");
+  }
+  keg *elem = in->value.in.element; /* Interface method */
+  frame *fr = (frame *)cl->value.cl.fr;
+  for (int i = 0; i < elem->item; i++) {
+    method *m =
+        (method *)elem->data[i]; /* Traverse the node and check the type */
+    void *p = get_table(fr->tb, m->name);
+    if (p == NULL) {
+      simple_error("class does not contain some member");
+    }
+    object *fn = (object *)p; /* object inner */
+    if (fn->kind != OBJ_FUNCTION) {
+      simple_error("an interface can only be a method");
+    }
+    /* Check return type */
+    if (!type_eq(m->ret, fn->value.fn.ret)) {
+      simple_error("return type in the method are inconsistent");
+    }
+    /* Check function arguments */
+    if (m->T->item != fn->value.fn.v->item) {
+      simple_error("inconsistent method arguments");
+    }
+    /* Check function arguments type */
+    for (int j = 0; j < m->T->item; j++) {
+      type *a = (type *)m->T->data[j];
+      type *b = (type *)fn->value.fn.v->data[j];
+      if (!type_eq(a, b)) {
+        simple_error("Inconsistent types of method arguments");
+      }
+    }
+  }
+}
+
 /* Evaluate */
 void eval() {
   while (vst.ip < top_code()->codes->item) { /* Traversal bytecode keg */
@@ -276,9 +337,21 @@ void eval() {
         obj->value.boolean = obj->value.integer > 0;
         obj->kind = OBJ_BOOL;
       }
-      if (/* Store and object type check */
-          !type_checker(T, obj)) {
-        type_error(T, obj);
+      if (T->kind == T_USER && obj->kind == OBJ_CLASS) {
+        void *ptr = get_table(back_frame()->tb, T->inner.name);
+        if (ptr == NULL) {
+          simple_error("cannot store to undefined interface");
+        }
+        object *in = (object *)ptr;
+        if (in->kind != OBJ_INTERFACE) {
+          simple_error("type is not interface or class");
+        }
+        check_interface(in, obj);
+      } else {
+        if (/* Store and object type check */
+            !type_checker(T, obj)) {
+          type_error(T, obj);
+        }
       }
       if (obj->kind == OBJ_ARR) { /* Sets the type specified */
         obj->value.arr.T = (type *)T->inner.single;
@@ -325,42 +398,9 @@ void eval() {
         if (obj->kind != OBJ_CLASS) {
           simple_error("interface needs to be assigned by whole");
         }
-        if (obj->value.cl.init == false) {
-          simple_error("whole is not initialized");
-        }
-        keg *elem = origin->value.in.element; /* Face method */
-        frame *fr = (frame *)obj->value.cl.fr;
-        for (int i = 0; i < elem->item; i++) {
-          method *m =
-              (method *)
-                  elem->data[i]; /* Traverse the node and check the type */
-          void *p = get_table(fr->tb, m->name);
-          if (p == NULL) {
-            simple_error("whole does not contain some member");
-          }
-          object *fn = (object *)p; /* Whole object inner */
-          if (fn->kind != OBJ_FUNCTION) {
-            simple_error("an interface can only be a method");
-          }
-          /* Check return type */
-          if (!type_eq(m->ret, fn->value.fn.ret)) {
-            simple_error("return type in the method are inconsistent");
-          }
-          /* Check function arguments */
-          if (m->T->item != fn->value.fn.v->item) {
-            simple_error("inconsistent method arguments");
-          }
-          /* Check function arguments type */
-          for (int j = 0; j < m->T->item; j++) {
-            type *a = (type *)m->T->data[j];
-            type *b = (type *)fn->value.fn.v->data[j];
-            if (!type_eq(a, b)) {
-              simple_error("Inconsistent types of method arguments");
-            }
-          }
-        }
+        check_interface(origin, obj);
         /* Store whole field into face object */
-        origin->value.in.whole = (struct object *)obj;
+        origin->value.in.class = (struct object *)obj;
         break;
       }
       /* Update the content of the table */
@@ -863,15 +903,15 @@ void eval() {
         PUSH((object *)obj->value.tup.element->data[p]);
       }
       if (obj->kind == OBJ_INTERFACE) { /* Face */
-        if (obj->value.in.whole == NULL) {
+        if (obj->value.in.class == NULL) {
           simple_error("interface is not initialized");
         }
         keg *elem = obj->value.in.element; /* Face method */
         for (int i = 0; i < elem->item; i++) {
           method *m = (method *)elem->data[i];
           if (strcmp(m->name, name) == 0) {
-            object *wh = (object *)obj->value.in.whole; /* Get whole object */
-            frame *fr = (frame *)wh->value.cl.fr;       /* Get frame in whole */
+            object *wh = (object *)obj->value.in.class; /* Get class object */
+            frame *fr = (frame *)wh->value.cl.fr;       /* Get frame in class */
             vst.whole = wh;
             PUSH((object *)get_table(fr->tb, name));
             goto next;
@@ -1141,7 +1181,10 @@ void load_eval(const char *path, char *name) {
   keg *fr_up = vst.frame;
 
   keg *tokens = lexer(buf, fsize); /* To evaluate */
+  free(buf);
+
   keg *codes = compile(tokens);
+
   vm_state ps = evaluate(codes->data[0], get_filename(path));
 
   frame *fr = (frame *)ps.frame->data[0]; /* Global frame */
@@ -1157,12 +1200,15 @@ void load_eval(const char *path, char *name) {
 
   add_table(back_frame()->tb, name, obj); /* Module object*/
   free_keg(codes);
+
+  fclose(fp);
+  free_tokens(tokens);
 }
 
 /* Load module by name
    Load the FTPATH directory first, and then load the project directory */
 void load_module(char *name) {
-  bool is = false;
+  bool ok = false;
   if (filename_eq(vst.filename, name)) {
     simple_error("cannot reference itself"); /* Current file */
   }
@@ -1176,11 +1222,11 @@ void load_module(char *name) {
     char *addr = (char *)pl->data[i];
     if (filename_eq(get_filename(addr), name)) {
       load_eval(addr, name); /* To eval */
-      is = true;
+      ok = true;
       break;
     }
   }
-  if (!is) { /* Not found module */
+  if (!ok) { /* Not found module */
     fprintf(stderr, "\033[1;31mvm %d:\033[0m undefined module '%s'.\n",
             GET_LINE(), name);
     exit(EXIT_FAILURE);

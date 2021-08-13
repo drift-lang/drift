@@ -2,3 +2,5 @@
 # 2021-08-13 11:48:56
 
 def (x int) sleep;
+
+def () input -> string;

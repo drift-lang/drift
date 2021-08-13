@@ -59,7 +59,7 @@ typedef struct {
     struct {
       char *name;
       keg *element;
-      struct object *whole;
+      struct object *class;
     } in; /* interface */
     struct {
       char *name;

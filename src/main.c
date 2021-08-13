@@ -21,6 +21,7 @@ extern void disassemble_code(code_object *);
 void run(char *source, int fsize, char *filename) {
   /* Lexical analysis */
   keg *tokens = lexer(source, fsize);
+  free(source);
 
   if (show_tokens) {
     for (int i = 0; i < tokens->item; i++) {
@@ -45,6 +46,8 @@ void run(char *source, int fsize, char *filename) {
 
   free_keg(codes);
   free(state.filename);
+
+  free_tokens(tokens);
 }
 
 /* Print usage information */

@@ -41,7 +41,7 @@ typedef struct {
   u_int8_t kind; /* Type system */
   union {
     struct type *single; /* Contains a single type */
-    const char *name;    /* Customer type */
+    char *name;          /* Customer type */
     struct {
       keg *arg;         /* Function arguments */
       struct type *ret; /* Function returns */

@@ -83,9 +83,7 @@ void remove_keg(keg *g, int i) {
 /* Release the keg elements and themselves */
 void free_keg(keg *g) {
   if (g->data != NULL) {
-    for (int i = 0; i < g->item; i++) {
-      free(g->data[i]);
-    }
+    free(g->data);
   }
   free(g);
 }

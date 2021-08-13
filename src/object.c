@@ -470,8 +470,7 @@ bool type_checker(type *tp, object *obj) {
             (obj->kind == OBJ_ENUMERATE &&
              strcmp(name, obj->value.en.name) != 0) ||
             (obj->kind == OBJ_INTERFACE &&
-             strcmp(name, obj->value.in.name) != 0) ||
-            (obj->kind == OBJ_CLASS && strcmp(name, obj->value.cl.name) != 0)) {
+             strcmp(name, obj->value.in.name) != 0)) {
           return false;
         }
       }
