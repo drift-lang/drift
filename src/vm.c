@@ -153,7 +153,8 @@ void rand_int(frame *f, keg *arg) {
   int x = b->value.integer;
   int y = a->value.integer;
 #include <time.h>
-  srand((unsigned int)time(NULL));
+  static int r = 0;
+  srand(r++);
   object *obj = malloc(sizeof(object));
   obj->kind = OBJ_INT;
   obj->value.integer = rand() % y + x;

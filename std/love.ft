@@ -3,9 +3,10 @@
 
 use std
 use os
-use list
 
-def lit []string = ["*", "#", "m", "@", "$", "."]
+def lit []string = [
+    "&", "@", "#", "*", "$", "+", "%", "0"
+]
 
 def (p string) heart
     def x float = 0.
@@ -21,7 +22,11 @@ def (p string) heart
             y = x * x + i * i - 1
             if (y * y * y -
                 x * x * i * i * i) < 0
-                s += p
+                def r int = std.rand(0, std.len(lit))
+                if r >= 3
+                    s += lit[r]
+                nf
+                    s += p
             nf
                 s += " "
             x += 0.05
@@ -29,16 +34,14 @@ def (p string) heart
         i -= 0.1
 
 def () show
-    for def i int = 0; i < 6; i += 1
-        def x int = std.rand(0, std.len(lit))
-        heart(lit[x])
+    for def i int = 0; i < 8; i += 1
+        heart(lit[i])
         os.sleep(1000)
-        list.remove(lit, x)
     std.println("
     ❤   ❤
-   ❤  ❤  ❤
+   ❤  +  ❤
     ❤   ❤
       ❤
-            👨‍💻🤪 👏 happy to you!
+                👨‍💻🤪 👏 happy to you!
     ")
 show()

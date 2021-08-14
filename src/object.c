@@ -191,7 +191,7 @@ object *binary_op(u_int8_t op, object *a, object *b) {
     OP_A(a, b, je, +)
     if (a->kind == OBJ_STRING && b->kind == OBJ_STRING) { /* string + string */
       je->kind = OBJ_STRING;
-      char *new = malloc(sizeof(char) * STRING_CAP);
+      char *new = malloc(sizeof(char) * STRING_CAP_MAX);
       sprintf(new, "%s%s", a->value.string, b->value.string);
       je->value.string = new;
       je_ins = true;

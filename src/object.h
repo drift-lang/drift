@@ -16,6 +16,7 @@
 
 #define DEBUG_OBJ_STR_CAP 32
 #define STRING_CAP        128
+#define STRING_CAP_MAX    1024
 
 /* Object type */
 typedef enum {

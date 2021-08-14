@@ -14,7 +14,7 @@ for f in os.listdir(path):
         list.append(f)
 for i, v in enumerate(list):
     print(i + 1, v)
-    os.system(GCC + ' -std=gnu99 -c -Os -g %s' % path + v)
+    os.system(GCC + ' -std=gnu99 -c -g %s' % path + v)
     list[i] = v[0:len(v) - 2] + '.o'
 if DEBUG:
     os.system(GCC + ' -fsanitize=address %s -o drift' % ' '.join(list))
