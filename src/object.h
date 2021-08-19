@@ -20,79 +20,79 @@
 
 /* Object type */
 typedef enum {
-  OBJ_INT,
-  OBJ_FLOAT,
-  OBJ_STRING,
-  OBJ_CHAR,
-  OBJ_BOOL,
-  OBJ_ENUMERATE,
-  OBJ_FUNCTION,
-  OBJ_CLASS,
-  OBJ_INTERFACE,
-  OBJ_ARR,
-  OBJ_TUP,
-  OBJ_MAP,
-  OBJ_MODULE,
-  OBJ_NIL
+    OBJ_INT,
+    OBJ_FLOAT,
+    OBJ_STRING,
+    OBJ_CHAR,
+    OBJ_BOOL,
+    OBJ_ENUMERATE,
+    OBJ_FUNCTION,
+    OBJ_CLASS,
+    OBJ_INTERFACE,
+    OBJ_ARR,
+    OBJ_TUP,
+    OBJ_MAP,
+    OBJ_MODULE,
+    OBJ_NIL
 } obj_kind;
 
 /* Object system */
 typedef struct {
-  u_int8_t kind; /* Kind */
-  union {
-    int integer;     /* int */
-    double floating; /* float */
-    char *string;    /* string */
-    char ch;         /* char */
-    bool boolean;    /* bool */
-    struct {
-      char *name;
-      keg *element;
-    } en; /* enum */
-    struct {
-      char *name;
-      keg *k;
-      keg *v;
-      type *ret;
-      code_object *code;
-      bool std;
-    } fn; /* function */
-    struct {
-      char *name;
-      keg *element;
-      struct object *class;
-    } in; /* interface */
-    struct {
-      char *name;
-      code_object *code;
-      struct frame *fr;
-      bool init;
-    } cl; /* class */
-    struct {
-      keg *element;
-      type *T;
-    } arr; /* array */
-    struct {
-      keg *element;
-      type *T;
-    } tup; /* tuple */
-    struct {
-      keg *k;
-      keg *v;
-      type *T1;
-      type *T2;
-    } map; /* map */
-    struct {
-      struct table *tb;
-    } mod; /* module */
-  } value; /* Inner value */
+    u_int8_t kind; /* Kind */
+    union {
+        int integer;     /* int */
+        double floating; /* float */
+        char *string;    /* string */
+        char ch;         /* char */
+        bool boolean;    /* bool */
+        struct {
+            char *name;
+            keg *element;
+        } en; /* enum */
+        struct {
+            char *name;
+            keg *k;
+            keg *v;
+            type *ret;
+            code_object *code;
+            bool std;
+        } fn; /* function */
+        struct {
+            char *name;
+            keg *element;
+            struct object *class;
+        } in; /* interface */
+        struct {
+            char *name;
+            code_object *code;
+            struct frame *fr;
+            bool init;
+        } cl; /* class */
+        struct {
+            keg *element;
+            type *T;
+        } arr; /* array */
+        struct {
+            keg *element;
+            type *T;
+        } tup; /* tuple */
+        struct {
+            keg *k;
+            keg *v;
+            type *T1;
+            type *T2;
+        } map; /* map */
+        struct {
+            struct table *tb;
+        } mod; /* module */
+    } value;   /* Inner value */
 } object;
 
 /* Method structure of interface */
 typedef struct {
-  char *name; /* Face name */
-  keg *T;     /* Types of arguments */
-  type *ret;  /* Return type */
+    char *name; /* Face name */
+    keg *T;     /* Types of arguments */
+    type *ret;  /* Return type */
 } method;
 
 /* Output object */

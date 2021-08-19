@@ -1,0 +1,9 @@
+Language: Cpp
+IndentWidth: 4
+ColumnLimit: 80
+AlignArrayOfStructures: Left
+AlignConsecutiveMacros: AcrossEmptyLinesAndComments
+AlignEscapedNewlines: DontAlign
+AllowShortBlocksOnASingleLine: Empty
+IndentPPDirectives: BeforeHash
+AllowShortFunctionsOnASingleLine: None

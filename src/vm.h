@@ -16,28 +16,28 @@
 #include "token.h"
 
 #if defined(__linux__) || defined(__APPLE__)
-  #include <unistd.h>
+    #include <unistd.h>
 #elif defined(_WIN32)
-  #include <dirent.h>
-  #include <windows.h>
+    #include <dirent.h>
+    #include <windows.h>
 #endif
 
 /* Evaluate frame structure */
 typedef struct {
-  code_object *code; /* Code object keg */
-  table *tb;         /* Object mapping table */
-  keg *data;         /* Eval data stack */
-  object *ret;       /* Return value of frame */
+    code_object *code; /* Code object keg */
+    table *tb;         /* Object mapping table */
+    keg *data;         /* Eval data stack */
+    object *ret;       /* Return value of frame */
 } frame;
 
 /* Virtual machine state */
 typedef struct {
-  keg *frame;     /* Frame keg */
-  int16_t op;     /* Position of offset */
-  int16_t ip;     /* IP */
-  bool loop_ret;  /* Break loop */
-  object *whole;  /* Method of load whole */
-  char *filename; /* Current evaluate filename */
+    keg *frame;     /* Frame keg */
+    int16_t op;     /* Position of offset */
+    int16_t ip;     /* IP */
+    bool loop_ret;  /* Break loop */
+    object *whole;  /* Method of load whole */
+    char *filename; /* Current evaluate filename */
 } vm_state;
 
 /* Evaluate code object */
@@ -48,8 +48,8 @@ typedef void (*built)(frame *, keg *);
 
 /* Builtin function */
 typedef struct {
-  char *name; /* Function name */
-  built func; /* Function handler */
+    char *name; /* Function name */
+    built func; /* Function handler */
 } builtin;
 
 /* Returns the file name of path string */
@@ -66,8 +66,8 @@ typedef void (*fn_impl)(vm_state *);
 
 /* API Structure */
 typedef struct {
-  const char *name;
-  fn_impl fn; /* vm_state <-> module */
+    const char *name;
+    fn_impl fn; /* vm_state <-> module */
 } reg;
 
 /* Regist module */

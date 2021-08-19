@@ -10,9 +10,9 @@
 
 /* My keg structure */
 typedef struct {
-  void **data;
-  int item;
-  int cap;
+    void **data;
+    int item;
+    int cap;
 } keg;
 
 /* Create an empty keg */

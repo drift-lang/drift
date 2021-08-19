@@ -4,7 +4,6 @@ drift.exe
 .vscode
 .idea
 *.swp
-.clang-format
 *.json
 node_modules
 gcc
