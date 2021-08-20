@@ -8,36 +8,26 @@
 
 #include <stdlib.h>
 
-/* My keg structure */
 typedef struct {
-    void **data;
-    int item;
-    int cap;
+        void **data;
+        int item;
+        int cap;
 } keg;
 
-/* Create an empty keg */
 keg *new_keg();
 
-/* The tail is added,
- * and the capacity is expanded twice automatically */
 keg *append_keg(keg *, void *);
 
-/* Tail data */
 void *back_keg(keg *);
 
-/* Pop up tail data */
 void *pop_back_keg(keg *);
 
-/* Insert element at specified location */
 void insert_keg(keg *, int, void *);
 
-/* Replace data in keg subscript */
 void replace_keg(keg *, int, void *);
 
-/* Remove the element at the specified position */
 void remove_keg(keg *, int);
 
-/* Release the keg elements and themselves */
 void free_keg(keg *);
 
 #endif

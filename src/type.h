@@ -14,49 +14,37 @@
 
 #define DEBUG_TYPE_STR_CAP 128
 
-/* Type system */
 typedef enum {
-    T_INT,      // int
-    T_FLOAT,    // float
-    T_CHAR,     // char
-    T_STRING,   // string
-    T_BOOL,     // bool
-    T_ARRAY,    // []T
-    T_TUPLE,    // ()T
-    T_MAP,      // {}<T1, T2>
-    T_FUNCTION, // |[]T| -> T
-    T_USER,     // ?
+        T_INT,
+        T_FLOAT,
+        T_CHAR,
+        T_STRING,
+        T_BOOL,
+        T_ARRAY,
+        T_TUPLE,
+        T_MAP,
+        T_FUNCTION,
+        T_USER,
 } type_kind;
 
-/*
- * Type:
- *
- *   1. int       2.  float
- *   3. char      4.  string
- *   5. bool      6.  array
- *   7. tuple     8.  map
- *   9. function  10. user
- */
 typedef struct {
-    u_int8_t kind; /* Type system */
-    union {
-        struct type *single; /* Contains a single type */
-        char *name;          /* Customer type */
-        struct {
-            keg *arg;         /* Function arguments */
-            struct type *ret; /* Function returns */
-        } fn;
-        struct {
-            struct type *T1;
-            struct type *T2;
-        } both; /* It contains two types */
-    } inner;
+        u_int8_t kind;
+        union {
+                struct type *single;
+                char *name;
+                struct {
+                        keg *arg;
+                        struct type *ret;
+                } fn;
+                struct {
+                        struct type *T1;
+                        struct type *T2;
+                } both;
+        } inner;
 } type;
 
-/* Output type */
 const char *type_string(type *);
 
-/* Return two types is equal */
 bool type_eq(type *, type *);
 
 #endif
