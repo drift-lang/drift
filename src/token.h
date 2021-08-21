@@ -10,57 +10,57 @@
 #include <string.h>
 
 typedef enum {
-        EOH,
-        LITERAL,
-        NUMBER,
-        STRING,
-        CHAR,
-        FLOAT,
-        ADD,
-        SUB,
-        MUL,
-        DIV,
-        SUR,
-        AS_ADD,
-        AS_SUB,
-        AS_MUL,
-        AS_DIV,
-        AS_SUR,
-        R_ARROW,
-        DOT,
-        COMMA,
-        COLON,
-        EQ,
-        SEMICOLON,
-        GREATER,
-        LESS,
-        GR_EQ,
-        LE_EQ,
-        ADDR,
-        OR,
-        BANG,
-        BANG_EQ,
-        EQ_EQ,
-        L_BRACE,
-        R_BRACE,
-        L_PAREN,
-        R_PAREN,
-        L_BRACKET,
-        R_BRACKET,
-        UNDERLINE,
-        SLASH,
-        DEF,
-        RET,
-        FOR,
-        AOP,
-        IF,
-        EF,
-        NF,
-        NEW,
-        OUT,
-        GO,
-        USE,
-        NIL
+    EOH,
+    LITERAL,
+    NUMBER,
+    STRING,
+    CHAR,
+    FLOAT,
+    ADD,
+    SUB,
+    MUL,
+    DIV,
+    SUR,
+    AS_ADD,
+    AS_SUB,
+    AS_MUL,
+    AS_DIV,
+    AS_SUR,
+    R_ARROW,
+    DOT,
+    COMMA,
+    COLON,
+    EQ,
+    SEMICOLON,
+    GREATER,
+    LESS,
+    GR_EQ,
+    LE_EQ,
+    ADDR,
+    OR,
+    BANG,
+    BANG_EQ,
+    EQ_EQ,
+    L_BRACE,
+    R_BRACE,
+    L_PAREN,
+    R_PAREN,
+    L_BRACKET,
+    R_BRACKET,
+    UNDERLINE,
+    SLASH,
+    DEF,
+    RET,
+    FOR,
+    AOP,
+    IF,
+    EF,
+    NF,
+    NEW,
+    OUT,
+    GO,
+    USE,
+    NIL
 } token_kind;
 
 static const char *token_string[] = {
@@ -73,10 +73,10 @@ static const char *token_string[] = {
 };
 
 typedef struct {
-        token_kind kind;
-        char *literal;
-        int line;
-        int off;
+    token_kind kind;
+    char *literal;
+    int line;
+    int off;
 } token;
 
 #endif

@@ -9,9 +9,9 @@
 #include <stdlib.h>
 
 typedef struct {
-        void **data;
-        int item;
-        int cap;
+    void **data;
+    int item;
+    int cap;
 } keg;
 
 keg *new_keg();

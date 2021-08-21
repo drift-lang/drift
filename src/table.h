@@ -12,8 +12,8 @@
 #include "object.h"
 
 typedef struct {
-        keg *name;
-        keg *objs;
+    keg *name;
+    keg *objs;
 } table;
 
 table *new_table();
