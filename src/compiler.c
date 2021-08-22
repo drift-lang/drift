@@ -33,6 +33,7 @@ code_object *new_code(char *des) {
     code->objects = NULL;
     code->offsets = NULL;
     code->types = NULL;
+    code->jumps = NULL;
     return code;
 }
 
@@ -65,7 +66,7 @@ void push_code_keg(code_object *code) {
 }
 
 code_object *back_code() {
-    return (code_object *)back_keg(cst.codes);
+    return back_keg(cst.codes);
 }
 
 void replace_holder(int16_t place, int16_t off) {
@@ -101,7 +102,11 @@ void insert_offset(int p, int16_t off) {
     code_object *code = back_code();
     int16_t *f = malloc(sizeof(int16_t));
     *f = off;
-    insert_keg(code->offsets, p, f);
+    if (p == -1) {
+        code->offsets = append_keg(code->offsets, f);
+    } else {
+        insert_keg(code->offsets, p, f);
+    }
     code->jumps = append_keg(code->jumps, f);
 }
 
@@ -129,7 +134,7 @@ void emit_name(char *name) {
 void emit_type(type *t) {
     code_object *code = back_code();
     for (int i = 0; code->types != NULL && i < code->types->item; i++) {
-        type *x = (type *)code->types->data[i];
+        type *x = code->types->data[i];
         if (x->kind <= 4 && t->kind <= 4 && x->kind == t->kind) {
             free(t);
             emit_offset(i);
@@ -156,8 +161,9 @@ void emit_code(u_int8_t op) {
     if (t != -1) {
         *n = t;
         t = -1;
-    } else
+    } else {
         *n = l;
+    }
     code_object *code = back_code();
     code->codes = append_keg(code->codes, c);
     code->lines = append_keg(code->lines, n);
@@ -260,6 +266,7 @@ void expect_error(token_kind kind) {
     fprintf(stderr,
             "\033[1;31mcompiler %d:\033[0m unexpected '%s' but found '%s'.\n",
             cst.pre.line, token_string[kind], cst.pre.literal);
+    exit(EXIT_FAILURE);
 }
 
 void expect(enum expect_kind exp, token_kind kind) {
@@ -324,10 +331,10 @@ void name() {
         set_precedence(P_LOWEST);
         emit_code(ASSIGN_TO);
     } else if (ass_operator()) {
-        token_kind operator= cst.cur.kind;
+        token_kind op = cst.cur.kind;
         both_iter();
         set_precedence(P_LOWEST);
-        emit_code(get_ass_code(operator));
+        emit_code(get_ass_code(op));
     } else {
         emit_code(LOAD_OF);
     }
@@ -335,26 +342,26 @@ void name() {
 }
 
 void unary() {
-    token_kind operator= cst.pre.kind;
+    token_kind op = cst.pre.kind;
     iter();
     set_precedence(P_UNARY);
 
-    if (operator== SUB) {
+    if (op == SUB) {
         emit_code(TO_NOT);
     }
-    if (operator== BANG) {
+    if (op == BANG) {
         emit_code(TO_BANG);
     }
 }
 
 void binary() {
-    token_kind operator= cst.pre.kind;
+    token_kind op = cst.pre.kind;
 
     int prec = get_pre_prec();
     iter();
     set_precedence(prec);
 
-    switch (operator) {
+    switch (op) {
     case ADD:
         emit_code(TO_ADD);
         break;
@@ -431,10 +438,10 @@ void get() {
         set_precedence(P_LOWEST);
         emit_code(SET_OF);
     } else if (ass_operator()) {
-        token_kind operator= cst.cur.kind;
+        token_kind op = cst.cur.kind;
         both_iter();
         set_precedence(P_LOWEST);
-        emit_code(get_set_ass_code(operator));
+        emit_code(get_set_ass_code(op));
     } else {
         emit_code(GET_OF);
     }
@@ -466,10 +473,10 @@ void indexes() {
         set_precedence(P_LOWEST);
         emit_code(TO_REPLACE);
     } else if (ass_operator()) {
-        token_kind operator= cst.cur.kind;
+        token_kind op = cst.cur.kind;
         both_iter();
         set_precedence(P_LOWEST);
-        emit_code(get_rep_ass_code(operator));
+        emit_code(get_rep_ass_code(op));
     } else {
         emit_code(TO_INDEX);
     }
@@ -656,6 +663,10 @@ type *set_type() {
         T->inner.fn.arg = arg;
         T->inner.fn.ret = (struct type *)ret;
         break;
+    default:
+        fprintf(stderr, "\033[1;31mcompiler %d:\033[0m unknown type.\n",
+                cst.pre.line);
+        exit(EXIT_FAILURE);
     }
     return T;
 }
@@ -731,6 +742,12 @@ void stmt() {
             keg *K = new_keg();
             keg *V = new_keg();
 
+            object *obj = malloc(sizeof(object));
+            obj->kind = OBJ_FUNCTION;
+            obj->value.fn.k = K;
+            obj->value.fn.v = V;
+            obj->value.fn.mutiple = NULL;
+
             if (cst.pre.kind != R_PAREN) {
                 while (true) {
                     if (cst.cur.kind == R_PAREN) {
@@ -740,6 +757,21 @@ void stmt() {
                     K = append_keg(K, cst.pre.literal);
                     if (cst.cur.kind != COMMA) {
                         iter();
+
+                        if (cst.pre.kind == MUL) {
+                            iter();
+                            obj->value.fn.mutiple = set_type();
+                            iter();
+                            if (cst.pre.kind != R_PAREN) {
+                                fprintf(
+                                    stderr,
+                                    "\033[1;31mcompiler %d:\033[0m multiple "
+                                    "parameters can only be at the end.\n",
+                                    cst.pre.line);
+                                exit(EXIT_FAILURE);
+                            }
+                            break;
+                        }
                         type *T = set_type();
                         iter();
 
@@ -755,11 +787,6 @@ void stmt() {
                     }
                 }
             }
-
-            object *obj = malloc(sizeof(object));
-            obj->kind = OBJ_FUNCTION;
-            obj->value.fn.k = K;
-            obj->value.fn.v = V;
 
             iter();
             token name = cst.pre;
@@ -787,9 +814,10 @@ void stmt() {
 
                 reset_state(&cst, up_state);
 
-                code_object *ptr = (code_object *)pop_back_keg(cst.codes);
-                obj->value.fn.code = ptr;
+                code_object *ptr = pop_back_keg(cst.codes);
+                obj->value.fn.std = false;
                 obj->value.fn.name = ptr->description;
+                obj->value.fn.code = ptr;
             }
 
             t = name.line;
@@ -805,7 +833,7 @@ void stmt() {
 
             reset_state(&cst, up_state);
 
-            code_object *ptr = (code_object *)pop_back_keg(cst.codes);
+            code_object *ptr = pop_back_keg(cst.codes);
 
             object *obj = malloc(sizeof(object));
             obj->kind = OBJ_CLASS;
@@ -837,11 +865,11 @@ void stmt() {
                 }
 
                 keg *elem = new_keg();
-                elem = append_keg(elem, (char *)T->inner.name);
+                elem = append_keg(elem, T->inner.name);
                 free(T);
 
                 while (true) {
-                    elem = append_keg(elem, (char *)cst.pre.literal);
+                    elem = append_keg(elem, cst.pre.literal);
                     if (cst.cur.off == off) {
                         iter();
                     } else {
@@ -923,7 +951,7 @@ void stmt() {
             block();
 
             emit_code(JUMP_TO);
-            emit_offset(begin_p);
+            insert_offset(-1, begin_p);
 
             insert_offset(expr_p, get_code_len());
         } else {
@@ -931,7 +959,7 @@ void stmt() {
             block();
 
             emit_code(JUMP_TO);
-            emit_offset(begin_p);
+            insert_offset(-1, begin_p);
         }
 
         replace_holder(-1, get_code_len());
@@ -962,12 +990,12 @@ void stmt() {
         set_precedence(P_LOWEST);
         iter();
         emit_code(JUMP_TO);
-        emit_offset(begin_p);
+        insert_offset(-1, begin_p);
 
         insert_offset(body_p, get_code_len());
         block();
         emit_code(JUMP_TO);
-        emit_offset(update_p);
+        insert_offset(-1, update_p);
 
         insert_offset(expr_p, get_code_len());
 
@@ -1051,39 +1079,51 @@ extern keg *compile(keg *t) {
         iter();
         cst.loop = false;
     }
-
     emit_code(TO_RET);
     return cst.codes;
 }
 
 extern void disassemble_code(code_object *code) {
-    printf("<%s>: %d code, %d name, %d type, %d object, %d offset\n",
+    printf("%s: %d code, %d name, %d type, %d object, %d offset, %d jump\n",
            code->description, code->codes == NULL ? 0 : code->codes->item,
            code->names == NULL ? 0 : code->names->item,
            code->types == NULL ? 0 : code->types->item,
            code->objects == NULL ? 0 : code->objects->item,
-           code->offsets == NULL ? 0 : code->offsets->item);
+           code->offsets == NULL ? 0 : code->offsets->item,
+           code->jumps == NULL ? 0 : code->jumps->item);
 
     for (int b = 0, p = 0, pl = -1; b < code->codes->item; b++) {
         int line = *(int *)code->lines->data[b];
         if (line != pl) {
+            if (pl != -1) {
+                printf("\n");
+            }
             printf("L%-4d", *(int *)code->lines->data[b]);
             pl = line;
         } else {
             printf("%-5s", " ");
         }
 
-        op_code *inner = (op_code *)code->codes->data[b];
-        printf("%8d %10s", b, code_string[*inner]);
+        op_code *inner = code->codes->data[b];
+        for (int i = 0; code->jumps != NULL && i < code->jumps->item; i++) {
+            int16_t off = *(int16_t *)code->jumps->data[i];
+            if (b == off) {
+                printf("%3s %5d %10s", ">>", b, code_string[*inner]);
+                goto next;
+            }
+        }
+        printf("%9d %10s", b, code_string[*inner]);
+    next:
+        printf("%-2c", ' ');
         switch (*inner) {
         case CONST_OF:
         case ENUMERATE:
         case FUNCTION:
         case INTERFACE:
         case CLASS: {
-            int16_t *off = (int16_t *)code->offsets->data[p++];
-            object *obj = (object *)code->objects->data[*off];
-            printf("%4d %3s\n", *off, obj_string(obj));
+            int16_t *off = code->offsets->data[p++];
+            object *obj = code->objects->data[*off];
+            printf("%d %s\n", *off, obj_string(obj));
             break;
         }
         case LOAD_OF:
@@ -1102,12 +1142,12 @@ extern void disassemble_code(code_object *code) {
         case SE_ASS_SUR:
         case SET_NAME:
         case USE_MOD: {
-            int16_t *off = (int16_t *)code->offsets->data[p++];
-            char *name = (char *)code->names->data[*off];
+            int16_t *off = code->offsets->data[p++];
+            char *name = code->names->data[*off];
             if (*inner == SET_NAME || *inner == USE_MOD)
-                printf("%4d '%s'\n", *off, name);
+                printf("%d '%s'\n", *off, name);
             else
-                printf("%4d #%s\n", *off, name);
+                printf("%d #%s\n", *off, name);
             break;
         }
         case CALL_FUNC:
@@ -1115,24 +1155,23 @@ extern void disassemble_code(code_object *code) {
         case JUMP_TO:
         case T_JUMP_TO:
         case F_JUMP_TO: {
-            int16_t *off = (int16_t *)code->offsets->data[p++];
-            printf("%4d\n", *off);
+            int16_t *off = code->offsets->data[p++];
+            printf("%d\n", *off);
             break;
         }
         case STORE_NAME: {
-            int16_t *x = (int16_t *)code->offsets->data[p];
-            int16_t *y = (int16_t *)code->offsets->data[p + 1];
-            printf("%4d %s %d '%s'\n", *x,
-                   type_string((type *)code->types->data[*x]), *y,
-                   (char *)code->names->data[*y]);
+            int16_t *x = code->offsets->data[p];
+            int16_t *y = code->offsets->data[p + 1];
+            printf("%d %s %d '%s'\n", *x, type_string(code->types->data[*x]),
+                   *y, code->names->data[*y]);
             p += 2;
             break;
         }
         case BUILD_ARR:
         case BUILD_TUP:
         case BUILD_MAP: {
-            int16_t *item = (int16_t *)code->offsets->data[p++];
-            printf("%4d\n", *item);
+            int16_t *item = code->offsets->data[p++];
+            printf("%d\n", *item);
             break;
         }
         default:
@@ -1142,7 +1181,7 @@ extern void disassemble_code(code_object *code) {
 
     if (code->objects != NULL) {
         for (int i = 0; i < code->objects->item; i++) {
-            object *obj = (object *)code->objects->data[i];
+            object *obj = code->objects->data[i];
             if (obj->kind == OBJ_FUNCTION) {
                 disassemble_code(obj->value.fn.code);
             } else if (obj->kind == OBJ_CLASS) {

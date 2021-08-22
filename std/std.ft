@@ -4,11 +4,12 @@
 def T bool = 1
 def F bool = 0
 
-def (x any) print;
-def (x any) println;
+def (arg *any) print;
+def (arg *any) println;
+def (obj any) put;
 
-def (x any) len -> int;
+def (obj any) len -> int;
 
-def (x any) typeof -> string;
+def (obj any) typeof -> string;
 
-def (x, y int) rand -> int;
+def (from, to int) rand -> int;

@@ -40,7 +40,7 @@ typedef struct {
 
 vm_state evaluate(code_object *, char *);
 
-typedef void (*built)(frame *, keg *);
+typedef void (*built)(frame *, frame *);
 
 typedef struct {
     char *name;

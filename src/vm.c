@@ -94,31 +94,51 @@ void simple_error(const char *msg) {
     exit(EXIT_FAILURE);
 }
 
-void println(frame *f, keg *arg) {
-    printf("%s", obj_raw_string((object *)arg->data[0]));
+void bt_println(frame *f, frame *b) {
+    object *obj = get_table(b->tb, "arg");
+    if (obj->kind == OBJ_ARRAY) {
+        for (int i = 0; i < obj->value.arr.element->item; i++) {
+            object *p = obj->value.arr.element->data[i];
+            printf("%s\t", obj_std_string(p));
+        }
+    } else {
+        printf("%s", obj_std_string(obj));
+    }
     printf("\n");
 }
 
-void print(frame *f, keg *arg) {
-    printf("%s", obj_raw_string((object *)arg->data[0]));
+void bt_print(frame *f, frame *b) {
+    object *obj = get_table(b->tb, "arg");
+    if (obj->kind == OBJ_ARRAY) {
+        for (int i = 0; i < obj->value.arr.element->item; i++) {
+            object *p = obj->value.arr.element->data[i];
+            printf("%s\t", obj_std_string(p));
+        }
+    } else {
+        printf("%s", obj_std_string(obj));
+    }
 }
 
-void len(frame *f, keg *arg) {
+void bt_put(frame *f, frame *m) {
+    printf("%s", obj_raw_string(get_table(m->tb, "obj")));
+}
+
+void bt_len(frame *f, frame *b) {
     object *len = malloc(sizeof(object));
     len->kind = OBJ_INT;
-    len->value.integer = obj_len((object *)pop_back_keg(arg));
+    len->value.integer = obj_len(get_table(b->tb, "obj"));
     PUSH(len);
 }
 
-void ob_type(frame *f, keg *arg) {
+void bt_type(frame *f, frame *b) {
     object *str = malloc(sizeof(object));
     str->kind = OBJ_STRING;
-    str->value.string = (char *)obj_type_string((object *)pop_back_keg(arg));
+    str->value.string = (char *)obj_type_string(get_table(b->tb, "obj"));
     PUSH(str);
 }
 
-void s_sleep(frame *f, keg *arg) {
-    object *obj = (object *)pop_back_keg(arg);
+void bt_sleep(frame *f, frame *m) {
+    object *obj = get_table(m->tb, "milliseconds");
 #if defined(__linux__) || defined(__APPLE__)
     sleep(obj->value.integer / 1000);
 #elif defined(_WIN32)
@@ -126,9 +146,9 @@ void s_sleep(frame *f, keg *arg) {
 #endif
 }
 
-void rand_int(frame *f, keg *arg) {
-    object *b = (object *)pop_back_keg(arg);
-    object *a = (object *)pop_back_keg(arg);
+void bt_rand_int(frame *f, frame *m) {
+    object *b = get_table(m->tb, "from");
+    object *a = get_table(m->tb, "to");
     int x = b->value.integer;
     int y = a->value.integer;
 #include <time.h>
@@ -140,9 +160,9 @@ void rand_int(frame *f, keg *arg) {
     PUSH(obj);
 }
 
-void append_entry(frame *f, keg *arg) {
-    object *arr = (object *)pop_back_keg(arg);
-    object *val = (object *)pop_back_keg(arg);
+void bt_append_entry(frame *f, frame *m) {
+    object *arr = get_table(m->tb, "a");
+    object *val = get_table(m->tb, "b");
     type *T = arr->value.arr.T;
     if (!type_checker(T, val)) {
         type_error(T, val);
@@ -150,9 +170,9 @@ void append_entry(frame *f, keg *arg) {
     append_keg(arr->value.arr.element, val);
 }
 
-void remove_entry(frame *f, keg *arg) {
-    object *arr = (object *)pop_back_keg(arg);
-    int idx = ((object *)pop_back_keg(arg))->value.integer;
+void bt_remove_entry(frame *f, frame *m) {
+    object *arr = get_table(m->tb, "a");
+    int idx = ((object *)get_table(m->tb, "b"))->value.integer;
     keg *elem = arr->value.arr.element;
     if (elem->item == 0) {
         simple_error("empty array can not to remove entry");
@@ -163,7 +183,7 @@ void remove_entry(frame *f, keg *arg) {
     remove_keg(elem, idx);
 }
 
-void input(frame *f, keg *arg) {
+void bt_input(frame *f, frame *m) {
     char *literal = malloc(sizeof(char) * 32);
     fgets(literal, 32, stdin);
     literal[strlen(literal) - 1] = '\0';
@@ -174,16 +194,26 @@ void input(frame *f, keg *arg) {
 }
 
 builtin bts[] = {
-    {"println", println     },
-    {"print",   print       },
-    {"len",     len         },
-    {"typeof",  ob_type     },
-    {"sleep",   s_sleep     },
-    {"rand",    rand_int    },
-    {"append",  append_entry},
-    {"remove",  remove_entry},
-    {"input",   input       },
+    {"println", bt_println     },
+    {"print",   bt_print       },
+    {"put",     bt_put         },
+    {"len",     bt_len         },
+    {"typeof",  bt_type        },
+    {"sleep",   bt_sleep       },
+    {"rand",    bt_rand_int    },
+    {"append",  bt_append_entry},
+    {"remove",  bt_remove_entry},
+    {"input",   bt_input       },
 };
+
+builtin *get_std(char *name) {
+    for (int i = 0; i < sizeof(bts) / sizeof(bts[0]); i++) {
+        if (strcmp(bts[i].name, name) == 0) {
+            return &bts[i];
+        }
+    }
+    return NULL;
+}
 
 void jump(int16_t to) {
     vst.op--;
@@ -220,6 +250,7 @@ void jump(int16_t to) {
         case JUMP_TO:
         case T_JUMP_TO:
         case F_JUMP_TO:
+        case NEW_OBJ:
             reverse ? vst.op-- : vst.op++;
             break;
         case STORE_NAME:
@@ -264,14 +295,14 @@ void check_interface(object *in, object *cl) {
     frame *fr = (frame *)cl->value.cl.fr;
 
     for (int i = 0; i < elem->item; i++) {
-        method *m = (method *)elem->data[i];
+        method *m = elem->data[i];
 
         void *p = get_table(fr->tb, m->name);
         if (p == NULL) {
             simple_error("class does not contain some member");
         }
 
-        object *fn = (object *)p;
+        object *fn = p;
         if (fn->kind != OBJ_FUNCTION) {
             simple_error("an interface can only be a method");
         }
@@ -282,8 +313,8 @@ void check_interface(object *in, object *cl) {
             simple_error("inconsistent method arguments");
         }
         for (int j = 0; j < m->T->item; j++) {
-            type *a = (type *)m->T->data[j];
-            type *b = (type *)fn->value.fn.v->data[j];
+            type *a = m->T->data[j];
+            type *b = fn->value.fn.v->data[j];
             if (!type_eq(a, b)) {
                 simple_error("Inconsistent types of method arguments");
             }
@@ -311,21 +342,20 @@ void eval() {
             if (T->kind == T_USER && obj->kind == OBJ_CLASS) {
                 void *ptr = get_table(back_frame()->tb, T->inner.name);
                 if (ptr == NULL) {
-                    simple_error("undefined user type");
+                    simple_error("undefined interface");
                 }
-                object *in = (object *)ptr;
-                if (in->kind != OBJ_INTERFACE && in->kind != OBJ_CLASS) {
-                    simple_error("type is not interface or class");
+                object *in = ptr;
+                if (in->kind == OBJ_INTERFACE) {
+                    check_interface(in, obj);
                 }
-                check_interface(in, obj);
             } else {
                 if (!type_checker(T, obj)) {
                     type_error(T, obj);
                 }
             }
-            if (obj->kind == OBJ_ARR) {
+            if (obj->kind == OBJ_ARRAY) {
                 obj->value.arr.T = (type *)T->inner.single;
-            } else if (obj->kind == OBJ_TUP) {
+            } else if (obj->kind == OBJ_TUPLE) {
                 obj->value.tup.T = (type *)T->inner.single;
             } else if (obj->kind == OBJ_MAP) {
                 obj->value.map.T1 = (type *)T->inner.both.T1;
@@ -353,7 +383,7 @@ void eval() {
             if (resu == NULL) {
                 undefined_error(name);
             }
-            PUSH((object *)resu);
+            PUSH(resu);
             break;
         }
         case ASSIGN_TO: {
@@ -363,7 +393,7 @@ void eval() {
             if (p == NULL) {
                 undefined_error(name);
             }
-            object *origin = (object *)p;
+            object *origin = p;
             if (!obj_kind_eq(origin, obj)) {
                 simple_error("inconsistent type");
             }
@@ -405,7 +435,7 @@ void eval() {
             if (r == NULL) {
                 unsupport_operand_error(code_string[code]);
             }
-            PUSH((object *)r);
+            PUSH(r);
             break;
         }
         case ASS_ADD:
@@ -430,17 +460,17 @@ void eval() {
                 op = TO_DIV;
             if (code == ASS_SUR)
                 op = TO_SUR;
-            void *r = binary_op(op, (object *)p, obj);
+            void *r = binary_op(op, p, obj);
             if (r == NULL) {
                 unsupport_operand_error(code_string[code]);
             }
-            add_table(back_frame()->tb, name, (object *)r);
+            add_table(back_frame()->tb, name, r);
             break;
         }
         case BUILD_ARR: {
             int16_t item = GET_OFF();
             object *obj = malloc(sizeof(object));
-            obj->kind = OBJ_ARR;
+            obj->kind = OBJ_ARRAY;
             obj->value.arr.element = new_keg();
             if (item == 0) {
                 PUSH(obj);
@@ -456,7 +486,7 @@ void eval() {
         case BUILD_TUP: {
             int16_t item = GET_OFF();
             object *obj = malloc(sizeof(object));
-            obj->kind = OBJ_TUP;
+            obj->kind = OBJ_TUPLE;
             obj->value.tup.element = new_keg();
             if (item == 0) {
                 PUSH(obj);
@@ -474,7 +504,7 @@ void eval() {
             object *obj = malloc(sizeof(object));
             obj->kind = OBJ_MAP;
             obj->value.map.k = new_keg();
-            obj->value.map.v = new_keg(); 
+            obj->value.map.v = new_keg();
             if (item == 0) {
                 PUSH(obj);
                 break;
@@ -483,7 +513,7 @@ void eval() {
                 object *b = POP();
                 object *a = POP();
                 append_keg(obj->value.map.k, a);
-                append_keg(obj->value.map.v, b); 
+                append_keg(obj->value.map.v, b);
                 item -= 2;
             }
             PUSH(obj);
@@ -492,12 +522,12 @@ void eval() {
         case TO_INDEX: {
             object *p = POP();
             object *obj = POP();
-            if (obj->kind != OBJ_ARR && obj->kind != OBJ_STRING &&
+            if (obj->kind != OBJ_ARRAY && obj->kind != OBJ_STRING &&
                 obj->kind != OBJ_MAP) {
                 simple_error("only array, string and map can "
                              "be called with subscipt");
             }
-            if (obj->kind == OBJ_ARR) {
+            if (obj->kind == OBJ_ARRAY) {
                 if (p->kind != OBJ_INT) {
                     simple_error("get value using integer "
                                  "subscript");
@@ -508,7 +538,7 @@ void eval() {
                 if (p->value.integer >= obj->value.arr.element->item) {
                     simple_error("index out of bounds");
                 }
-                PUSH((object *)obj->value.arr.element->data[p->value.integer]);
+                PUSH(obj->value.arr.element->data[p->value.integer]);
             }
             if (obj->kind == OBJ_MAP) {
                 if (obj->value.map.k->item == 0) {
@@ -516,8 +546,8 @@ void eval() {
                 }
                 int i = 0;
                 for (; i < obj->value.map.k->item; i++) {
-                    if (obj_eq(p, (object *)obj->value.map.k->data[i])) {
-                        PUSH((object *)obj->value.map.v->data[i]);
+                    if (obj_eq(p, obj->value.map.k->data[i])) {
+                        PUSH(obj->value.map.v->data[i]);
                         break;
                     }
                 }
@@ -548,7 +578,7 @@ void eval() {
             object *obj = POP();
             object *idx = POP();
             object *j = POP();
-            if (j->kind == OBJ_ARR) {
+            if (j->kind == OBJ_ARRAY) {
                 if (idx->kind != OBJ_INT) {
                     simple_error("get value using integer subscript");
                 }
@@ -575,7 +605,7 @@ void eval() {
                 }
                 int p = -1;
                 for (int i = 0; i < j->value.map.k->item; i++) {
-                    if (obj_eq(idx, (object *)j->value.map.k->data[i])) {
+                    if (obj_eq(idx, j->value.map.k->data[i])) {
                         p = i;
                         break;
                     }
@@ -608,7 +638,7 @@ void eval() {
                 op = TO_DIV;
             if (code == TO_REP_SUR)
                 op = TO_SUR;
-            if (j->kind == OBJ_ARR) {
+            if (j->kind == OBJ_ARRAY) {
                 if (idx->kind != OBJ_INT) {
                     simple_error("get value using integer subscript");
                 }
@@ -617,12 +647,11 @@ void eval() {
                     p > j->value.arr.element->item - 1) {
                     simple_error("index out of bounds");
                 }
-                void *r =
-                    binary_op(op, (object *)j->value.arr.element->data[p], obj);
+                void *r = binary_op(op, j->value.arr.element->data[p], obj);
                 if (r == NULL) {
                     unsupport_operand_error(code_string[code]);
                 }
-                replace_keg(j->value.arr.element, p, (object *)r);
+                replace_keg(j->value.arr.element, p, r);
             }
             if (j->kind == OBJ_MAP) {
                 if (!type_checker(j->value.map.T1, idx)) {
@@ -636,7 +665,7 @@ void eval() {
                 }
                 int p = -1;
                 for (int i = 0; i < j->value.map.k->item; i++) {
-                    if (obj_eq(idx, (object *)j->value.map.k->data[i])) {
+                    if (obj_eq(idx, j->value.map.k->data[i])) {
                         p = i;
                         break;
                     }
@@ -644,8 +673,7 @@ void eval() {
                 if (p == -1) {
                     simple_error("no replace key exist");
                 }
-                object *r =
-                    binary_op(op, (object *)j->value.map.v->data[p], obj);
+                object *r = binary_op(op, j->value.map.v->data[p], obj);
                 if (r == NULL) {
                     unsupport_operand_error(code_string[code]);
                 }
@@ -735,36 +763,47 @@ void eval() {
             keg *k = fn->value.fn.k;
             keg *v = fn->value.fn.v;
 
-            if (k->item != arg->item) {
+            if ((fn->value.fn.mutiple != NULL && arg->item < k->item) ||
+                (fn->value.fn.mutiple == NULL && k->item != arg->item)) {
                 simple_error("inconsistent funtion arguments");
-            }
-
-            if (fn->value.fn.std) {
-                for (int i = 0; i < sizeof(bts) / sizeof(bts[0]); i++) {
-                    if (strcmp(bts[i].name, fn->value.fn.name) == 0) {
-                        for (int i = 0, j = arg->item; i < k->item; i++) {
-                            type *T = (type *)v->data[i];
-                            object *obj = arg->data[--j];
-                            if (!type_checker(T, obj)) {
-                                type_error(T, obj);
-                            }
-                        }
-                        bts[i].func(back_frame(), arg);
-                        goto next;
-                    }
-                }
             }
 
             frame *f = new_frame(fn->value.fn.code);
 
             for (int i = 0; i < k->item; i++) {
-                char *N = (char *)k->data[i];
-                type *T = (type *)v->data[i];
-                object *p = arg->data[--arg->item];
-                if (!type_checker(T, p)) {
-                    type_error(T, p);
+                char *N = k->data[i];
+
+                if (v->item == i && fn->value.fn.mutiple != NULL) {
+                    type *T = fn->value.fn.mutiple;
+                    object *a = malloc(sizeof(object));
+                    a->kind = OBJ_ARRAY;
+                    a->value.arr.element = NULL;
+
+                    while (arg->item > 0) {
+                        object *p = arg->data[--arg->item];
+                        if (!type_checker(T, p)) {
+                            type_error(T, p);
+                        }
+                        a->value.arr.element =
+                            append_keg(a->value.arr.element, p);
+                    }
+                    add_table(f->tb, N, a);
+                } else {
+                    type *T = v->data[i];
+                    object *p = arg->data[--arg->item];
+                    if (!type_checker(T, p)) {
+                        type_error(T, p);
+                    }
+                    add_table(f->tb, N, p);
                 }
-                add_table(f->tb, N, p);
+            }
+            if (fn->value.fn.std) {
+                builtin *bt = get_std(fn->value.fn.name);
+                if (bt == NULL) {
+                    simple_error("standard function not found");
+                }
+                bt->func(back_frame(), f);
+                goto next;
             }
 
             int16_t op_up = vst.op;
@@ -775,7 +814,7 @@ void eval() {
             vst.frame = append_keg(vst.frame, f);
             eval();
 
-            frame *p = (frame *)pop_back_keg(vst.frame);
+            frame *p = pop_back_keg(vst.frame);
 
             if (fn->value.fn.ret != NULL) {
                 if (p->ret == NULL || !type_checker(fn->value.fn.ret, p->ret)) {
@@ -805,10 +844,11 @@ void eval() {
             char *name = GET_NAME();
             object *obj = POP();
             if (obj->kind != OBJ_ENUMERATE && obj->kind != OBJ_CLASS &&
-                obj->kind != OBJ_TUP && obj->kind != OBJ_INTERFACE &&
+                obj->kind != OBJ_TUPLE && obj->kind != OBJ_INTERFACE &&
                 obj->kind != OBJ_MODULE) {
-                simple_error("only enum, face, module, tuple and whole type "
-                             "are supported");
+                simple_error(
+                    "only enum, interface, module, tuple and class type "
+                    "are supported");
             }
             if (obj->kind == OBJ_ENUMERATE) {
                 keg *elem = obj->value.en.element;
@@ -834,9 +874,9 @@ void eval() {
                     simple_error("nonexistent member");
                 }
                 vst.whole = obj;
-                PUSH((object *)ptr);
+                PUSH(ptr);
             }
-            if (obj->kind == OBJ_TUP) {
+            if (obj->kind == OBJ_TUPLE) {
                 if (obj->value.tup.element->item == 0) {
                     simple_error("tuple entry is empty");
                 }
@@ -851,7 +891,7 @@ void eval() {
                 if (idx >= obj->value.tup.element->item) {
                     simple_error("index out of bounds");
                 }
-                PUSH((object *)obj->value.tup.element->data[p]);
+                PUSH(obj->value.tup.element->data[p]);
             }
             if (obj->kind == OBJ_INTERFACE) {
                 if (obj->value.in.class == NULL) {
@@ -859,7 +899,7 @@ void eval() {
                 }
                 keg *elem = obj->value.in.element;
                 for (int i = 0; i < elem->item; i++) {
-                    method *m = (method *)elem->data[i];
+                    method *m = elem->data[i];
                     if (strcmp(m->name, name) == 0) {
                         object *wh = (object *)obj->value.in.class;
                         frame *fr = (frame *)wh->value.cl.fr;
@@ -875,7 +915,7 @@ void eval() {
                 if (p == NULL) {
                     undefined_error(name);
                 }
-                PUSH((object *)p);
+                PUSH(p);
             }
             break;
         }
@@ -898,7 +938,7 @@ void eval() {
             if (ptr == NULL) {
                 simple_error("nonexistent member");
             }
-            object *j = (object *)ptr;
+            object *j = ptr;
             if (val->kind != j->kind && j->kind != OBJ_NIL) {
                 simple_error("wrong type set");
             }
@@ -914,15 +954,15 @@ void eval() {
             break;
         }
         case NEW_OBJ: {
-            int16_t item = GET_OFF();
+            int16_t arg = GET_OFF();
 
             keg *k = NULL;
             keg *v = NULL;
 
-            while (item > 0) {
+            while (arg > 0) {
                 v = append_keg(v, POP());
                 k = append_keg(k, POP());
-                item -= 2;
+                arg -= 2;
             }
 
             object *obj = POP();
@@ -953,7 +993,7 @@ void eval() {
             if (k != NULL) {
                 for (int i = 0; i < k->item; i++) {
                     char *key = ((object *)k->data[i])->value.string;
-                    object *val = (object *)v->data[i];
+                    object *val = v->data[i];
                     void *p = get_table(f->tb, key);
                     if (p == NULL) {
                         undefined_error(key);
@@ -1002,11 +1042,11 @@ void eval() {
             if (code == SE_ASS_SUR)
                 op = TO_SUR;
 
-            void *r = binary_op(op, (object *)ptr, val);
+            void *r = binary_op(op, ptr, val);
             if (r == NULL) {
                 unsupport_operand_error(code_string[code]);
             }
-            add_table(f->tb, name, (object *)r);
+            add_table(f->tb, name, r);
             break;
         }
         case TO_RET:
@@ -1106,10 +1146,10 @@ void load_eval(const char *path, char *name) {
     }
     fseek(fp, 0, SEEK_END);
     int fsize = ftell(fp);
-    fseek(fp, 0, SEEK_SET);
+    rewind(fp);
     char *buf = malloc(fsize + 1);
 
-    fread(buf, fsize, sizeof(char), fp);
+    fread(buf, sizeof(char), fsize, fp);
     buf[fsize] = '\0';
 
     int16_t ip_up = vst.ip;
@@ -1129,6 +1169,7 @@ void load_eval(const char *path, char *name) {
     object *obj = malloc(sizeof(object));
     obj->kind = OBJ_MODULE;
     obj->value.mod.tb = (struct table *)tb;
+    obj->value.mod.name = name;
 
     vst.ip = ip_up;
     vst.op = op_up;
@@ -1149,11 +1190,11 @@ void load_module(char *name) {
     keg *pl = new_keg();
     void *path = getenv("FTPATH");
     if (path != NULL) {
-        pl = read_path(pl, (char *)path);
+        pl = read_path(pl, path);
     }
     pl = read_path(pl, ".");
     for (int i = 0; i < pl->item; i++) {
-        char *addr = (char *)pl->data[i];
+        char *addr = pl->data[i];
         if (filename_eq(get_filename(addr), name)) {
             load_eval(addr, name);
             ok = true;

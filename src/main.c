@@ -38,7 +38,7 @@ void run(char *source, int fsize, char *filename) {
 
     vm_state state = evaluate(codes->data[0], filename);
     if (show_tb) {
-        frame *main = (frame *)state.frame->data[0];
+        frame *main = state.frame->data[0];
         disassemble_table(main->tb, main->code->description);
     }
 

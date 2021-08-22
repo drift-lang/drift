@@ -38,14 +38,17 @@ const char *obj_string(object *obj) {
     case OBJ_CLASS:
         sprintf(str, "class \"%s\"", obj->value.cl.name);
         return str;
-    case OBJ_ARR:
-        sprintf(str, "arr %d", obj->value.arr.element->item);
+    case OBJ_ARRAY:
+        sprintf(str, "array %d", obj->value.arr.element->item);
         return str;
-    case OBJ_TUP:
-        sprintf(str, "tup %d", obj->value.tup.element->item);
+    case OBJ_TUPLE:
+        sprintf(str, "tuple %d", obj->value.tup.element->item);
         return str;
     case OBJ_MAP:
         sprintf(str, "map %d", obj->value.map.v->item);
+        return str;
+    case OBJ_MODULE:
+        sprintf(str, "module \"%s\"", obj->value.mod.name);
         return str;
     }
 }
@@ -68,7 +71,7 @@ const char *obj_raw_string(object *obj) {
     case OBJ_BOOL:
         sprintf(str, "%s", obj->value.boolean ? "T" : "F");
         return str;
-    case OBJ_ARR: {
+    case OBJ_ARRAY: {
         keg *elem = obj->value.arr.element;
         if (elem->item == 0) {
             free(str);
@@ -84,7 +87,7 @@ const char *obj_raw_string(object *obj) {
         strcat(str, "]");
         return str;
     }
-    case OBJ_TUP: {
+    case OBJ_TUPLE: {
         keg *elem = obj->value.arr.element;
         if (elem->item == 0) {
             free(str);
@@ -123,6 +126,39 @@ const char *obj_raw_string(object *obj) {
         free(str);
         return obj_string(obj);
     }
+    }
+}
+
+const char *obj_std_string(object *obj) {
+    char *str = malloc(sizeof(char) * STRING_CAP);
+    switch (obj->kind) {
+    case OBJ_ARRAY: {
+        keg *elem = obj->value.arr.element;
+        if (elem->item == 0) {
+            free(str);
+            return "";
+        }
+        for (int i = 0; i < elem->item; i++) {
+            strcat(str, obj_std_string(elem->data[i]));
+            strcat(str, "\t");
+        }
+        return str;
+    }
+    case OBJ_TUPLE: {
+        keg *elem = obj->value.tup.element;
+        if (elem->item == 0) {
+            free(str);
+            return "";
+        }
+        for (int i = 0; i < elem->item; i++) {
+            strcat(str, obj_std_string(elem->data[i]));
+            strcat(str, "\t");
+        }
+        return str;
+    }
+    default:
+        free(str);
+        return obj_raw_string(obj);
     }
 }
 
@@ -387,9 +423,9 @@ bool type_checker(type *tp, object *obj) {
     switch (tp->kind) {
     case T_ARRAY:
     case T_TUPLE:
-        if (tp->kind == T_ARRAY && obj->kind != OBJ_ARR)
+        if (tp->kind == T_ARRAY && obj->kind != OBJ_ARRAY)
             return false;
-        if (tp->kind == T_TUPLE && obj->kind != OBJ_TUP)
+        if (tp->kind == T_TUPLE && obj->kind != OBJ_TUPLE)
             return false;
         keg *elem;
         if (tp->kind == T_ARRAY)
@@ -525,9 +561,9 @@ const char *obj_type_string(object *obj) {
         return "string";
     case OBJ_BOOL:
         return "bool";
-    case OBJ_ARR:
+    case OBJ_ARRAY:
         return "array";
-    case OBJ_TUP:
+    case OBJ_TUPLE:
         return "tuple";
     case OBJ_MAP:
         return "map";
@@ -550,9 +586,9 @@ int obj_len(object *obj) {
     switch (obj->kind) {
     case OBJ_STRING:
         return strlen(obj->value.string);
-    case OBJ_ARR:
+    case OBJ_ARRAY:
         return obj->value.arr.element->item;
-    case OBJ_TUP:
+    case OBJ_TUPLE:
         return obj->value.tup.element->item;
     case OBJ_MAP:
         return obj->value.map.k->item;

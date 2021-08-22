@@ -15,7 +15,7 @@
 #include "type.h"
 
 #define DEBUG_OBJ_STR_CAP 128
-#define STRING_CAP        128
+#define STRING_CAP        512
 #define STRING_CAP_MAX    1024
 
 typedef enum {
@@ -28,8 +28,8 @@ typedef enum {
     OBJ_FUNCTION,
     OBJ_CLASS,
     OBJ_INTERFACE,
-    OBJ_ARR,
-    OBJ_TUP,
+    OBJ_ARRAY,
+    OBJ_TUPLE,
     OBJ_MAP,
     OBJ_MODULE,
     OBJ_NIL
@@ -51,6 +51,7 @@ typedef struct {
             char *name;
             keg *k;
             keg *v;
+            type *mutiple;
             type *ret;
             code_object *code;
             bool std;
@@ -81,6 +82,7 @@ typedef struct {
             type *T2;
         } map;
         struct {
+            char *name;
             struct table *tb;
         } mod;
     } value;
@@ -95,6 +97,8 @@ typedef struct {
 const char *obj_string(object *);
 
 const char *obj_raw_string(object *);
+
+const char *obj_std_string(object *obj);
 
 object *binary_op(u_int8_t, object *, object *);
 

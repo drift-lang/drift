@@ -57,6 +57,7 @@ const char *type_string(type *t) {
             sprintf(str, "<|| -> %s>", type_string((type *)t->inner.fn.ret));
             return str;
         }
+        return str;
     case T_USER:
         sprintf(str, "<%s>", t->inner.name);
         return str;
@@ -111,8 +112,8 @@ bool type_eq(type *a, type *b) {
         if (a->inner.fn.arg->item != b->inner.fn.arg->item)
             return false;
         for (int i = 0; i < a->inner.fn.arg->item; i++) {
-            type *A = (type *)a->inner.fn.arg->data[i];
-            type *B = (type *)b->inner.fn.arg->data[i];
+            type *A = a->inner.fn.arg->data[i];
+            type *B = b->inner.fn.arg->data[i];
             if (!type_eq(A, B)) {
                 return false;
             }
