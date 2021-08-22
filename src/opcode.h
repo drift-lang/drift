@@ -12,7 +12,7 @@ typedef enum {
     ENUMERATE,
     CLASS,
     FUNCTION,
-    LOAD_FACE,
+    INTERFACE,
     ASSIGN_TO,
     STORE_NAME,
     TO_INDEX,
@@ -65,7 +65,7 @@ typedef enum {
 
 static const char *code_string[] = {
     "CONST_OF",   "LOAD_OF",    "ENUMERATE",  "CLASS",      "FUNCTION",
-    "LOAD_FACE",  "ASSIGN_TO",  "STORE_NAME", "TO_INDEX",   "TO_REPLACE",
+    "INTERFACE",  "ASSIGN_TO",  "STORE_NAME", "TO_INDEX",   "TO_REPLACE",
     "GET_OF",     "SET_OF",     "CALL_FUNC",  "ASS_ADD",    "ASS_SUB",
     "ASS_MUL",    "ASS_DIV",    "ASS_SUR",    "TO_REP_ADD", "TO_REP_SUB",
     "TO_REP_MUL", "TO_REP_DIV", "TO_REP_SUR", "SE_ASS_ADD", "SE_ASS_SUB",

@@ -197,7 +197,7 @@ void jump(int16_t to) {
         case LOAD_OF:
         case ENUMERATE:
         case FUNCTION:
-        case LOAD_FACE:
+        case INTERFACE:
         case ASSIGN_TO:
         case GET_OF:
         case SET_OF:
@@ -259,14 +259,18 @@ void check_interface(object *in, object *cl) {
     if (cl->value.cl.init == false) {
         simple_error("class is not initialized");
     }
+
     keg *elem = in->value.in.element;
     frame *fr = (frame *)cl->value.cl.fr;
+
     for (int i = 0; i < elem->item; i++) {
         method *m = (method *)elem->data[i];
+
         void *p = get_table(fr->tb, m->name);
         if (p == NULL) {
             simple_error("class does not contain some member");
         }
+
         object *fn = (object *)p;
         if (fn->kind != OBJ_FUNCTION) {
             simple_error("an interface can only be a method");
@@ -289,7 +293,7 @@ void check_interface(object *in, object *cl) {
 
 void eval() {
     while (vst.ip < top_code()->codes->item) {
-        u_int8_t code = GET_CODE(); /* Bytecode */
+        u_int8_t code = GET_CODE();
         switch (code) {
         case CONST_OF: {
             object *obj = GET_OBJ();
@@ -307,10 +311,10 @@ void eval() {
             if (T->kind == T_USER && obj->kind == OBJ_CLASS) {
                 void *ptr = get_table(back_frame()->tb, T->inner.name);
                 if (ptr == NULL) {
-                    simple_error("cannot store to undefined interface");
+                    simple_error("undefined user type");
                 }
                 object *in = (object *)ptr;
-                if (in->kind != OBJ_INTERFACE) {
+                if (in->kind != OBJ_INTERFACE && in->kind != OBJ_CLASS) {
                     simple_error("type is not interface or class");
                 }
                 check_interface(in, obj);
@@ -328,8 +332,11 @@ void eval() {
                 obj->value.map.T2 = (type *)T->inner.both.T2;
             }
 
-            object *new = malloc(sizeof(object));
-            memcpy(new, obj, sizeof(object));
+            object *new = obj;
+            if (copy_type(T)) {
+                new = malloc(sizeof(object));
+                memcpy(new, obj, sizeof(object));
+            }
 
             add_table(back_frame()->tb, name, new);
             break;
@@ -467,7 +474,7 @@ void eval() {
             object *obj = malloc(sizeof(object));
             obj->kind = OBJ_MAP;
             obj->value.map.k = new_keg();
-            obj->value.map.v = new_keg(); /* V */
+            obj->value.map.v = new_keg(); 
             if (item == 0) {
                 PUSH(obj);
                 break;
@@ -476,7 +483,7 @@ void eval() {
                 object *b = POP();
                 object *a = POP();
                 append_keg(obj->value.map.k, a);
-                append_keg(obj->value.map.v, b); /* Value */
+                append_keg(obj->value.map.v, b); 
                 item -= 2;
             }
             PUSH(obj);
@@ -560,7 +567,6 @@ void eval() {
                 }
             }
             if (j->kind == OBJ_MAP) {
-                /* Type check of K and V */
                 if (!type_checker(j->value.map.T1, idx)) {
                     type_error(j->value.map.T1, idx);
                 }
@@ -694,7 +700,7 @@ void eval() {
         case JUMP_TO:
         case F_JUMP_TO:
         case T_JUMP_TO: {
-            int16_t off = GET_OFF(); /* Offset */
+            int16_t off = GET_OFF();
             if (code == JUMP_TO) {
                 jump(off);
                 break;
@@ -785,7 +791,7 @@ void eval() {
             vst.ip = ip_up;
             break;
         }
-        case LOAD_FACE: {
+        case INTERFACE: {
             object *obj = GET_OBJ();
             add_table(back_frame()->tb, obj->value.in.name, obj);
             break;
@@ -820,8 +826,7 @@ void eval() {
             }
             if (obj->kind == OBJ_CLASS) {
                 if (obj->value.cl.init == false) {
-                    simple_error("whole did not load "
-                                 "initialization members");
+                    simple_error("whole did not load initialization members");
                 }
                 frame *fr = (frame *)obj->value.cl.fr;
                 void *ptr = get_table(fr->tb, name);
@@ -837,11 +842,11 @@ void eval() {
                 }
                 for (int i = 0; i < strlen(name); i++) {
                     if (!(name[i] >= '0' && name[i] <= '9')) {
-                        simple_error("subscript can only be "
-                                     "obtained with integer");
+                        simple_error(
+                            "subscript can only be obtained with integer");
                     }
                 }
-                int idx = atoi(name); /* Index is reversed */
+                int idx = atoi(name);
                 int p = obj->value.tup.element->item - 1 - idx;
                 if (idx >= obj->value.tup.element->item) {
                     simple_error("index out of bounds");
@@ -897,9 +902,6 @@ void eval() {
             if (val->kind != j->kind && j->kind != OBJ_NIL) {
                 simple_error("wrong type set");
             }
-            if (!basic(j)) {
-                simple_error("only members of basic objects can be assign");
-            }
             if (!obj_kind_eq(obj, val)) {
                 simple_error("inconsistent type");
             }
@@ -925,7 +927,7 @@ void eval() {
 
             object *obj = POP();
             if (obj->kind != OBJ_CLASS) {
-                simple_error("only whole object can be created");
+                simple_error("only class object can be created");
             }
 
             object *new = malloc(sizeof(object));
@@ -1079,9 +1081,7 @@ keg *read_path(keg *pl, char *path) {
     }
     while ((p = readdir(dir)) != NULL) {
         if (p->d_type == 4 && strcmp(p->d_name, ".") != 0 &&
-            strcmp(p->d_name, "..") != 0) {
-            // printf("load directory\n");
-        }
+            strcmp(p->d_name, "..") != 0) {}
         if (p->d_type == 8) {
             char *name = p->d_name;
             int len = strlen(name) - 1;

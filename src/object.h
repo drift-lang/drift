@@ -14,7 +14,7 @@
 #include "opcode.h"
 #include "type.h"
 
-#define DEBUG_OBJ_STR_CAP 32
+#define DEBUG_OBJ_STR_CAP 128
 #define STRING_CAP        128
 #define STRING_CAP_MAX    1024
 
@@ -101,8 +101,6 @@ object *binary_op(u_int8_t, object *, object *);
 bool type_checker(type *, object *);
 
 bool obj_eq(object *, object *);
-
-bool basic(object *);
 
 bool obj_kind_eq(object *, object *);
 

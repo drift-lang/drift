@@ -120,3 +120,7 @@ bool type_eq(type *a, type *b) {
     }
     return true;
 }
+
+bool copy_type(type *t) {
+    return t->kind < 5;
+}

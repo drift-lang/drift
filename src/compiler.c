@@ -25,7 +25,7 @@ typedef struct {
 } compile_state;
 
 code_object *new_code(char *des) {
-    code_object *code = (code_object *)malloc(sizeof(code_object));
+    code_object *code = malloc(sizeof(code_object));
     code->description = des;
     code->codes = NULL;
     code->lines = NULL;
@@ -82,14 +82,14 @@ void replace_holder(int16_t place, int16_t off) {
     }
 }
 
-int16_t *get_top_offset_p() {
+int16_t *get_offset_p() {
     code_object *code = back_code();
     int16_t *f = malloc(sizeof(int16_t));
     *f = code->offsets->item;
     return f;
 }
 
-int get_top_code_len() {
+int get_code_len() {
     code_object *code = back_code();
     if (code->codes == NULL) {
         return 0;
@@ -97,62 +97,70 @@ int get_top_code_len() {
     return code->codes->item;
 }
 
-void insert_top_offset(int p, int16_t off) {
+void insert_offset(int p, int16_t off) {
     code_object *code = back_code();
     int16_t *f = malloc(sizeof(int16_t));
     *f = off;
     insert_keg(code->offsets, p, f);
+    code->jumps = append_keg(code->jumps, f);
 }
 
-void emit_top_offset(int16_t off) {
+void emit_offset(int16_t off) {
     code_object *code = back_code();
     int16_t *f = malloc(sizeof(int16_t));
     *f = off;
     code->offsets = append_keg(code->offsets, f);
 }
 
-void emit_top_name(char *name) {
+void emit_name(char *name) {
     code_object *code = back_code();
     if (code->names != NULL) {
         for (int i = 0; i < code->names->item; i++) {
             if (strcmp((char *)code->names->data[i], name) == 0) {
-                emit_top_offset(i);
+                emit_offset(i);
                 return;
             }
         }
     }
     code->names = append_keg(code->names, name);
-    emit_top_offset(cst.inf++);
+    emit_offset(cst.inf++);
 }
 
-void emit_top_type(type *t) {
+void emit_type(type *t) {
     code_object *code = back_code();
     for (int i = 0; code->types != NULL && i < code->types->item; i++) {
         type *x = (type *)code->types->data[i];
         if (x->kind <= 4 && t->kind <= 4 && x->kind == t->kind) {
             free(t);
-            emit_top_offset(i);
+            emit_offset(i);
             return;
         }
     }
     code->types = append_keg(code->types, t);
-    emit_top_offset(cst.itf++);
+    emit_offset(cst.itf++);
 }
 
-void emit_top_obj(object *obj) {
+void emit_obj(object *obj) {
     code_object *code = back_code();
     code->objects = append_keg(code->objects, obj);
-    emit_top_offset(cst.iof++);
+    emit_offset(cst.iof++);
 }
 
-void emit_top_code(u_int8_t op) {
-    op_code *c = (op_code *)malloc(sizeof(u_int8_t));
+int l = 0;
+int t = -1;
+
+void emit_code(u_int8_t op) {
+    op_code *c = malloc(sizeof(u_int8_t));
     *c = op;
-    int *l = malloc(sizeof(int));
-    *l = cst.pre.line;
+    int *n = malloc(sizeof(int));
+    if (t != -1) {
+        *n = t;
+        t = -1;
+    } else
+        *n = l;
     code_object *code = back_code();
     code->codes = append_keg(code->codes, c);
-    code->lines = append_keg(code->lines, l);
+    code->lines = append_keg(code->lines, n);
 }
 
 int p = 0;
@@ -305,8 +313,8 @@ void literal() {
         obj->kind = OBJ_NIL;
         break;
     }
-    emit_top_obj(obj);
-    emit_top_code(CONST_OF);
+    emit_obj(obj);
+    emit_code(CONST_OF);
 }
 
 void name() {
@@ -314,16 +322,16 @@ void name() {
     if (cst.cur.kind == EQ) {
         both_iter();
         set_precedence(P_LOWEST);
-        emit_top_code(ASSIGN_TO);
+        emit_code(ASSIGN_TO);
     } else if (ass_operator()) {
         token_kind operator= cst.cur.kind;
         both_iter();
         set_precedence(P_LOWEST);
-        emit_top_code(get_ass_code(operator));
+        emit_code(get_ass_code(operator));
     } else {
-        emit_top_code(LOAD_OF);
+        emit_code(LOAD_OF);
     }
-    emit_top_name(name.literal);
+    emit_name(name.literal);
 }
 
 void unary() {
@@ -332,10 +340,10 @@ void unary() {
     set_precedence(P_UNARY);
 
     if (operator== SUB) {
-        emit_top_code(TO_NOT);
+        emit_code(TO_NOT);
     }
     if (operator== BANG) {
-        emit_top_code(TO_BANG);
+        emit_code(TO_BANG);
     }
 }
 
@@ -348,43 +356,43 @@ void binary() {
 
     switch (operator) {
     case ADD:
-        emit_top_code(TO_ADD);
+        emit_code(TO_ADD);
         break;
     case SUB:
-        emit_top_code(TO_SUB);
+        emit_code(TO_SUB);
         break;
     case MUL:
-        emit_top_code(TO_MUL);
+        emit_code(TO_MUL);
         break;
     case DIV:
-        emit_top_code(TO_DIV);
+        emit_code(TO_DIV);
         break;
     case SUR:
-        emit_top_code(TO_SUR);
+        emit_code(TO_SUR);
         break;
     case OR:
-        emit_top_code(TO_OR);
+        emit_code(TO_OR);
         break;
     case ADDR:
-        emit_top_code(TO_AND);
+        emit_code(TO_AND);
         break;
     case EQ_EQ:
-        emit_top_code(TO_EQ_EQ);
+        emit_code(TO_EQ_EQ);
         break;
     case BANG_EQ:
-        emit_top_code(TO_NOT_EQ);
+        emit_code(TO_NOT_EQ);
         break;
     case GREATER:
-        emit_top_code(TO_GR);
+        emit_code(TO_GR);
         break;
     case GR_EQ:
-        emit_top_code(TO_GR_EQ);
+        emit_code(TO_GR_EQ);
         break;
     case LESS:
-        emit_top_code(TO_LE);
+        emit_code(TO_LE);
         break;
     case LE_EQ:
-        emit_top_code(TO_LE_EQ);
+        emit_code(TO_LE_EQ);
         break;
     }
 }
@@ -402,13 +410,13 @@ void group() {
             }
             expect(PRE, COMMA);
         }
-        emit_top_code(BUILD_TUP);
-        emit_top_offset(item);
+        emit_code(BUILD_TUP);
+        emit_offset(item);
         return;
     }
     if (cst.pre.kind == R_PAREN) {
-        emit_top_code(BUILD_TUP);
-        emit_top_offset(0);
+        emit_code(BUILD_TUP);
+        emit_offset(0);
         return;
     }
     set_precedence(P_LOWEST);
@@ -421,16 +429,16 @@ void get() {
     if (cst.cur.kind == EQ) {
         both_iter();
         set_precedence(P_LOWEST);
-        emit_top_code(SET_OF);
+        emit_code(SET_OF);
     } else if (ass_operator()) {
         token_kind operator= cst.cur.kind;
         both_iter();
         set_precedence(P_LOWEST);
-        emit_top_code(get_set_ass_code(operator));
+        emit_code(get_set_ass_code(operator));
     } else {
-        emit_top_code(GET_OF);
+        emit_code(GET_OF);
     }
-    emit_top_name(name.literal);
+    emit_name(name.literal);
 }
 
 void call() {
@@ -445,8 +453,8 @@ void call() {
         }
         expect(PRE, COMMA);
     }
-    emit_top_code(CALL_FUNC);
-    emit_top_offset(item);
+    emit_code(CALL_FUNC);
+    emit_offset(item);
 }
 
 void indexes() {
@@ -456,14 +464,14 @@ void indexes() {
     if (cst.cur.kind == EQ) {
         both_iter();
         set_precedence(P_LOWEST);
-        emit_top_code(TO_REPLACE);
+        emit_code(TO_REPLACE);
     } else if (ass_operator()) {
         token_kind operator= cst.cur.kind;
         both_iter();
         set_precedence(P_LOWEST);
-        emit_top_code(get_rep_ass_code(operator));
+        emit_code(get_rep_ass_code(operator));
     } else {
-        emit_top_code(TO_INDEX);
+        emit_code(TO_INDEX);
     }
 }
 
@@ -479,8 +487,8 @@ void array() {
         }
         expect(PRE, COMMA);
     }
-    emit_top_code(BUILD_ARR);
-    emit_top_offset(item);
+    emit_code(BUILD_ARR);
+    emit_offset(item);
 }
 
 void map() {
@@ -498,8 +506,8 @@ void map() {
         }
         expect(PRE, COMMA);
     }
-    emit_top_code(BUILD_MAP);
-    emit_top_offset(item);
+    emit_code(BUILD_MAP);
+    emit_offset(item);
 }
 
 void tnew() {
@@ -512,8 +520,8 @@ void tnew() {
         if (cst.pre.kind != LITERAL) {
             syntax_error();
         }
-        emit_top_code(SET_NAME);
-        emit_top_name(cst.pre.literal);
+        emit_code(SET_NAME);
+        emit_name(cst.pre.literal);
         iter();
         expect(PRE, COLON);
         set_precedence(P_LOWEST);
@@ -524,8 +532,8 @@ void tnew() {
         }
         expect(PRE, COMMA);
     }
-    emit_top_code(NEW_OBJ);
-    emit_top_offset(item);
+    emit_code(NEW_OBJ);
+    emit_offset(item);
 }
 
 rule rules[] = {
@@ -655,10 +663,12 @@ type *set_type() {
 void block();
 
 void stmt() {
+    l = cst.pre.line;
     switch (cst.pre.kind) {
     case DEF: {
         iter();
         token name = cst.pre;
+        int line = cst.pre.line;
         iter();
 
         token *tok = cst.tokens->data[cst.p - 1];
@@ -677,7 +687,6 @@ void stmt() {
             while (true) {
                 method *m = malloc(sizeof(method));
                 m->ret = NULL;
-
                 iter();
 
                 if (cst.pre.kind != SLASH) {
@@ -715,8 +724,9 @@ void stmt() {
                 }
             }
 
-            emit_top_code(LOAD_FACE);
-            emit_top_obj(obj);
+            t = name.line;
+            emit_code(INTERFACE);
+            emit_obj(obj);
         } else if (name.kind == L_PAREN) {
             keg *K = new_keg();
             keg *V = new_keg();
@@ -768,7 +778,6 @@ void stmt() {
                 obj->value.fn.name = name.literal;
                 obj->value.fn.code = NULL;
             } else {
-
                 compile_state up_state = backup_state();
                 clear_state();
 
@@ -783,8 +792,9 @@ void stmt() {
                 obj->value.fn.name = ptr->description;
             }
 
-            emit_top_code(FUNCTION);
-            emit_top_obj(obj);
+            t = name.line;
+            emit_code(FUNCTION);
+            emit_obj(obj);
         } else if (cst.pre.kind == DEF) {
             compile_state up_state = backup_state();
             clear_state();
@@ -804,8 +814,9 @@ void stmt() {
             obj->value.cl.fr = NULL;
             obj->value.cl.init = false;
 
-            emit_top_code(CLASS);
-            emit_top_obj(obj);
+            t = name.line;
+            emit_code(CLASS);
+            emit_obj(obj);
         } else {
             type *T = set_type();
             iter();
@@ -814,9 +825,9 @@ void stmt() {
                 iter();
                 set_precedence(P_LOWEST);
 
-                emit_top_type(T);
-                emit_top_code(STORE_NAME);
-                emit_top_name(name.literal);
+                emit_type(T);
+                emit_code(STORE_NAME);
+                emit_name(name.literal);
             } else {
                 if (T->kind != T_USER) {
                     syntax_error();
@@ -837,14 +848,13 @@ void stmt() {
                         break;
                     }
                 }
-
                 object *obj = malloc(sizeof(object));
                 obj->kind = OBJ_ENUMERATE;
                 obj->value.en.name = name.literal;
                 obj->value.en.element = elem;
 
-                emit_top_code(ENUMERATE);
-                emit_top_obj(obj);
+                emit_code(ENUMERATE);
+                emit_obj(obj);
             }
         }
         break;
@@ -854,36 +864,36 @@ void stmt() {
         set_precedence(P_LOWEST);
         iter();
 
-        emit_top_code(F_JUMP_TO);
-        int16_t if_p = *get_top_offset_p();
+        emit_code(F_JUMP_TO);
+        int16_t if_p = *get_offset_p();
         block();
 
         keg *p = new_keg();
 
         if (cst.cur.kind == EF || cst.cur.kind == NF) {
-            p = append_keg(p, get_top_offset_p());
-            emit_top_code(JUMP_TO);
+            p = append_keg(p, get_offset_p());
+            emit_code(JUMP_TO);
         }
 
-        insert_top_offset(if_p, get_top_code_len());
+        insert_offset(if_p, get_code_len());
 
         while (cst.cur.kind == EF) {
             both_iter();
             set_precedence(P_LOWEST);
             iter();
 
-            emit_top_code(F_JUMP_TO);
-            int16_t ef_p = *get_top_offset_p();
+            emit_code(F_JUMP_TO);
+            int16_t ef_p = *get_offset_p();
             block();
 
             if (cst.cur.kind == EF || cst.cur.kind == NF) {
-                int16_t *f = get_top_offset_p();
+                int16_t *f = get_offset_p();
                 *f += 1;
                 p = append_keg(p, f);
-                emit_top_code(JUMP_TO);
+                emit_code(JUMP_TO);
             }
 
-            insert_top_offset(ef_p, get_top_code_len());
+            insert_offset(ef_p, get_code_len());
         }
 
         if (cst.cur.kind == NF) {
@@ -893,7 +903,7 @@ void stmt() {
 
         for (int i = 0; i < p->item; i++) {
             int f = *(int *)p->data[i];
-            insert_top_offset(f + 1, get_top_code_len());
+            insert_offset(f + 1, get_code_len());
         }
         free_keg(p);
         break;
@@ -902,29 +912,29 @@ void stmt() {
         cst.loop = true;
         iter();
 
-        int begin_p = get_top_code_len();
+        int begin_p = get_code_len();
         if (cst.pre.kind != R_ARROW) {
             set_precedence(P_LOWEST);
             iter();
 
-            emit_top_code(F_JUMP_TO);
-            int16_t expr_p = *get_top_offset_p();
+            emit_code(F_JUMP_TO);
+            int16_t expr_p = *get_offset_p();
 
             block();
 
-            emit_top_code(JUMP_TO);
-            emit_top_offset(begin_p);
+            emit_code(JUMP_TO);
+            emit_offset(begin_p);
 
-            insert_top_offset(expr_p, get_top_code_len());
+            insert_offset(expr_p, get_code_len());
         } else {
             iter();
             block();
 
-            emit_top_code(JUMP_TO);
-            emit_top_offset(begin_p);
+            emit_code(JUMP_TO);
+            emit_offset(begin_p);
         }
 
-        replace_holder(-1, get_top_code_len());
+        replace_holder(-1, get_code_len());
         replace_holder(-2, begin_p);
         break;
     }
@@ -936,32 +946,32 @@ void stmt() {
         iter();
         expect(PRE, SEMICOLON);
 
-        int begin_p = get_top_code_len();
+        int begin_p = get_code_len();
 
         set_precedence(P_LOWEST);
         iter();
         expect(PRE, SEMICOLON);
-        emit_top_code(F_JUMP_TO);
-        int16_t expr_p = *get_top_offset_p();
+        emit_code(F_JUMP_TO);
+        int16_t expr_p = *get_offset_p();
 
-        emit_top_code(JUMP_TO);
-        int16_t body_p = *get_top_offset_p();
+        emit_code(JUMP_TO);
+        int16_t body_p = *get_offset_p();
 
-        int update_p = get_top_code_len();
+        int update_p = get_code_len();
 
         set_precedence(P_LOWEST);
         iter();
-        emit_top_code(JUMP_TO);
-        emit_top_offset(begin_p);
+        emit_code(JUMP_TO);
+        emit_offset(begin_p);
 
-        insert_top_offset(body_p, get_top_code_len());
+        insert_offset(body_p, get_code_len());
         block();
-        emit_top_code(JUMP_TO);
-        emit_top_offset(update_p);
+        emit_code(JUMP_TO);
+        emit_offset(update_p);
 
-        insert_top_offset(expr_p, get_top_code_len());
+        insert_offset(expr_p, get_code_len());
 
-        replace_holder(-1, get_top_code_len());
+        replace_holder(-1, get_code_len());
         replace_holder(-2, update_p);
         break;
     }
@@ -976,20 +986,20 @@ statement cannot be used outside loop.\n",
         token_kind kind = cst.pre.kind;
         iter();
         if (cst.pre.kind == R_ARROW) {
-            emit_top_code(JUMP_TO);
+            emit_code(JUMP_TO);
         } else {
             set_precedence(P_LOWEST);
-            emit_top_code(T_JUMP_TO);
+            emit_code(T_JUMP_TO);
         }
-        emit_top_offset(kind == OUT ? -1 : -2);
+        emit_offset(kind == OUT ? -1 : -2);
         break;
     case RET:
         iter();
         if (cst.pre.kind == R_ARROW) {
-            emit_top_code(TO_RET);
+            emit_code(TO_RET);
         } else {
             stmt();
-            emit_top_code(RET_OF);
+            emit_code(RET_OF);
         }
         break;
     case USE: {
@@ -998,8 +1008,8 @@ statement cannot be used outside loop.\n",
         if (cst.pre.kind != LITERAL) {
             syntax_error();
         }
-        emit_top_name(cst.pre.literal);
-        emit_top_code(USE_MOD);
+        emit_name(cst.pre.literal);
+        emit_code(USE_MOD);
         break;
     }
     default:
@@ -1042,7 +1052,7 @@ extern keg *compile(keg *t) {
         cst.loop = false;
     }
 
-    emit_top_code(TO_RET);
+    emit_code(TO_RET);
     return cst.codes;
 }
 
@@ -1064,12 +1074,12 @@ extern void disassemble_code(code_object *code) {
         }
 
         op_code *inner = (op_code *)code->codes->data[b];
-        printf("%2d %10s", b, code_string[*inner]);
+        printf("%8d %10s", b, code_string[*inner]);
         switch (*inner) {
         case CONST_OF:
         case ENUMERATE:
         case FUNCTION:
-        case LOAD_FACE:
+        case INTERFACE:
         case CLASS: {
             int16_t *off = (int16_t *)code->offsets->data[p++];
             object *obj = (object *)code->objects->data[*off];

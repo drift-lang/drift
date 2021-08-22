@@ -7,7 +7,7 @@
 #include "vm.h"
 
 #define COMPILER_VERSION "Drift 0.0.1 (MADE AT Jul 2021 29, 15:40:45)"
-#define DRIFT_LICENSE    "GNU Public License v3.0"
+#define DRIFT_LICENSE    "GNU Public License GPL v3.0"
 
 bool show_tokens;
 bool show_bytes;
@@ -27,11 +27,13 @@ void run(char *source, int fsize, char *filename) {
             printf("[%3d]\t%-5d %-5d %-5d %-30s\n", i, t->kind, t->line, t->off,
                    t->literal);
         }
+        return;
     }
 
     keg *codes = compile(tokens);
     if (show_bytes) {
         disassemble_code(codes->data[0]);
+        return;
     }
 
     vm_state state = evaluate(codes->data[0], filename);
@@ -55,7 +57,7 @@ command: \n\
   tb          after exec, show environment mapping\n\n\
 version:  %s\n\
 license:  %s\n\
-           @ bingxio\n",
+           @ bingxio - bingxio@qq.com\n",
            COMPILER_VERSION, DRIFT_LICENSE);
     exit(EXIT_FAILURE);
 }

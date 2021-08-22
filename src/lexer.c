@@ -206,10 +206,8 @@ extern keg *lexer(const char *buf, int fsize) {
             c = buf[i];
             if (c != '\'') {
                 fprintf(stderr,
-                        "\033[1;31mlexer %d:\033[0m missing "
-                        "single quotation "
-                        "mark to "
-                        "the right.\n",
+                        "\033[1;31mlexer %d:\033[0m missing single quotation "
+                        "mark to the right.\n",
                         line);
                 exit(EXIT_FAILURE);
             } else {
@@ -226,8 +224,7 @@ extern keg *lexer(const char *buf, int fsize) {
                 p++;
                 if (i == fsize) {
                     fprintf(stderr,
-                            "\033[1;31mlexer %d:\033[0m "
-                            "missing closing double "
+                            "\033[1;31mlexer %d:\033[0m missing closing double "
                             "quote.\n",
                             line);
                     exit(EXIT_FAILURE);
@@ -239,6 +236,11 @@ extern keg *lexer(const char *buf, int fsize) {
             } else {
                 literal = malloc((p + 1) * sizeof(char));
                 paste_literal(literal, buf, &p, i);
+            }
+            for (int i = 0; i < strlen(literal); i++) {
+                if (literal[i] == '\n') {
+                    line++;
+                }
             }
             i++;
             t.kind = STRING;

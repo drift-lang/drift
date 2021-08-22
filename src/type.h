@@ -47,4 +47,6 @@ const char *type_string(type *);
 
 bool type_eq(type *, type *);
 
+bool copy_type(type *);
+
 #endif

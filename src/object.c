@@ -502,16 +502,6 @@ bool obj_eq(object *a, object *b) {
     }
 }
 
-bool basic(object *obj) {
-    if (obj->kind == OBJ_INT || obj->kind == OBJ_FLOAT ||
-        obj->kind == OBJ_STRING || obj->kind == OBJ_CHAR ||
-        obj->kind == OBJ_BOOL || obj->kind == OBJ_ARR || obj->kind == OBJ_TUP ||
-        obj->kind == OBJ_MAP || obj->kind == OBJ_NIL) {
-        return true;
-    }
-    return false;
-}
-
 bool obj_kind_eq(object *a, object *b) {
     if ((a->kind == OBJ_INT && b->kind != OBJ_INT) ||
         (a->kind == OBJ_FLOAT && b->kind != OBJ_FLOAT) ||
