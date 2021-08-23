@@ -25,6 +25,7 @@ typedef enum {
     T_MAP,
     T_FUNCTION,
     T_USER,
+    T_ANY
 } type_kind;
 
 typedef struct {

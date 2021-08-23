@@ -27,7 +27,7 @@ void free_tokens(keg *g) {
     for (int i = 0; i < g->item; i++) {
         token *tok = (token *)g->data[i];
         if (tok->kind == FLOAT || tok->kind == NUMBER || tok->kind == CHAR ||
-            tok->kind >= 39) {
+            tok->kind >= 40) {
             free(tok->literal);
         }
         free(tok);
@@ -96,26 +96,18 @@ void simple_error(const char *msg) {
 
 void bt_println(frame *f, frame *b) {
     object *obj = get_table(b->tb, "arg");
-    if (obj->kind == OBJ_ARRAY) {
-        for (int i = 0; i < obj->value.arr.element->item; i++) {
-            object *p = obj->value.arr.element->data[i];
-            printf("%s\t", obj_std_string(p));
-        }
-    } else {
-        printf("%s", obj_std_string(obj));
+    for (int i = 0; i < obj->value.arr.element->item; i++) {
+        object *p = obj->value.arr.element->data[i];
+        printf("%s\t", obj_std_string(p));
     }
     printf("\n");
 }
 
 void bt_print(frame *f, frame *b) {
     object *obj = get_table(b->tb, "arg");
-    if (obj->kind == OBJ_ARRAY) {
-        for (int i = 0; i < obj->value.arr.element->item; i++) {
-            object *p = obj->value.arr.element->data[i];
-            printf("%s\t", obj_std_string(p));
-        }
-    } else {
-        printf("%s", obj_std_string(obj));
+    for (int i = 0; i < obj->value.arr.element->item; i++) {
+        object *p = obj->value.arr.element->data[i];
+        printf("%s\t", obj_std_string(p));
     }
 }
 
@@ -284,7 +276,7 @@ object *make_nil() {
     return obj;
 }
 
-void load_module(char *);
+void load_module(char *, bool);
 
 void check_interface(object *in, object *cl) {
     if (cl->value.cl.init == false) {
@@ -316,7 +308,7 @@ void check_interface(object *in, object *cl) {
             type *a = m->T->data[j];
             type *b = fn->value.fn.v->data[j];
             if (!type_eq(a, b)) {
-                simple_error("Inconsistent types of method arguments");
+                simple_error("inconsistent types of method arguments");
             }
         }
     }
@@ -342,11 +334,13 @@ void eval() {
             if (T->kind == T_USER && obj->kind == OBJ_CLASS) {
                 void *ptr = get_table(back_frame()->tb, T->inner.name);
                 if (ptr == NULL) {
-                    simple_error("undefined interface");
+                    simple_error("undefined interface or class");
                 }
                 object *in = ptr;
                 if (in->kind == OBJ_INTERFACE) {
                     check_interface(in, obj);
+                    in->value.in.class = (struct object *)obj;
+                    obj = in;
                 }
             } else {
                 if (!type_checker(T, obj)) {
@@ -426,7 +420,7 @@ void eval() {
             if (a->kind == OBJ_STRING && b->kind == OBJ_STRING) {
                 int la = strlen(a->value.string);
                 int lb = strlen(b->value.string);
-                if (la + lb > STRING_CAP) {
+                if (la + lb > STRING_EVAL_MAX) {
                     simple_error("number of characters is greater "
                                  "than 128-bit bytes");
                 }
@@ -763,7 +757,8 @@ void eval() {
             keg *k = fn->value.fn.k;
             keg *v = fn->value.fn.v;
 
-            if ((fn->value.fn.mutiple != NULL && arg->item < k->item) ||
+            if ((fn->value.fn.mutiple != NULL && k->item != 1 &&
+                 arg->item < k->item) ||
                 (fn->value.fn.mutiple == NULL && k->item != arg->item)) {
                 simple_error("inconsistent funtion arguments");
             }
@@ -779,13 +774,17 @@ void eval() {
                     a->kind = OBJ_ARRAY;
                     a->value.arr.element = NULL;
 
-                    while (arg->item > 0) {
-                        object *p = arg->data[--arg->item];
-                        if (!type_checker(T, p)) {
-                            type_error(T, p);
+                    if (arg->item == 0) {
+                        a->value.arr.element = new_keg();
+                    } else {
+                        while (arg->item > 0) {
+                            object *p = arg->data[--arg->item];
+                            if (!type_checker(T, p)) {
+                                type_error(T, p);
+                            }
+                            a->value.arr.element =
+                                append_keg(a->value.arr.element, p);
                         }
-                        a->value.arr.element =
-                            append_keg(a->value.arr.element, p);
                     }
                     add_table(f->tb, N, a);
                 } else {
@@ -797,6 +796,7 @@ void eval() {
                     add_table(f->tb, N, p);
                 }
             }
+
             if (fn->value.fn.std) {
                 builtin *bt = get_std(fn->value.fn.name);
                 if (bt == NULL) {
@@ -1062,8 +1062,9 @@ void eval() {
             }
             break;
         }
-        case USE_MOD: {
-            load_module(GET_NAME());
+        case USE_MOD:
+        case USE_IN_MOD: {
+            load_module(GET_NAME(), code == USE_IN_MOD);
             break;
         }
         default: {
@@ -1136,7 +1137,7 @@ keg *read_path(keg *pl, char *path) {
     return pl;
 }
 
-void load_eval(const char *path, char *name) {
+void load_eval(const char *path, char *name, bool internal) {
     FILE *fp = fopen(path, "r");
     if (fp == NULL) {
         printf("\033[1;31mvm %d:\033[0m failed to read buffer of file "
@@ -1160,29 +1161,33 @@ void load_eval(const char *path, char *name) {
     free(buf);
 
     keg *codes = compile(tokens);
-
     vm_state ps = evaluate(codes->data[0], get_filename(path));
 
     frame *fr = (frame *)ps.frame->data[0];
     table *tb = fr->tb;
 
-    object *obj = malloc(sizeof(object));
-    obj->kind = OBJ_MODULE;
-    obj->value.mod.tb = (struct table *)tb;
-    obj->value.mod.name = name;
-
     vst.ip = ip_up;
     vst.op = op_up;
     vst.frame = fr_up;
 
-    add_table(back_frame()->tb, name, obj);
+    if (internal) {
+        for (int i = 0; i < tb->name->item; i++) {
+            add_table(back_frame()->tb, tb->name->data[i], tb->objs->data[i]);
+        }
+    } else {
+        object *obj = malloc(sizeof(object));
+        obj->kind = OBJ_MODULE;
+        obj->value.mod.tb = (struct table *)tb;
+        obj->value.mod.name = name;
+        add_table(back_frame()->tb, name, obj);
+    }
     free_keg(codes);
 
     fclose(fp);
     free_tokens(tokens);
 }
 
-void load_module(char *name) {
+void load_module(char *name, bool internal) {
     bool ok = false;
     if (filename_eq(vst.filename, name)) {
         simple_error("cannot reference itself");
@@ -1196,7 +1201,7 @@ void load_module(char *name) {
     for (int i = 0; i < pl->item; i++) {
         char *addr = pl->data[i];
         if (filename_eq(get_filename(addr), name)) {
-            load_eval(addr, name);
+            load_eval(addr, name, internal);
             ok = true;
             break;
         }

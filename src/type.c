@@ -61,6 +61,9 @@ const char *type_string(type *t) {
     case T_USER:
         sprintf(str, "<%s>", t->inner.name);
         return str;
+    case T_ANY:
+        free(str);
+        return "<any>";
     }
 }
 

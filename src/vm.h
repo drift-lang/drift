@@ -22,6 +22,8 @@
     #include <windows.h>
 #endif
 
+#define STRING_EVAL_MAX 128
+
 typedef struct {
     code_object *code;
     table *tb;

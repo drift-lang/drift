@@ -54,7 +54,7 @@ const char *obj_string(object *obj) {
 }
 
 const char *obj_raw_string(object *obj) {
-    char *str = malloc(sizeof(char) * STRING_CAP);
+    char *str = malloc(sizeof(char) * STRING_CAP_MAX);
     switch (obj->kind) {
     case OBJ_INT:
         sprintf(str, "%d", obj->value.integer);
@@ -114,7 +114,14 @@ const char *obj_raw_string(object *obj) {
         for (int i = 0; i < k->item; i++) {
             strcat(str, obj_raw_string((object *)k->data[i]));
             strcat(str, ": ");
-            strcat(str, obj_raw_string((object *)v->data[i]));
+            object *obj = v->data[i];
+            if (obj->kind == OBJ_STRING) {
+                strcat(str, "\"");
+                strcat(str, obj->value.string);
+                strcat(str, "\"");
+            } else {
+                strcat(str, obj_raw_string(obj));
+            }
             if (i + 1 != k->item) {
                 strcat(str, ", ");
             }
@@ -130,7 +137,7 @@ const char *obj_raw_string(object *obj) {
 }
 
 const char *obj_std_string(object *obj) {
-    char *str = malloc(sizeof(char) * STRING_CAP);
+    char *str = malloc(sizeof(char) * STRING_CAP_MAX);
     switch (obj->kind) {
     case OBJ_ARRAY: {
         keg *elem = obj->value.arr.element;
@@ -407,7 +414,6 @@ object *binary_op(u_int8_t op, object *a, object *b) {
         }
         break;
     }
-
     if (!je_ins) {
         free(je);
         return NULL;

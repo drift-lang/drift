@@ -618,6 +618,8 @@ type *set_type() {
             T->kind = T_CHAR;
         else if (strcmp(now.literal, "string") == 0)
             T->kind = T_STRING;
+        else if (strcmp(now.literal, "any") == 0)
+            T->kind = T_ANY;
         else {
             T->kind = T_USER;
             T->inner.name = now.literal;
@@ -1033,11 +1035,15 @@ statement cannot be used outside loop.\n",
     case USE: {
         token_kind kind = cst.pre.kind;
         iter();
+        bool internal = cst.pre.kind == L_ARROW;
+        if (internal) {
+            iter();
+        }
         if (cst.pre.kind != LITERAL) {
             syntax_error();
         }
         emit_name(cst.pre.literal);
-        emit_code(USE_MOD);
+        emit_code(internal ? USE_IN_MOD : USE_MOD);
         break;
     }
     default:

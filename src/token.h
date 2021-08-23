@@ -27,6 +27,7 @@ typedef enum {
     AS_DIV,
     AS_SUR,
     R_ARROW,
+    L_ARROW,
     DOT,
     COMMA,
     COLON,
@@ -64,12 +65,12 @@ typedef enum {
 } token_kind;
 
 static const char *token_string[] = {
-    "EOF", "LITERAL", "NUMBER", "STRING", "CHAR", "FLOAT", "+",   "-",  "*",
-    "/",   "%",       "+=",     "-=",     "*=",   "/=",    "%=",  "->", ".",
-    ",",   ":",       "=",      ";",      ">",    "<",     ">=",  "<=", "&",
-    "|",   "!",       "!=",     "==",     "{",    "}",     "(",   ")",  "[",
-    "]",   "_",       "\\",     "def",    "ret",  "for",   "aop", "if", "ef",
-    "nf",  "new",     "out",    "go",     "use",  "nil",
+    "EOF", "LITERAL", "NUMBER", "STRING", "CHAR", "FLOAT", "+",   "-",   "*",
+    "/",   "%",       "+=",     "-=",     "*=",   "/=",    "%=",  "->",  "<-",
+    ".",   ",",       ":",      "=",      ";",    ">",     "<",   ">=",  "<=",
+    "&",   "|",       "!",      "!=",     "==",   "{",     "}",   "(",   ")",
+    "[",   "]",       "_",      "\\",     "def",  "ret",   "for", "aop", "if",
+    "ef",  "nf",      "new",    "out",    "go",   "use",   "nil",
 };
 
 typedef struct {

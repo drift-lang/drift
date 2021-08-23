@@ -22,7 +22,7 @@ bool is_ident(char c) {
 }
 
 token_kind to_keyword(const char *literal) {
-    for (int i = 39; i < 51; i++) {
+    for (int i = 40; i < 52; i++) {
         if (strcmp(literal, token_string[i]) == 0) {
             return i;
         }
@@ -176,8 +176,14 @@ extern keg *lexer(const char *buf, int fsize) {
                 t.kind = LE_EQ;
                 t.literal = "<=";
             } else {
-                t.kind = LESS;
-                t.literal = "<";
+                if (buf[i] == '-') {
+                    t.kind = L_ARROW;
+                    t.literal = "<-";
+                    i++;
+                } else {
+                    t.kind = LESS;
+                    t.literal = "<";
+                }
             }
             break;
         case '>':
