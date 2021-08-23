@@ -543,6 +543,15 @@ void tnew() {
     emit_offset(item);
 }
 
+void get_in() {
+    iter();
+    if (cst.pre.kind != LITERAL) {
+        syntax_error();
+    }
+    emit_name(cst.pre.literal);
+    emit_code(GET_IN_OF);
+}
+
 rule rules[] = {
     {EOH,       NULL,    NULL,    P_LOWEST },
     {LITERAL,   name,    NULL,    P_LOWEST },
@@ -567,7 +576,7 @@ rule rules[] = {
     {LESS,      NULL,    binary,  P_COMPARE},
     {LE_EQ,     NULL,    binary,  P_COMPARE},
     {L_PAREN,   group,   call,    P_CALL   },
-    {DOT,       NULL,    get,     P_CALL   },
+    {DOT,       get_in,  get,     P_CALL   },
     {L_BRACKET, array,   indexes, P_CALL   },
     {L_BRACE,   map,     NULL,    P_CALL   },
 };
@@ -1134,6 +1143,7 @@ extern void disassemble_code(code_object *code) {
         }
         case LOAD_OF:
         case GET_OF:
+        case GET_IN_OF:
         case SET_OF:
         case ASSIGN_TO:
         case ASS_ADD:
@@ -1147,7 +1157,8 @@ extern void disassemble_code(code_object *code) {
         case SE_ASS_DIV:
         case SE_ASS_SUR:
         case SET_NAME:
-        case USE_MOD: {
+        case USE_MOD:
+        case USE_IN_MOD: {
             int16_t *off = code->offsets->data[p++];
             char *name = code->names->data[*off];
             if (*inner == SET_NAME || *inner == USE_MOD)

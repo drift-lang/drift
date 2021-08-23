@@ -7,7 +7,7 @@
 #include "vm.h"
 
 #define COMPILER_VERSION "Drift 0.0.1 (MADE AT Jul 2021 29, 15:40:45)"
-#define DRIFT_LICENSE    "GNU Public License GPL v3.0"
+#define DRIFT_LICENSE    "GNU General Public License GPL v3.0"
 
 bool show_tokens;
 bool show_bytes;

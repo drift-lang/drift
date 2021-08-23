@@ -1,0 +1,29 @@
+#test.ft
+use <- std
+
+def About
+    \\ initialize -> {}<string, any>
+
+def Me
+    def name string = "bingxio"
+    def age int = 20
+    def location string = "China, CQ"
+
+    def () initialize -> {}<string, any>
+        def m {}<string, any> = {
+            "name"    : .name,
+            "age"     : .age,
+            "location": .location
+        }
+        ret m
+
+    def () add -> |int, int| -> int
+        ret def (a, b int) _ -> int
+            ret a + b
+
+def me About = new Me{}
+println(
+    me,
+    me.initialize()["age"] == 20,
+    new Me{}.add()(4, 6)
+)

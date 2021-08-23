@@ -369,8 +369,8 @@ void eval() {
             char *name = GET_NAME();
             void *resu = lookup(name);
             if (resu == NULL) {
-                if (vst.whole != NULL && vst.frame->item > 1) {
-                    frame *f = (frame *)vst.whole->value.cl.fr;
+                if (vst.class != NULL && vst.frame->item > 1) {
+                    frame *f = (frame *)vst.class->value.cl.fr;
                     resu = get_table(f->tb, name);
                 }
             }
@@ -873,7 +873,7 @@ void eval() {
                 if (ptr == NULL) {
                     simple_error("nonexistent member");
                 }
-                vst.whole = obj;
+                vst.class = obj;
                 PUSH(ptr);
             }
             if (obj->kind == OBJ_TUPLE) {
@@ -903,8 +903,8 @@ void eval() {
                     if (strcmp(m->name, name) == 0) {
                         object *wh = (object *)obj->value.in.class;
                         frame *fr = (frame *)wh->value.cl.fr;
-                        vst.whole = wh;
-                        PUSH((object *)get_table(fr->tb, name));
+                        vst.class = wh;
+                        PUSH(get_table(fr->tb, name));
                         goto next;
                     }
                 }
@@ -917,6 +917,19 @@ void eval() {
                 }
                 PUSH(p);
             }
+            break;
+        }
+        case GET_IN_OF: {
+            char *name = GET_NAME();
+            if (vst.class == NULL) {
+                simple_error("need to use this statement in the class");
+            }
+            frame *fr = (frame *)vst.class->value.cl.fr;
+            void *ptr = get_table(fr->tb, name);
+            if (ptr == NULL) {
+                simple_error("nonexistent member");
+            }
+            PUSH(ptr);
             break;
         }
         case SET_OF: {
@@ -1070,6 +1083,7 @@ void eval() {
         default: {
             fprintf(stderr, "\033[1;31mvm %d:\033[0m unreachable '%s'.\n",
                     GET_LINE(), code_string[code]);
+            exit(EXIT_FAILURE);
         }
         }
     next:
@@ -1082,7 +1096,7 @@ vm_state evaluate(code_object *code, char *filename) {
     vst.ip = 0;
     vst.op = 0;
     vst.filename = filename;
-    vst.whole = NULL;
+    vst.class = NULL;
 
     frame *main = new_frame(code);
     vst.frame = append_keg(vst.frame, main);

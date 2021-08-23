@@ -77,7 +77,6 @@ extern keg *lexer(const char *buf, int fsize) {
                 break;
             }
             c = buf[++i];
-
             if (new_line) {
                 off++;
             }
@@ -342,11 +341,9 @@ extern keg *lexer(const char *buf, int fsize) {
                     line, c, c);
             exit(EXIT_FAILURE);
         }
-
         tokens =
             append_keg(tokens, new_token(t.kind, t.literal, t.line, t.off));
     }
-
     if (tokens != NULL) {
         token *end = back_keg(tokens);
         token *eoh = new_token(EOH, "EOF", end->line + 1, 0);

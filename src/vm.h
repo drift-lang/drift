@@ -36,7 +36,7 @@ typedef struct {
     int16_t op;
     int16_t ip;
     bool loop_ret;
-    object *whole;
+    object *class;
     char *filename;
 } vm_state;
 
