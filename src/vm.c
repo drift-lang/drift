@@ -72,26 +72,26 @@ keg *top_data() {
         ->objects->data[(*(int16_t *)top_code()->offsets->data[vst.op - 1])]
 
 void undefined_error(char *name) {
-    fprintf(stderr, "\033[1;31mvm %s %d:\033[0m undefined name '%s'.\n",
-            vst.filename, GET_LINE(), name);
-    exit(EXIT_FAILURE);
+    fprintf(stderr, "\033[1;31mvm %d:\033[0m undefined name '%s'.\n",
+            GET_LINE(), name);
+    exit(0);
 }
 
 void type_error(type *T, object *obj) {
     fprintf(stderr, "\033[1;31mvm %d:\033[0m expect type %s, but found %s.\n",
             GET_LINE(), type_string(T), obj_string(obj));
-    exit(EXIT_FAILURE);
+    exit(EXIT_SUCCESS);
 }
 
 void unsupport_operand_error(const char *op) {
     fprintf(stderr, "\033[1;31mvm %d:\033[0m unsupport operand to '%s'.\n",
             GET_LINE(), op);
-    exit(EXIT_FAILURE);
+    exit(EXIT_SUCCESS);
 }
 
 void simple_error(const char *msg) {
     fprintf(stderr, "\033[1;31mvm %d:\033[0m %s.\n", GET_LINE(), msg);
-    exit(EXIT_FAILURE);
+    exit(EXIT_SUCCESS);
 }
 
 void bt_println(frame *f, frame *b) {
@@ -260,12 +260,19 @@ void jump(int16_t to) {
 }
 
 void *lookup(char *name) {
-    for (int i = vst.frame->item - 1; i >= 0; i--) {
-        frame *f = (frame *)vst.frame->data[i];
-        void *ptr = get_table(f->tb, name);
-        if (ptr != NULL) {
-            return ptr;
-        }
+    void *p = get_table(back_frame()->tb, name);
+    if (p != NULL) {
+        return p;
+    }
+    frame *f = (frame *)back_keg(vst.call);
+    p = get_table(f->tb, name);
+    if (p != NULL) {
+        return p;
+    }
+    f = (frame *)vst.call->data[0];
+    p = get_table(f->tb, name);
+    if (p != NULL) {
+        return p;
     }
     return NULL;
 }
@@ -332,7 +339,7 @@ void eval() {
                 obj->kind = OBJ_BOOL;
             }
             if (T->kind == T_USER && obj->kind == OBJ_CLASS) {
-                void *ptr = get_table(back_frame()->tb, T->inner.name);
+                void *ptr = lookup(T->inner.name);
                 if (ptr == NULL) {
                     simple_error("undefined interface or class");
                 }
@@ -367,23 +374,17 @@ void eval() {
         }
         case LOAD_OF: {
             char *name = GET_NAME();
-            void *resu = lookup(name);
-            if (resu == NULL) {
-                if (vst.class != NULL && vst.frame->item > 1) {
-                    frame *f = (frame *)vst.class->value.cl.fr;
-                    resu = get_table(f->tb, name);
-                }
-            }
-            if (resu == NULL) {
+            void *ptr = lookup(name);
+            if (ptr == NULL) {
                 undefined_error(name);
             }
-            PUSH(resu);
+            PUSH(ptr);
             break;
         }
         case ASSIGN_TO: {
             char *name = GET_NAME();
             object *obj = POP();
-            void *p = get_table(back_frame()->tb, name);
+            void *p = lookup(name);
             if (p == NULL) {
                 undefined_error(name);
             }
@@ -439,7 +440,7 @@ void eval() {
         case ASS_SUR: {
             char *name = GET_NAME();
             object *obj = POP();
-            void *p = get_table(back_frame()->tb, name);
+            void *p = lookup(name);
             if (p == NULL) {
                 undefined_error(name);
             }
@@ -806,6 +807,10 @@ void eval() {
                 goto next;
             }
 
+            if (fn->value.fn.self != NULL) {
+                vst.call = append_keg(vst.call, fn->value.fn.self);
+            }
+
             int16_t op_up = vst.op;
             int16_t ip_up = vst.ip;
 
@@ -828,6 +833,10 @@ void eval() {
 
             vst.op = op_up;
             vst.ip = ip_up;
+
+            if (fn->value.fn.self != NULL) {
+                pop_back_keg(vst.call);
+            }
             break;
         }
         case INTERFACE: {
@@ -866,14 +875,17 @@ void eval() {
             }
             if (obj->kind == OBJ_CLASS) {
                 if (obj->value.cl.init == false) {
-                    simple_error("whole did not load initialization members");
+                    simple_error("class did not load initialization members");
                 }
                 frame *fr = (frame *)obj->value.cl.fr;
                 void *ptr = get_table(fr->tb, name);
                 if (ptr == NULL) {
                     simple_error("nonexistent member");
                 }
-                vst.class = obj;
+                object *val = ptr;
+                if (val->kind == OBJ_FUNCTION) {
+                    val->value.fn.self = obj->value.cl.fr;
+                }
                 PUSH(ptr);
             }
             if (obj->kind == OBJ_TUPLE) {
@@ -901,10 +913,13 @@ void eval() {
                 for (int i = 0; i < elem->item; i++) {
                     method *m = elem->data[i];
                     if (strcmp(m->name, name) == 0) {
-                        object *wh = (object *)obj->value.in.class;
-                        frame *fr = (frame *)wh->value.cl.fr;
-                        vst.class = wh;
-                        PUSH(get_table(fr->tb, name));
+                        object *cl = (object *)obj->value.in.class;
+                        frame *fr = (frame *)cl->value.cl.fr;
+                        object *val = get_table(fr->tb, name);
+                        if (val->kind == OBJ_FUNCTION) {
+                            val->value.fn.self = fr;
+                        }
+                        PUSH(val);
                         goto next;
                     }
                 }
@@ -921,11 +936,10 @@ void eval() {
         }
         case GET_IN_OF: {
             char *name = GET_NAME();
-            if (vst.class == NULL) {
+            if (vst.call->item < 2) {
                 simple_error("need to use this statement in the class");
             }
-            frame *fr = (frame *)vst.class->value.cl.fr;
-            void *ptr = get_table(fr->tb, name);
+            void *ptr = lookup(name);
             if (ptr == NULL) {
                 simple_error("nonexistent member");
             }
@@ -1083,7 +1097,7 @@ void eval() {
         default: {
             fprintf(stderr, "\033[1;31mvm %d:\033[0m unreachable '%s'.\n",
                     GET_LINE(), code_string[code]);
-            exit(EXIT_FAILURE);
+            exit(EXIT_SUCCESS);
         }
         }
     next:
@@ -1096,10 +1110,11 @@ vm_state evaluate(code_object *code, char *filename) {
     vst.ip = 0;
     vst.op = 0;
     vst.filename = filename;
-    vst.class = NULL;
+    vst.call = new_keg();
 
     frame *main = new_frame(code);
     vst.frame = append_keg(vst.frame, main);
+    vst.call = append_keg(vst.call, main);
 
     eval();
     return vst;
@@ -1131,7 +1146,6 @@ keg *read_path(keg *pl, char *path) {
     DIR *dir;
     struct dirent *p;
     if ((dir = opendir(path)) == NULL) {
-        printf("%s\n", path);
         simple_error("failed to open the std library or current directory");
     }
     while ((p = readdir(dir)) != NULL) {
@@ -1157,7 +1171,7 @@ void load_eval(const char *path, char *name, bool internal) {
         printf("\033[1;31mvm %d:\033[0m failed to read buffer of file "
                "'%s'\n",
                GET_LINE(), path);
-        exit(EXIT_FAILURE);
+        exit(EXIT_SUCCESS);
     }
     fseek(fp, 0, SEEK_END);
     int fsize = ftell(fp);
@@ -1170,19 +1184,21 @@ void load_eval(const char *path, char *name, bool internal) {
     int16_t ip_up = vst.ip;
     int16_t op_up = vst.op;
     keg *fr_up = vst.frame;
+    keg *cl_up = vst.call;
 
     keg *tokens = lexer(buf, fsize);
     free(buf);
 
     keg *codes = compile(tokens);
-    vm_state ps = evaluate(codes->data[0], get_filename(path));
+    vm_state vs = evaluate(codes->data[0], get_filename(path));
 
-    frame *fr = (frame *)ps.frame->data[0];
+    frame *fr = (frame *)vs.frame->data[0];
     table *tb = fr->tb;
 
     vst.ip = ip_up;
     vst.op = op_up;
     vst.frame = fr_up;
+    vst.call = cl_up;
 
     if (internal) {
         for (int i = 0; i < tb->name->item; i++) {
@@ -1223,7 +1239,7 @@ void load_module(char *name, bool internal) {
     if (!ok) {
         fprintf(stderr, "\033[1;31mvm %d:\033[0m undefined module '%s'.\n",
                 GET_LINE(), name);
-        exit(EXIT_FAILURE);
+        exit(EXIT_SUCCESS);
     } else {
         free_keg(pl);
     }

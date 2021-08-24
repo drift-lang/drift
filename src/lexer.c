@@ -214,7 +214,7 @@ extern keg *lexer(const char *buf, int fsize) {
                         "\033[1;31mlexer %d:\033[0m missing single quotation "
                         "mark to the right.\n",
                         line);
-                exit(EXIT_FAILURE);
+                exit(EXIT_SUCCESS);
             } else {
                 i += 1;
             }
@@ -232,7 +232,7 @@ extern keg *lexer(const char *buf, int fsize) {
                             "\033[1;31mlexer %d:\033[0m missing closing double "
                             "quote.\n",
                             line);
-                    exit(EXIT_FAILURE);
+                    exit(EXIT_SUCCESS);
                 }
             }
             char *literal;
@@ -339,7 +339,7 @@ extern keg *lexer(const char *buf, int fsize) {
                     "\033[1;31mlexer %d:\033[0m unknown character "
                     "'%c' ASCII %d.\n",
                     line, c, c);
-            exit(EXIT_FAILURE);
+            exit(EXIT_SUCCESS);
         }
         tokens =
             append_keg(tokens, new_token(t.kind, t.literal, t.line, t.off));

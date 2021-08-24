@@ -266,7 +266,7 @@ void expect_error(token_kind kind) {
     fprintf(stderr,
             "\033[1;31mcompiler %d:\033[0m unexpected '%s' but found '%s'.\n",
             cst.pre.line, token_string[kind], cst.pre.literal);
-    exit(EXIT_FAILURE);
+    exit(EXIT_SUCCESS);
 }
 
 void expect(enum expect_kind exp, token_kind kind) {
@@ -286,13 +286,13 @@ void debug() {
 void syntax_error() {
     fprintf(stderr, "\033[1;31mcompiler %d:\033[0m syntax error.\n",
             cst.pre.line);
-    exit(EXIT_FAILURE);
+    exit(EXIT_SUCCESS);
 }
 
 void no_block_error() {
     fprintf(stderr, "\033[1;31mcompiler %d:\033[0m no block statement.\n",
             cst.pre.line);
-    exit(EXIT_FAILURE);
+    exit(EXIT_SUCCESS);
 }
 
 void literal() {
@@ -598,7 +598,7 @@ void set_precedence(int precedence) {
                 "function of token "
                 "'%s'.\n",
                 cst.pre.line, cst.pre.literal);
-        exit(EXIT_FAILURE);
+        exit(EXIT_SUCCESS);
     }
     prefix.prefix();
     while (precedence <= get_cur_prec()) {
@@ -677,7 +677,7 @@ type *set_type() {
     default:
         fprintf(stderr, "\033[1;31mcompiler %d:\033[0m unknown type.\n",
                 cst.pre.line);
-        exit(EXIT_FAILURE);
+        exit(EXIT_SUCCESS);
     }
     return T;
 }
@@ -758,6 +758,7 @@ void stmt() {
             obj->value.fn.k = K;
             obj->value.fn.v = V;
             obj->value.fn.mutiple = NULL;
+            obj->value.fn.self = NULL;
 
             if (cst.pre.kind != R_PAREN) {
                 while (true) {
@@ -779,7 +780,7 @@ void stmt() {
                                     "\033[1;31mcompiler %d:\033[0m multiple "
                                     "parameters can only be at the end.\n",
                                     cst.pre.line);
-                                exit(EXIT_FAILURE);
+                                exit(EXIT_SUCCESS);
                             }
                             break;
                         }
@@ -1020,7 +1021,7 @@ void stmt() {
             fprintf(stderr, "\033[1;31mcompiler %d:\033[0m Loop control \
 statement cannot be used outside loop.\n",
                     cst.pre.line);
-            exit(EXIT_FAILURE);
+            exit(EXIT_SUCCESS);
         }
         token_kind kind = cst.pre.kind;
         iter();

@@ -59,7 +59,7 @@ version:  %s\n\
 license:  %s\n\
            @ bingxio - bingxio@qq.com\n",
            COMPILER_VERSION, DRIFT_LICENSE);
-    exit(EXIT_FAILURE);
+    exit(EXIT_SUCCESS);
 }
 
 int main(int argc, char **argv) {
@@ -78,14 +78,14 @@ int main(int argc, char **argv) {
     int len = strlen(path) - 1;
     if (path[len] != 't' || path[len - 1] != 'f' || path[len - 2] != '.') {
         fprintf(stderr, "\033[1;31merror:\033[0m no input file.\n");
-        exit(EXIT_FAILURE);
+        exit(EXIT_SUCCESS);
     }
     FILE *fp = fopen(path, "r");
     if (fp == NULL) {
         printf("\033[1;31merror:\033[0m failed to read buffer of file: "
                "'%s'\n",
                path);
-        exit(EXIT_FAILURE);
+        exit(EXIT_SUCCESS);
     }
 
     fseek(fp, 0, SEEK_END);

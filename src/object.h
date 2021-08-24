@@ -54,6 +54,7 @@ typedef struct {
             type *ret;
             code_object *code;
             bool std;
+            void *self;
         } fn;
         struct {
             char *name;
