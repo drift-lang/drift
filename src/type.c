@@ -64,6 +64,11 @@ const char *type_string(type *t) {
     case T_ANY:
         free(str);
         return "<any>";
+    case T_GENERIC: {
+        generic *g = (generic *)t->inner.ge;
+        sprintf(str, "<%s:%d>", g->name, g->count);
+        return str;
+    }
     }
 }
 

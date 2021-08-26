@@ -25,7 +25,8 @@ typedef enum {
     T_MAP,
     T_FUNCTION,
     T_USER,
-    T_ANY
+    T_ANY,
+    T_GENERIC
 } type_kind;
 
 typedef struct {
@@ -41,8 +42,18 @@ typedef struct {
             struct type *T1;
             struct type *T2;
         } both;
+        struct generic *ge;
     } inner;
 } type;
+
+typedef struct {
+    char *name;
+    int count;
+    union {
+        type *T;
+        keg *multiple;
+    } mtype;
+} generic;
 
 const char *type_string(type *);
 

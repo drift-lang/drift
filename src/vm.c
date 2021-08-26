@@ -16,6 +16,7 @@ frame *new_frame(code_object *code) {
     f->data = new_keg();
     f->ret = NULL;
     f->tb = new_table();
+    f->tp = new_table();
     return f;
 }
 
@@ -96,23 +97,34 @@ void simple_error(const char *msg) {
 
 void bt_println(frame *f, frame *b) {
     object *obj = get_table(b->tb, "arg");
-    for (int i = 0; i < obj->value.arr.element->item; i++) {
-        object *p = obj->value.arr.element->data[i];
-        printf("%s\t", obj_std_string(p));
+    keg *elem = obj->value.arr.element;
+    for (int i = 0; i < elem->item; i++) {
+        object *p = elem->data[i];
+        printf("%s\t", obj_raw_string(p, elem->item > 1));
     }
     printf("\n");
 }
 
 void bt_print(frame *f, frame *b) {
     object *obj = get_table(b->tb, "arg");
-    for (int i = 0; i < obj->value.arr.element->item; i++) {
-        object *p = obj->value.arr.element->data[i];
-        printf("%s\t", obj_std_string(p));
+    keg *elem = obj->value.arr.element;
+    for (int i = 0; i < elem->item; i++) {
+        object *p = elem->data[i];
+        printf("%s\t", obj_raw_string(p, elem->item > 1));
+    }
+}
+
+void bt_putline(frame *f, frame *b) {
+    object *obj = get_table(b->tb, "arg");
+    keg *elem = obj->value.arr.element;
+    for (int i = 0; i < elem->item; i++) {
+        object *p = elem->data[i];
+        printf("%s\n", obj_raw_string(p, elem->item > 1));
     }
 }
 
 void bt_put(frame *f, frame *m) {
-    printf("%s", obj_raw_string(get_table(m->tb, "obj")));
+    printf("%s", obj_raw_string(get_table(m->tb, "obj"), false));
 }
 
 void bt_len(frame *f, frame *b) {
@@ -188,9 +200,10 @@ void bt_input(frame *f, frame *m) {
 builtin bts[] = {
     {"println", bt_println     },
     {"print",   bt_print       },
+    {"putline", bt_putline     },
     {"put",     bt_put         },
     {"len",     bt_len         },
-    {"typeof",  bt_type        },
+    {"type",    bt_type        },
     {"sleep",   bt_sleep       },
     {"rand",    bt_rand_int    },
     {"append",  bt_append_entry},
@@ -291,12 +304,12 @@ void check_interface(object *in, object *cl) {
     }
 
     keg *elem = in->value.in.element;
-    frame *fr = (frame *)cl->value.cl.fr;
+    frame *f = (frame *)cl->value.cl.fr;
 
     for (int i = 0; i < elem->item; i++) {
         method *m = elem->data[i];
 
-        void *p = get_table(fr->tb, m->name);
+        void *p = get_table(f->tb, m->name);
         if (p == NULL) {
             simple_error("class does not contain some member");
         }
@@ -305,20 +318,50 @@ void check_interface(object *in, object *cl) {
         if (fn->kind != OBJ_FUNCTION) {
             simple_error("an interface can only be a method");
         }
+
         if (!type_eq(m->ret, fn->value.fn.ret)) {
             simple_error("return type in the method are inconsistent");
         }
-        if (m->T->item != fn->value.fn.v->item) {
+
+        if (m->arg->item != fn->value.fn.v->item) {
             simple_error("inconsistent method arguments");
         }
-        for (int j = 0; j < m->T->item; j++) {
-            type *a = m->T->data[j];
+
+        for (int j = 0; j < m->arg->item; j++) {
+            type *a = m->arg->data[j];
             type *b = fn->value.fn.v->data[j];
+
             if (!type_eq(a, b)) {
                 simple_error("inconsistent types of method arguments");
             }
         }
     }
+}
+
+void check_generic(generic *ge, object *obj) {
+    if (ge->count == 1) {
+        if (type_checker(ge->mtype.T, obj)) {
+            return;
+        }
+    } else {
+        keg *g = ge->mtype.multiple;
+        for (int i = 0; i < g->item; i++) {
+            if (type_checker(g->data[i], obj)) {
+                return;
+            }
+        }
+    }
+    simple_error("generic type error");
+}
+
+generic *exist_generic(keg *gt, char *tpname) {
+    for (int i = 0; i < gt->item; i++) {
+        generic *g = (generic *)((type *)gt->data[i])->inner.ge;
+        if (strcmp(g->name, tpname) == 0) {
+            return g;
+        }
+    }
+    return NULL;
 }
 
 void eval() {
@@ -338,29 +381,41 @@ void eval() {
                 obj->value.boolean = obj->value.integer > 0;
                 obj->kind = OBJ_BOOL;
             }
-            if (T->kind == T_USER && obj->kind == OBJ_CLASS) {
-                void *ptr = lookup(T->inner.name);
-                if (ptr == NULL) {
-                    simple_error("undefined interface or class");
-                }
-                object *in = ptr;
-                if (in->kind == OBJ_INTERFACE) {
-                    check_interface(in, obj);
-                    in->value.in.class = (struct object *)obj;
-                    obj = in;
+            if (T->kind == T_USER) {
+                type *tp = get_table(back_frame()->tp, T->inner.name);
+
+                if (tp != NULL && tp->kind == T_GENERIC) {
+                    check_generic((generic *)tp->inner.ge, obj);
+                    // T = tp;
+                } else if (obj->kind == OBJ_CLASS) {
+                    void *p = lookup(T->inner.name);
+                    if (p == NULL) {
+                        simple_error("undefined interface or class");
+                    }
+                    object *in = p;
+                    if (in->kind == OBJ_INTERFACE) {
+                        check_interface(in, obj);
+                        in->value.in.class = (struct object *)obj;
+                        obj = in;
+                    }
                 }
             } else {
                 if (!type_checker(T, obj)) {
                     type_error(T, obj);
                 }
             }
-            if (obj->kind == OBJ_ARRAY) {
+
+            switch (obj->kind) {
+            case OBJ_ARRAY:
                 obj->value.arr.T = (type *)T->inner.single;
-            } else if (obj->kind == OBJ_TUPLE) {
+                break;
+            case OBJ_TUPLE:
                 obj->value.tup.T = (type *)T->inner.single;
-            } else if (obj->kind == OBJ_MAP) {
+                break;
+            case OBJ_MAP:
                 obj->value.map.T1 = (type *)T->inner.both.T1;
                 obj->value.map.T2 = (type *)T->inner.both.T2;
+                break;
             }
 
             object *new = obj;
@@ -370,6 +425,7 @@ void eval() {
             }
 
             add_table(back_frame()->tb, name, new);
+            add_table(back_frame()->tp, name, T);
             break;
         }
         case LOAD_OF: {
@@ -517,15 +573,14 @@ void eval() {
         case TO_INDEX: {
             object *p = POP();
             object *obj = POP();
-            if (obj->kind != OBJ_ARRAY && obj->kind != OBJ_STRING &&
-                obj->kind != OBJ_MAP) {
-                simple_error("only array, string and map can "
-                             "be called with subscipt");
+            if (obj->kind != OBJ_ARRAY && obj->kind != OBJ_TUPLE &&
+                obj->kind != OBJ_STRING && obj->kind != OBJ_MAP) {
+                simple_error("only array, tuple, string and map can be called "
+                             "with subscipt");
             }
             if (obj->kind == OBJ_ARRAY) {
                 if (p->kind != OBJ_INT) {
-                    simple_error("get value using integer "
-                                 "subscript");
+                    simple_error("get value using integer subscript");
                 }
                 if (obj->value.arr.element->item == 0) {
                     simple_error("array entry is empty");
@@ -534,6 +589,18 @@ void eval() {
                     simple_error("index out of bounds");
                 }
                 PUSH(obj->value.arr.element->data[p->value.integer]);
+            }
+            if (obj->kind == OBJ_TUPLE) {
+                if (p->kind != OBJ_INT) {
+                    simple_error("get value using integer subscript");
+                }
+                if (obj->value.tup.element->item == 0) {
+                    simple_error("tuple entry is empty");
+                }
+                if (p->value.integer >= obj->value.tup.element->item) {
+                    simple_error("index out of bounds");
+                }
+                PUSH(obj->value.tup.element->data[p->value.integer]);
             }
             if (obj->kind == OBJ_MAP) {
                 if (obj->value.map.k->item == 0) {
@@ -552,8 +619,7 @@ void eval() {
             }
             if (obj->kind == OBJ_STRING) {
                 if (p->kind != OBJ_INT) {
-                    simple_error("get value using integer "
-                                 "subscript");
+                    simple_error("get value using integer subscript");
                 }
                 int len = strlen(obj->value.string);
                 if (len == 0) {
@@ -573,6 +639,9 @@ void eval() {
             object *obj = POP();
             object *idx = POP();
             object *j = POP();
+            if (j->kind != OBJ_ARRAY && j->kind != OBJ_MAP) {
+                simple_error("only array and map types can be set");
+            }
             if (j->kind == OBJ_ARRAY) {
                 if (idx->kind != OBJ_INT) {
                     simple_error("get value using integer subscript");
@@ -582,7 +651,6 @@ void eval() {
                 }
                 int p = idx->value.integer;
                 if (j->value.arr.element->item == 0) {
-
                     insert_keg(j->value.arr.element, 0, obj);
                 } else {
                     if (p > j->value.arr.element->item - 1) {
@@ -765,9 +833,12 @@ void eval() {
             }
 
             frame *f = new_frame(fn->value.fn.code);
+            keg *gt = fn->value.fn.gt;
 
             for (int i = 0; i < k->item; i++) {
-                char *N = k->data[i];
+                char *name = k->data[i];
+                object *obj = NULL;
+                generic *ge = NULL;
 
                 if (v->item == i && fn->value.fn.mutiple != NULL) {
                     type *T = fn->value.fn.mutiple;
@@ -775,27 +846,46 @@ void eval() {
                     a->kind = OBJ_ARRAY;
                     a->value.arr.element = NULL;
 
+                    if (T->kind == T_USER) {
+                        ge = exist_generic(gt, T->inner.name);
+                    }
                     if (arg->item == 0) {
                         a->value.arr.element = new_keg();
                     } else {
                         while (arg->item > 0) {
                             object *p = arg->data[--arg->item];
-                            if (!type_checker(T, p)) {
-                                type_error(T, p);
+
+                            if (ge != NULL) {
+                                check_generic(ge, p);
+                                ge = NULL;
+                            } else {
+                                if (!type_checker(T, p)) {
+                                    type_error(T, p);
+                                }
                             }
                             a->value.arr.element =
                                 append_keg(a->value.arr.element, p);
                         }
                     }
-                    add_table(f->tb, N, a);
+                    obj = a;
                 } else {
                     type *T = v->data[i];
-                    object *p = arg->data[--arg->item];
-                    if (!type_checker(T, p)) {
-                        type_error(T, p);
+
+                    if (T->kind == T_USER) {
+                        ge = exist_generic(gt, T->inner.name);
                     }
-                    add_table(f->tb, N, p);
+                    object *p = arg->data[--arg->item];
+                    if (ge != NULL) {
+                        check_generic(ge, p);
+                        ge = NULL;
+                    } else {
+                        if (!type_checker(T, p)) {
+                            type_error(T, p);
+                        }
+                    }
+                    obj = p;
                 }
+                add_table(f->tb, name, obj);
             }
 
             if (fn->value.fn.std) {
@@ -841,6 +931,33 @@ void eval() {
         }
         case INTERFACE: {
             object *obj = GET_OBJ();
+            keg *el = obj->value.in.element;
+
+            for (int i = 0; i < el->item; i++) {
+                method *m = el->data[i];
+                for (int j = 0; j < m->arg->item; j++) {
+                    type *T = m->arg->data[j];
+                    if (T->kind == T_USER) {
+                        if (exist_generic(obj->value.in.gt, T->inner.name) ==
+                                NULL &&
+                            get_table(back_frame()->tb, T->inner.name) ==
+                                NULL) {
+                            simple_error("type does not exist");
+                        }
+                    }
+                }
+                if (m->ret != NULL) {
+                    type *T = m->ret;
+                    if (T->kind == T_USER) {
+                        if (exist_generic(obj->value.in.gt, T->inner.name) ==
+                                NULL &&
+                            get_table(back_frame()->tb, T->inner.name) ==
+                                NULL) {
+                            simple_error("type does not exist");
+                        }
+                    }
+                }
+            }
             add_table(back_frame()->tb, obj->value.in.name, obj);
             break;
         }
@@ -853,11 +970,9 @@ void eval() {
             char *name = GET_NAME();
             object *obj = POP();
             if (obj->kind != OBJ_ENUMERATE && obj->kind != OBJ_CLASS &&
-                obj->kind != OBJ_TUPLE && obj->kind != OBJ_INTERFACE &&
-                obj->kind != OBJ_MODULE) {
-                simple_error(
-                    "only enum, interface, module, tuple and class type "
-                    "are supported");
+                obj->kind != OBJ_INTERFACE && obj->kind != OBJ_MODULE) {
+                simple_error("only enum, interface, module, and class type are "
+                             "supported");
             }
             if (obj->kind == OBJ_ENUMERATE) {
                 keg *elem = obj->value.en.element;
@@ -888,23 +1003,6 @@ void eval() {
                 }
                 PUSH(ptr);
             }
-            if (obj->kind == OBJ_TUPLE) {
-                if (obj->value.tup.element->item == 0) {
-                    simple_error("tuple entry is empty");
-                }
-                for (int i = 0; i < strlen(name); i++) {
-                    if (!(name[i] >= '0' && name[i] <= '9')) {
-                        simple_error(
-                            "subscript can only be obtained with integer");
-                    }
-                }
-                int idx = atoi(name);
-                int p = obj->value.tup.element->item - 1 - idx;
-                if (idx >= obj->value.tup.element->item) {
-                    simple_error("index out of bounds");
-                }
-                PUSH(obj->value.tup.element->data[p]);
-            }
             if (obj->kind == OBJ_INTERFACE) {
                 if (obj->value.in.class == NULL) {
                     simple_error("interface is not initialized");
@@ -916,6 +1014,7 @@ void eval() {
                         object *cl = (object *)obj->value.in.class;
                         frame *fr = (frame *)cl->value.cl.fr;
                         object *val = get_table(fr->tb, name);
+
                         if (val->kind == OBJ_FUNCTION) {
                             val->value.fn.self = fr;
                         }
@@ -1000,7 +1099,16 @@ void eval() {
             object *new = malloc(sizeof(object));
             memcpy(new, obj, sizeof(object));
 
-            new->value.cl.fr = (struct frame *)new_frame(obj->value.cl.code);
+            frame *f = new_frame(obj->value.cl.code);
+
+            new->value.cl.fr = (struct frame *)f;
+            keg *gt = new->value.cl.gt;
+            int i = 0;
+
+            for (; i < gt->item; i++) {
+                type *T = (type *)gt->data[i];
+                add_table(f->tp, ((generic *)T->inner.ge)->name, T);
+            }
 
             int16_t op_up = vst.op;
             int16_t ip_up = vst.ip;
@@ -1011,21 +1119,31 @@ void eval() {
             eval();
 
             pop_back_keg(vst.frame);
+            while (i > 0) {
+                remove_keg(f->tp->name, 0);
+                remove_keg(f->tp->value, 0);
+                i--;
+            }
 
             vst.op = op_up;
             vst.ip = ip_up;
 
-            frame *f = (frame *)new->value.cl.fr;
-
             if (k != NULL) {
                 for (int i = 0; i < k->item; i++) {
                     char *key = ((object *)k->data[i])->value.string;
-                    object *val = v->data[i];
-                    void *p = get_table(f->tb, key);
-                    if (p == NULL) {
+                    object *obj = v->data[i];
+                    type *T = get_table(f->tp, key);
+                    if (T == NULL) {
                         undefined_error(key);
                     }
-                    add_table(f->tb, key, val);
+                    if (T->kind == T_GENERIC) {
+                        check_generic((generic *)T->inner.ge, obj);
+                    } else {
+                        if (!type_checker(T, obj)) {
+                            type_error(T, obj);
+                        }
+                    }
+                    add_table(f->tb, key, obj);
                 }
             }
 
@@ -1202,7 +1320,7 @@ void load_eval(const char *path, char *name, bool internal) {
 
     if (internal) {
         for (int i = 0; i < tb->name->item; i++) {
-            add_table(back_frame()->tb, tb->name->data[i], tb->objs->data[i]);
+            add_table(back_frame()->tb, tb->name->data[i], tb->value->data[i]);
         }
     } else {
         object *obj = malloc(sizeof(object));

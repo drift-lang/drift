@@ -13,14 +13,14 @@
 
 typedef struct {
     keg *name;
-    keg *objs;
+    keg *value;
 } table;
 
 table *new_table();
 
 int count_table(table *);
 
-void add_table(table *, char *, object *);
+void add_table(table *, char *, void*);
 
 void *get_table(table *, char *);
 

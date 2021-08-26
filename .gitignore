@@ -7,3 +7,4 @@ drift.exe
 *.json
 node_modules
 gcc
+*.ft

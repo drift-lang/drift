@@ -53,7 +53,7 @@ const char *obj_string(object *obj) {
     }
 }
 
-const char *obj_raw_string(object *obj) {
+const char *obj_raw_string(object *obj, bool multiple) {
     char *str = malloc(sizeof(char) * STRING_CAP_MAX);
     switch (obj->kind) {
     case OBJ_INT:
@@ -75,16 +75,18 @@ const char *obj_raw_string(object *obj) {
         keg *elem = obj->value.arr.element;
         if (elem->item == 0) {
             free(str);
-            return "[]";
+            return multiple ? "\t" : "[]";
         }
-        sprintf(str, "[");
+        sprintf(str, "%s", multiple ? "" : "[");
         for (int i = 0; i < elem->item; i++) {
-            strcat(str, obj_raw_string((object *)elem->data[i]));
+            strcat(str, obj_raw_string((object *)elem->data[i], multiple));
             if (i + 1 != elem->item) {
-                strcat(str, ", ");
+                strcat(str, multiple ? "\t" : ", ");
             }
         }
-        strcat(str, "]");
+        if (!multiple) {
+            strcat(str, "]");
+        }
         return str;
     }
     case OBJ_TUPLE: {
@@ -95,7 +97,7 @@ const char *obj_raw_string(object *obj) {
         }
         sprintf(str, "(");
         for (int i = 0; i < elem->item; i++) {
-            strcat(str, obj_raw_string((object *)elem->data[i]));
+            strcat(str, obj_raw_string((object *)elem->data[i], multiple));
             if (i + 1 != elem->item) {
                 strcat(str, ", ");
             }
@@ -112,7 +114,7 @@ const char *obj_raw_string(object *obj) {
         }
         sprintf(str, "{");
         for (int i = 0; i < k->item; i++) {
-            strcat(str, obj_raw_string((object *)k->data[i]));
+            strcat(str, obj_raw_string((object *)k->data[i], multiple));
             strcat(str, ": ");
             object *obj = v->data[i];
             if (obj->kind == OBJ_STRING) {
@@ -120,7 +122,7 @@ const char *obj_raw_string(object *obj) {
                 strcat(str, obj->value.string);
                 strcat(str, "\"");
             } else {
-                strcat(str, obj_raw_string(obj));
+                strcat(str, obj_raw_string(obj, multiple));
             }
             if (i + 1 != k->item) {
                 strcat(str, ", ");
@@ -133,39 +135,6 @@ const char *obj_raw_string(object *obj) {
         free(str);
         return obj_string(obj);
     }
-    }
-}
-
-const char *obj_std_string(object *obj) {
-    char *str = malloc(sizeof(char) * STRING_CAP_MAX);
-    switch (obj->kind) {
-    case OBJ_ARRAY: {
-        keg *elem = obj->value.arr.element;
-        if (elem->item == 0) {
-            free(str);
-            return "";
-        }
-        for (int i = 0; i < elem->item; i++) {
-            strcat(str, obj_std_string(elem->data[i]));
-            strcat(str, "\t");
-        }
-        return str;
-    }
-    case OBJ_TUPLE: {
-        keg *elem = obj->value.tup.element;
-        if (elem->item == 0) {
-            free(str);
-            return "";
-        }
-        for (int i = 0; i < elem->item; i++) {
-            strcat(str, obj_std_string(elem->data[i]));
-            strcat(str, "\t");
-        }
-        return str;
-    }
-    default:
-        free(str);
-        return obj_raw_string(obj);
     }
 }
 
@@ -309,6 +278,9 @@ object *binary_op(u_int8_t op, object *a, object *b) {
         }
         if (a->kind == OBJ_CHAR && b->kind == OBJ_CHAR) {
             EV_BOL(je, a->value.ch == b->value.ch);
+        }
+        if (a->kind == OBJ_NIL && b->kind == OBJ_NIL) {
+            EV_BOL(je, true);
         }
         break;
     case TO_NOT_EQ:

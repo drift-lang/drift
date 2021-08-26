@@ -55,17 +55,20 @@ typedef struct {
             code_object *code;
             bool std;
             void *self;
+            keg *gt;
         } fn;
         struct {
             char *name;
             keg *element;
             struct object *class;
+            keg *gt;
         } in;
         struct {
             char *name;
             code_object *code;
             struct frame *fr;
             bool init;
+            keg *gt;
         } cl;
         struct {
             keg *element;
@@ -90,15 +93,13 @@ typedef struct {
 
 typedef struct {
     char *name;
-    keg *T;
+    keg *arg;
     type *ret;
 } method;
 
 const char *obj_string(object *);
 
-const char *obj_raw_string(object *);
-
-const char *obj_std_string(object *obj);
+const char *obj_raw_string(object *, bool);
 
 object *binary_op(u_int8_t, object *, object *);
 

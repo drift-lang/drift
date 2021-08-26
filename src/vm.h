@@ -29,6 +29,7 @@ typedef struct {
     table *tb;
     keg *data;
     object *ret;
+    table *tp;
 } frame;
 
 typedef struct {

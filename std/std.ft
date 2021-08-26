@@ -1,15 +1,16 @@
 # std.ft
 # 2021-08-13 10:00:32
 
-def T bool = 1
-def F bool = 0
+def true  bool = 1
+def false bool = 0
 
-def (arg *any) print;
-def (arg *any) println;
+def (arg <-any) print;
+def (arg <-any) println;
+def (arg <-any) putline;
 def (obj any) put;
 
 def (obj any) len -> int;
 
-def (obj any) typeof -> string;
+def (obj any) type -> string;
 
 def (from, to int) rand -> int;

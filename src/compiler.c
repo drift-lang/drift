@@ -634,17 +634,19 @@ type *set_type() {
             T->inner.name = now.literal;
         }
         break;
-    case L_BRACKET:
+    case L_BRACKET: {
         both_iter();
         T->kind = T_ARRAY;
         T->inner.single = (struct type *)set_type();
         break;
-    case L_PAREN:
+    }
+    case L_PAREN: {
         both_iter();
         T->kind = T_TUPLE;
         T->inner.single = (struct type *)set_type();
         break;
-    case L_BRACE:
+    }
+    case L_BRACE: {
         both_iter();
         T->kind = T_MAP;
         expect(PRE, LESS);
@@ -654,6 +656,7 @@ type *set_type() {
         T->inner.both.T2 = (struct type *)set_type();
         expect(CUR, GREATER);
         break;
+    }
     case OR:
         iter();
         keg *arg = new_keg();
@@ -675,8 +678,8 @@ type *set_type() {
         T->inner.fn.ret = (struct type *)ret;
         break;
     default:
-        fprintf(stderr, "\033[1;31mcompiler %d:\033[0m unknown type.\n",
-                cst.pre.line);
+        fprintf(stderr, "\033[1;31mcompiler %d:\033[0m unknown '%s' type.\n",
+                cst.pre.line, cst.pre.literal);
         exit(EXIT_SUCCESS);
     }
     return T;
@@ -684,179 +687,277 @@ type *set_type() {
 
 void block();
 
+keg *parse_generic() {
+    keg *gt = new_keg();
+    iter();
+    if (cst.pre.kind == GREATER) {
+        syntax_error();
+    }
+    while (true) {
+        token name = cst.pre;
+        if (name.kind != LITERAL) {
+            syntax_error();
+        }
+        iter();
+
+        type *t = malloc(sizeof(type));
+        t->kind = T_GENERIC;
+
+        generic *ge = malloc(sizeof(generic));
+        ge->name = name.literal;
+
+        if (cst.pre.kind == GREATER || cst.pre.kind == COMMA) {
+            ge->count = 0;
+        } else {
+            type *T = set_type();
+            iter();
+            if (cst.pre.kind == OR) {
+                ge->mtype.multiple = new_keg();
+                ge->mtype.multiple = append_keg(ge->mtype.multiple, T);
+                iter();
+
+                while (cst.pre.kind != COMMA && cst.pre.kind != GREATER) {
+                    ge->mtype.multiple =
+                        append_keg(ge->mtype.multiple, set_type());
+                    iter();
+                }
+                ge->count = ge->mtype.multiple->item;
+            } else {
+                ge->count = 1;
+                ge->mtype.T = T;
+            }
+        }
+        t->inner.ge = (struct generic *)ge;
+        gt = append_keg(gt, t);
+
+        if (cst.pre.kind == COMMA) {
+            iter();
+            continue;
+        }
+        if (cst.pre.kind == GREATER) {
+            iter();
+            break;
+        }
+    }
+    return gt;
+}
+
+enum generic_type { NONE_TYPE, OTHER };
+
+void check_generic_type(keg *gt, enum generic_type t) {
+    for (int i = 0; i < gt->item; i++) {
+        generic *g = (generic *)((type *)gt->data[i])->inner.ge;
+        if (t == NONE_TYPE && g->count != 0) {
+            syntax_error();
+        }
+        if (t == OTHER && g->count < 1) {
+            syntax_error();
+        }
+    }
+}
+
+void def_interface(token name, keg *gt, int off, int poff) {
+    if (off < poff) {
+        no_block_error();
+    }
+    check_generic_type(gt, NONE_TYPE);
+
+    object *obj = malloc(sizeof(object));
+    obj->kind = OBJ_INTERFACE;
+    obj->value.in.name = name.literal;
+    obj->value.in.element = NULL;
+    obj->value.in.gt = gt;
+
+    while (true) {
+        method *m = malloc(sizeof(method));
+        m->ret = NULL;
+        iter();
+
+        if (cst.pre.kind != SLASH) {
+            keg *arg = new_keg();
+
+            while (true) {
+                arg = append_keg(arg, set_type());
+                iter();
+                if (cst.pre.kind == SLASH) {
+                    break;
+                }
+                expect(PRE, COMMA);
+            }
+            iter();
+
+            m->name = cst.pre.literal;
+            m->arg = arg;
+        } else {
+            iter();
+            m->name = cst.pre.literal;
+            m->arg = new_keg();
+        }
+        if (cst.cur.kind == R_ARROW) {
+            both_iter();
+            m->ret = set_type();
+        }
+
+        obj->value.in.element = append_keg(obj->value.in.element, m);
+
+        if (cst.cur.off == off) {
+            iter();
+        } else {
+            break;
+        }
+    }
+    t = name.line;
+    emit_code(INTERFACE);
+    emit_obj(obj);
+}
+
+void def_function(keg *gt) {
+    check_generic_type(gt, OTHER);
+
+    keg *K = new_keg();
+    keg *V = new_keg();
+
+    object *obj = malloc(sizeof(object));
+    obj->kind = OBJ_FUNCTION;
+    obj->value.fn.k = K;
+    obj->value.fn.v = V;
+    obj->value.fn.mutiple = NULL;
+    obj->value.fn.self = NULL;
+    obj->value.fn.gt = gt;
+
+    if (cst.pre.kind != R_PAREN) {
+        while (true) {
+            if (cst.cur.kind == R_PAREN) {
+                break;
+            }
+
+            K = append_keg(K, cst.pre.literal);
+            if (cst.cur.kind != COMMA) {
+                iter();
+
+                if (cst.pre.kind == L_ARROW) {
+                    iter();
+                    obj->value.fn.mutiple = set_type();
+
+                    iter();
+                    if (cst.pre.kind != R_PAREN) {
+                        fprintf(stderr,
+                                "\033[1;31mcompiler %d:\033[0m multiple "
+                                "parameters can only be at the end.\n",
+                                cst.pre.line);
+                        exit(EXIT_SUCCESS);
+                    }
+                    break;
+                }
+                type *T = set_type();
+                iter();
+
+                while (K->item != V->item) {
+                    V = append_keg(V, T);
+                }
+                if (cst.pre.kind == R_PAREN) {
+                    break;
+                }
+                expect(PRE, COMMA);
+            } else {
+                both_iter();
+            }
+        }
+    }
+    iter();
+    token name = cst.pre;
+    iter();
+
+    if (cst.pre.kind == R_ARROW) {
+        iter();
+        obj->value.fn.ret = set_type();
+        iter();
+    } else {
+        obj->value.fn.ret = NULL;
+    }
+    if (cst.pre.kind == SEMICOLON) {
+        obj->value.fn.std = true;
+        obj->value.fn.name = name.literal;
+        obj->value.fn.code = NULL;
+    } else {
+        compile_state up_state = backup_state();
+        clear_state();
+
+        code_object *code = new_code(name.literal);
+        push_code_keg(code);
+        block();
+
+        reset_state(&cst, up_state);
+
+        code_object *ptr = pop_back_keg(cst.codes);
+        obj->value.fn.std = false;
+        obj->value.fn.name = ptr->description;
+        obj->value.fn.code = ptr;
+    }
+    t = name.line;
+    emit_code(FUNCTION);
+    emit_obj(obj);
+}
+
+void def_class(token name, keg *gt) {
+    check_generic_type(gt, OTHER);
+    
+    compile_state up_state = backup_state();
+    clear_state();
+
+    code_object *code = new_code(name.literal);
+    push_code_keg(code);
+    block();
+
+    reset_state(&cst, up_state);
+
+    code_object *ptr = pop_back_keg(cst.codes);
+
+    object *obj = malloc(sizeof(object));
+    obj->kind = OBJ_CLASS;
+    obj->value.cl.name = ptr->description;
+    obj->value.cl.code = ptr;
+    obj->value.cl.fr = NULL;
+    obj->value.cl.init = false;
+    obj->value.cl.gt = gt;
+
+    t = name.line;
+    emit_code(CLASS);
+    emit_obj(obj);
+}
+
 void stmt() {
     l = cst.pre.line;
     switch (cst.pre.kind) {
     case DEF: {
         iter();
+        if (cst.pre.kind == EOH) {
+            return;
+        }
+        
+        keg *gt = new_keg();
+        if (cst.pre.kind == LESS) {
+            gt = parse_generic();
+        }
         token name = cst.pre;
-        int line = cst.pre.line;
         iter();
 
-        token *tok = cst.tokens->data[cst.p - 1];
+        int poff = (*(token *)(cst.tokens->data)[cst.p - 1]).off;
+
+        if (cst.pre.kind == LESS) {
+            if (gt->data != NULL) {
+                syntax_error();
+            }
+            gt = parse_generic();
+        }
         int off = cst.pre.off;
 
         if (cst.pre.kind == SLASH) {
-            if (off <= tok->off) {
-                no_block_error();
-            }
-
-            object *obj = malloc(sizeof(object));
-            obj->kind = OBJ_INTERFACE;
-            obj->value.in.name = name.literal;
-            obj->value.in.element = NULL;
-
-            while (true) {
-                method *m = malloc(sizeof(method));
-                m->ret = NULL;
-                iter();
-
-                if (cst.pre.kind != SLASH) {
-                    keg *arg = new_keg();
-
-                    while (true) {
-                        arg = append_keg(arg, set_type());
-                        iter();
-                        if (cst.pre.kind == SLASH) {
-                            break;
-                        }
-                        expect(PRE, COMMA);
-                    }
-                    iter();
-
-                    m->name = cst.pre.literal;
-                    m->T = arg;
-                } else {
-                    iter();
-                    m->name = cst.pre.literal;
-                    m->T = new_keg();
-                }
-
-                if (cst.cur.kind == R_ARROW) {
-                    both_iter();
-                    m->ret = set_type();
-                }
-
-                obj->value.in.element = append_keg(obj->value.in.element, m);
-
-                if (cst.cur.off == off) {
-                    iter();
-                } else {
-                    break;
-                }
-            }
-
-            t = name.line;
-            emit_code(INTERFACE);
-            emit_obj(obj);
+            def_interface(name, gt, off, poff);
         } else if (name.kind == L_PAREN) {
-            keg *K = new_keg();
-            keg *V = new_keg();
-
-            object *obj = malloc(sizeof(object));
-            obj->kind = OBJ_FUNCTION;
-            obj->value.fn.k = K;
-            obj->value.fn.v = V;
-            obj->value.fn.mutiple = NULL;
-            obj->value.fn.self = NULL;
-
-            if (cst.pre.kind != R_PAREN) {
-                while (true) {
-                    if (cst.cur.kind == R_PAREN) {
-                        break;
-                    }
-
-                    K = append_keg(K, cst.pre.literal);
-                    if (cst.cur.kind != COMMA) {
-                        iter();
-
-                        if (cst.pre.kind == MUL) {
-                            iter();
-                            obj->value.fn.mutiple = set_type();
-                            iter();
-                            if (cst.pre.kind != R_PAREN) {
-                                fprintf(
-                                    stderr,
-                                    "\033[1;31mcompiler %d:\033[0m multiple "
-                                    "parameters can only be at the end.\n",
-                                    cst.pre.line);
-                                exit(EXIT_SUCCESS);
-                            }
-                            break;
-                        }
-                        type *T = set_type();
-                        iter();
-
-                        while (K->item != V->item) {
-                            V = append_keg(V, T);
-                        }
-                        if (cst.pre.kind == R_PAREN) {
-                            break;
-                        }
-                        expect(PRE, COMMA);
-                    } else {
-                        both_iter();
-                    }
-                }
-            }
-
-            iter();
-            token name = cst.pre;
-            iter();
-
-            if (cst.pre.kind == R_ARROW) {
-                iter();
-                obj->value.fn.ret = set_type();
-                iter();
-            } else {
-                obj->value.fn.ret = NULL;
-            }
-
-            if (cst.pre.kind == SEMICOLON) {
-                obj->value.fn.std = true;
-                obj->value.fn.name = name.literal;
-                obj->value.fn.code = NULL;
-            } else {
-                compile_state up_state = backup_state();
-                clear_state();
-
-                code_object *code = new_code(name.literal);
-                push_code_keg(code);
-                block();
-
-                reset_state(&cst, up_state);
-
-                code_object *ptr = pop_back_keg(cst.codes);
-                obj->value.fn.std = false;
-                obj->value.fn.name = ptr->description;
-                obj->value.fn.code = ptr;
-            }
-
-            t = name.line;
-            emit_code(FUNCTION);
-            emit_obj(obj);
+            def_function(gt);
         } else if (cst.pre.kind == DEF) {
-            compile_state up_state = backup_state();
-            clear_state();
-
-            code_object *code = new_code(name.literal);
-            push_code_keg(code);
-            block();
-
-            reset_state(&cst, up_state);
-
-            code_object *ptr = pop_back_keg(cst.codes);
-
-            object *obj = malloc(sizeof(object));
-            obj->kind = OBJ_CLASS;
-            obj->value.cl.name = ptr->description;
-            obj->value.cl.code = ptr;
-            obj->value.cl.fr = NULL;
-            obj->value.cl.init = false;
-
-            t = name.line;
-            emit_code(CLASS);
-            emit_obj(obj);
+            def_class(name, gt);
         } else {
             type *T = set_type();
             iter();
@@ -872,10 +973,9 @@ void stmt() {
                 if (T->kind != T_USER) {
                     syntax_error();
                 }
-                if (off <= tok->off) {
+                if (off < poff) {
                     no_block_error();
                 }
-
                 keg *elem = new_keg();
                 elem = append_keg(elem, T->inner.name);
                 free(T);
@@ -935,12 +1035,10 @@ void stmt() {
 
             insert_offset(ef_p, get_code_len());
         }
-
         if (cst.cur.kind == NF) {
             both_iter();
             block();
         }
-
         for (int i = 0; i < p->item; i++) {
             int f = *(int *)p->data[i];
             insert_offset(f + 1, get_code_len());
@@ -1062,7 +1160,7 @@ statement cannot be used outside loop.\n",
 }
 
 void block() {
-    token *tok = (token *)cst.tokens->data[cst.p - 1];
+    token *tok = cst.tokens->data[cst.p - 1];
     int off = cst.pre.off;
     if (off < tok->off) {
         no_block_error();
