@@ -18,83 +18,83 @@
 #define STRING_CAP_MAX    1024
 
 typedef enum {
-    OBJ_INT,
-    OBJ_FLOAT,
-    OBJ_STRING,
-    OBJ_CHAR,
-    OBJ_BOOL,
-    OBJ_ENUMERATE,
-    OBJ_FUNCTION,
-    OBJ_CLASS,
-    OBJ_INTERFACE,
-    OBJ_ARRAY,
-    OBJ_TUPLE,
-    OBJ_MAP,
-    OBJ_MODULE,
-    OBJ_NIL
+  OBJ_INT,
+  OBJ_FLOAT,
+  OBJ_STRING,
+  OBJ_CHAR,
+  OBJ_BOOL,
+  OBJ_ENUMERATE,
+  OBJ_FUNCTION,
+  OBJ_CLASS,
+  OBJ_INTERFACE,
+  OBJ_ARRAY,
+  OBJ_TUPLE,
+  OBJ_MAP,
+  OBJ_MODULE,
+  OBJ_NIL
 } obj_kind;
 
 typedef struct {
-    u_int8_t kind;
-    union {
-        int integer;
-        double floating;
-        char *string;
-        char ch;
-        bool boolean;
-        struct {
-            char *name;
-            keg *element;
-        } en;
-        struct {
-            char *name;
-            keg *k;
-            keg *v;
-            type *mutiple;
-            type *ret;
-            code_object *code;
-            bool std;
-            void *self;
-            keg *gt;
-        } fn;
-        struct {
-            char *name;
-            keg *element;
-            struct object *class;
-            keg *gt;
-        } in;
-        struct {
-            char *name;
-            code_object *code;
-            struct frame *fr;
-            bool init;
-            keg *gt;
-        } cl;
-        struct {
-            keg *element;
-            type *T;
-        } arr;
-        struct {
-            keg *element;
-            type *T;
-        } tup;
-        struct {
-            keg *k;
-            keg *v;
-            type *T1;
-            type *T2;
-        } map;
-        struct {
-            char *name;
-            struct table *tb;
-        } mod;
-    } value;
+  u_int8_t kind;
+  union {
+    int integer;
+    double floating;
+    char *string;
+    char ch;
+    bool boolean;
+    struct {
+      char *name;
+      keg *element;
+    } en;
+    struct {
+      char *name;
+      keg *k;
+      keg *v;
+      type *mutiple;
+      type *ret;
+      code_object *code;
+      bool std;
+      void *self;
+      keg *gt;
+    } fn;
+    struct {
+      char *name;
+      keg *element;
+      struct object *class;
+      keg *gt;
+    } in;
+    struct {
+      char *name;
+      code_object *code;
+      struct frame *fr;
+      bool init;
+      keg *gt;
+    } cl;
+    struct {
+      keg *element;
+      type *T;
+    } arr;
+    struct {
+      keg *element;
+      type *T;
+    } tup;
+    struct {
+      keg *k;
+      keg *v;
+      type *T1;
+      type *T2;
+    } map;
+    struct {
+      char *name;
+      struct table *tb;
+    } mod;
+  } value;
 } object;
 
 typedef struct {
-    char *name;
-    keg *arg;
-    type *ret;
+  char *name;
+  keg *arg;
+  type *ret;
 } method;
 
 const char *obj_string(object *);

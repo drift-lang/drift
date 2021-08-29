@@ -16,29 +16,29 @@
 #include "token.h"
 
 #if defined(__linux__) || defined(__APPLE__)
-    #include <unistd.h>
+  #include <unistd.h>
 #elif defined(_WIN32)
-    #include <dirent.h>
-    #include <windows.h>
+  #include <dirent.h>
+  #include <windows.h>
 #endif
 
 #define STRING_EVAL_MAX 128
 
 typedef struct {
-    code_object *code;
-    table *tb;
-    keg *data;
-    object *ret;
-    table *tp;
+  code_object *code;
+  table *tb;
+  keg *data;
+  object *ret;
+  table *tp;
 } frame;
 
 typedef struct {
-    keg *frame;
-    int16_t op;
-    int16_t ip;
-    bool loop_ret;
-    char *filename;
-    keg *call;
+  keg *frame;
+  int16_t op;
+  int16_t ip;
+  bool loop_ret;
+  char *filename;
+  keg *call;
 } vm_state;
 
 vm_state evaluate(code_object *, char *);
@@ -46,8 +46,8 @@ vm_state evaluate(code_object *, char *);
 typedef void (*built)(frame *, frame *);
 
 typedef struct {
-    char *name;
-    built func;
+  char *name;
+  built func;
 } builtin;
 
 char *get_filename(const char *p);
@@ -59,8 +59,8 @@ void free_tokens(keg *);
 typedef void (*fn_impl)(vm_state *);
 
 typedef struct {
-    const char *name;
-    fn_impl fn;
+  const char *name;
+  fn_impl fn;
 } reg;
 
 void reg_module(reg *);
