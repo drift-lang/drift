@@ -7,8 +7,8 @@
 #define FT_OBJECT_H
 
 #include <stdbool.h>
-#include <stdio.h>
 #include <stdint.h>
+#include <stdio.h>
 
 #include "code.h"
 #include "keg.h"
@@ -44,11 +44,11 @@ typedef enum {
 typedef struct {
   uint8_t kind;
   union {
-    int integer;
-    double floating;
-    char *string;
-    char ch;
-    bool boolean;
+    int num;
+    double f;
+    char *str;
+    char c;
+    bool b;
     struct {
       char *name;
       keg *element;
@@ -107,6 +107,12 @@ typedef struct {
   keg *arg;
   type *ret;
 } method;
+
+typedef struct {
+  obj_kind l;
+  obj_kind r;
+  int m;
+} eval_op_rule;
 
 const char *obj_string(object *);
 

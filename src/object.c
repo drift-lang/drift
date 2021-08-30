@@ -9,19 +9,19 @@ const char *obj_string(object *obj) {
   char *str = malloc(sizeof(char) * DEBUG_OBJ_STR_CAP);
   switch (obj->kind) {
   case OBJ_INT:
-    sprintf(str, "int %d", obj->value.integer);
+    sprintf(str, "int %d", obj->value.num);
     return str;
   case OBJ_FLOAT:
-    sprintf(str, "float %f", obj->value.floating);
+    sprintf(str, "float %f", obj->value.f);
     return str;
   case OBJ_STRING:
-    sprintf(str, "string \"%s\"", obj->value.string);
+    sprintf(str, "string \"%s\"", obj->value.str);
     return str;
   case OBJ_CHAR:
-    sprintf(str, "char '%c'", obj->value.ch);
+    sprintf(str, "char '%c'", obj->value.c);
     return str;
   case OBJ_BOOL:
-    sprintf(str, "bool %s", obj->value.boolean ? "T" : "F");
+    sprintf(str, "bool %s", obj->value.b ? "T" : "F");
     return str;
   case OBJ_NIL:
     sprintf(str, "nil");
@@ -60,19 +60,19 @@ const char *obj_raw_string(object *obj, bool multiple) {
   char *str = malloc(sizeof(char) * STRING_CAP_MAX);
   switch (obj->kind) {
   case OBJ_INT:
-    sprintf(str, "%d", obj->value.integer);
+    sprintf(str, "%d", obj->value.num);
     return str;
   case OBJ_FLOAT:
-    sprintf(str, "%f", obj->value.floating);
+    sprintf(str, "%f", obj->value.f);
     return str;
   case OBJ_STRING:
-    sprintf(str, "%s", obj->value.string);
+    sprintf(str, "%s", obj->value.str);
     return str;
   case OBJ_CHAR:
-    sprintf(str, "'%c'", obj->value.ch);
+    sprintf(str, "'%c'", obj->value.c);
     return str;
   case OBJ_BOOL:
-    sprintf(str, "%s", obj->value.boolean ? "T" : "F");
+    sprintf(str, "%s", obj->value.b ? "T" : "F");
     return str;
   case OBJ_ARRAY: {
     keg *elem = obj->value.arr.element;
@@ -122,7 +122,7 @@ const char *obj_raw_string(object *obj, bool multiple) {
       object *obj = v->data[i];
       if (obj->kind == OBJ_STRING) {
         strcat(str, "\"");
-        strcat(str, obj->value.string);
+        strcat(str, obj->value.str);
         strcat(str, "\"");
       } else {
         strcat(str, obj_raw_string(obj, multiple));
@@ -141,259 +141,158 @@ const char *obj_raw_string(object *obj, bool multiple) {
   }
 }
 
-bool je_ins = false;
+object *lp = NULL;
+object *rp = NULL;
 
-#define EV_INT(obj, val) \
-  obj->kind = OBJ_INT; \
-  obj->value.integer = val; \
-  je_ins = true
-#define EV_FLO(obj, val) \
-  obj->kind = OBJ_FLOAT; \
-  obj->value.floating = val; \
-  je_ins = true
-#define EV_BOL(obj, val) \
-  obj->kind = OBJ_BOOL; \
-  obj->value.boolean = val; \
-  je_ins = true
-
-#define OP_A(A, B, J, P) \
-  if (A->kind == OBJ_INT) { \
-    if (B->kind == OBJ_INT) { \
-      EV_INT(J, A->value.integer P B->value.integer); \
-    } \
-    if (B->kind == OBJ_FLOAT) { \
-      EV_FLO(J, A->value.integer P B->value.floating); \
-    } \
-  } \
-  if (A->kind == OBJ_FLOAT) { \
-    if (B->kind == OBJ_INT) { \
-      EV_FLO(J, A->value.floating P B->value.integer); \
-    } \
-    if (B->kind == OBJ_FLOAT) { \
-      EV_FLO(J, A->value.floating P B->value.floating); \
-    } \
+void eval_obj_num(double *lv, double *rv, int m) {
+  switch (m) {
+  case 1:
+    *lv = (double)lp->value.num;
+    *rv = (double)rp->value.num;
+    break;
+  case 2:
+    *lv = lp->value.num;
+    *rv = rp->value.f;
+    break;
+  case 3:
+    *lv = lp->value.f;
+    *rv = rp->value.num;
+    break;
+  case 4:
+    *lv = lp->value.f;
+    *rv = rp->value.f;
+    break;
   }
+}
 
-#define OP_B(A, B, J, P) \
-  if (A->kind == OBJ_INT) { \
-    if (B->kind == OBJ_INT) { \
-      EV_BOL(J, A->value.integer P B->value.integer); \
-    } \
-    if (B->kind == OBJ_FLOAT) { \
-      EV_BOL(J, A->value.integer P B->value.floating); \
-    } \
-  } \
-  if (A->kind == OBJ_FLOAT) { \
-    if (B->kind == OBJ_INT) { \
-      EV_BOL(J, A->value.floating P B->value.integer); \
-    } \
-    if (B->kind == OBJ_FLOAT) { \
-      EV_BOL(J, A->value.floating P B->value.floating); \
-    } \
+object *op_basic(uint8_t op, int m) {
+  double lv, rv;
+  eval_obj_num(&lv, &rv, m);
+
+  object *obj = malloc(sizeof(object));
+  if (op == TO_ADD || op == TO_SUB || op == TO_MUL || op == TO_DIV ||
+      op == TO_SUR) {
+    obj->kind = OBJ_FLOAT;
   }
-
-object *binary_op(uint8_t op, object *a, object *b) {
-  object *je = malloc(sizeof(object));
+  if (op == TO_GR || op == TO_GR_EQ || op == TO_LE || op == TO_LE_EQ ||
+      op == TO_EQ_EQ || op == TO_NOT_EQ) {
+    obj->kind = OBJ_BOOL;
+  }
   switch (op) {
   case TO_ADD:
-    OP_A(a, b, je, +)
-    if (a->kind == OBJ_STRING && b->kind == OBJ_STRING) {
-      je->kind = OBJ_STRING;
-      char *new = malloc(sizeof(char) * STRING_CAP_MAX);
-      sprintf(new, "%s%s", a->value.string, b->value.string);
-      je->value.string = new;
-      je_ins = true;
+    if (m == 1) {
+      obj->kind = OBJ_INT;
+      obj->value.num = lv + rv;
+    } else if (m == 5) {
+      obj->kind = OBJ_STRING;
+      char *cp = malloc(sizeof(char) * STRING_CAP_MAX);
+      sprintf(cp, "%s%s", lp->value.str, rp->value.str);
+      obj->value.str = cp;
+    } else {
+      obj->value.f = lv + rv;
     }
     break;
   case TO_SUB:
-    OP_A(a, b, je, -) break;
+    obj->value.f = lv - rv;
+    break;
   case TO_MUL:
-    OP_A(a, b, je, *) break;
+    obj->value.f = lv * rv;
+    break;
   case TO_DIV:
-    if (a->kind == OBJ_INT) {
-      if (b->kind == OBJ_INT && b->value.integer > 0) {
-        EV_FLO(je, a->value.integer / b->value.integer);
-      }
-      if (b->kind == OBJ_FLOAT && b->value.floating > 0) {
-        EV_FLO(je, a->value.integer / b->value.floating);
-      }
-    }
-    if (a->kind == OBJ_FLOAT) {
-      if (b->kind == OBJ_INT && b->value.integer > 0) {
-        EV_FLO(je, a->value.floating / b->value.integer);
-      }
-      if (b->kind == OBJ_FLOAT && b->value.floating > 0) {
-        EV_FLO(je, a->value.floating / b->value.floating);
-      }
-    }
+    obj->value.f = lv / rv;
     break;
   case TO_SUR:
-    if (a->kind == OBJ_INT && (b->kind == OBJ_INT && b->value.integer > 0)) {
-      EV_FLO(je, a->value.integer % b->value.integer);
-    }
+    obj->value.f = (int)lv % (int)rv;
     break;
   case TO_GR:
-    OP_B(a, b, je, >) break;
+    obj->value.b = lv > rv;
+    break;
   case TO_GR_EQ:
-    OP_B(a, b, je, >=) break;
+    obj->value.b = lv >= rv;
+    break;
   case TO_LE:
-    OP_B(a, b, je, <) break;
+    obj->value.b = lv < rv;
+    break;
   case TO_LE_EQ:
-    OP_B(a, b, je, <=) break;
+    obj->value.b = lv <= rv;
+    break;
   case TO_EQ_EQ:
-    OP_B(a, b, je, ==);
-    if (a->kind == OBJ_INT && b->kind == OBJ_BOOL) {
-      if (b->value.boolean) {
-        EV_BOL(je, a->value.integer > 0);
-      } else {
-        EV_BOL(je, a->value.integer <= 0);
-      }
-    }
-    if (a->kind == OBJ_FLOAT && b->kind == OBJ_BOOL) {
-      if (b->value.boolean) {
-        EV_BOL(je, a->value.floating > 0);
-      } else {
-        EV_BOL(je, a->value.floating <= 0);
-      }
-    }
-    if (a->kind == OBJ_BOOL) {
-      if (b->kind == OBJ_INT) {
-        if (a->value.boolean) {
-          EV_BOL(je, b->value.integer > 0);
-        } else {
-          EV_BOL(je, b->value.integer <= 0);
-        }
-      }
-      if (b->kind == OBJ_FLOAT) {
-        if (a->value.boolean) {
-          EV_BOL(je, b->value.floating > 0);
-        } else {
-          EV_BOL(je, b->value.floating <= 0);
-        }
-      }
-      if (b->kind == OBJ_BOOL) {
-        EV_BOL(je, a->value.boolean == b->value.boolean);
-      }
-    }
-    if (a->kind == OBJ_STRING && b->kind == OBJ_STRING) {
-      EV_BOL(je, strcmp(a->value.string, b->value.string) == 0);
-    }
-    if (a->kind == OBJ_CHAR && b->kind == OBJ_CHAR) {
-      EV_BOL(je, a->value.ch == b->value.ch);
-    }
-    if (a->kind == OBJ_NIL && b->kind == OBJ_NIL) {
-      EV_BOL(je, true);
-    }
+    obj->value.b = lv == rv;
     break;
   case TO_NOT_EQ:
-    OP_B(a, b, je, !=);
-    if (a->kind == OBJ_INT && b->kind == OBJ_BOOL) {
-      if (b->value.boolean) {
-        EV_BOL(je, a->value.integer <= 0);
-      } else {
-        EV_BOL(je, a->value.integer > 0);
-      }
-    }
-    if (a->kind == OBJ_FLOAT && b->kind == OBJ_BOOL) {
-      if (b->value.boolean) {
-        EV_BOL(je, a->value.floating <= 0);
-      } else {
-        EV_BOL(je, a->value.floating > 0);
-      }
-    }
-    if (a->kind == OBJ_BOOL) {
-      if (b->kind == OBJ_INT) {
-        if (a->value.boolean) {
-          EV_BOL(je, b->value.integer <= 0);
-        } else {
-          EV_BOL(je, b->value.integer > 0);
-        }
-      }
-      if (b->kind == OBJ_FLOAT) {
-        if (a->value.boolean) {
-          EV_BOL(je, b->value.floating <= 0);
-        } else {
-          EV_BOL(je, b->value.floating > 0);
-        }
-      }
-      if (b->kind == OBJ_BOOL) {
-        EV_BOL(je, a->value.boolean == b->value.boolean);
-      }
-    }
-    if (a->kind == OBJ_STRING && b->kind == OBJ_STRING) {
-      EV_BOL(je, strcmp(a->value.string, b->value.string) != 0);
-    }
-    if (a->kind == OBJ_CHAR && b->kind == OBJ_CHAR) {
-      EV_BOL(je, a->value.ch != b->value.ch);
-    }
+    obj->value.b = lv != rv;
+    break;
+  }
+  return obj;
+}
+
+object *op_logic(uint8_t op, int m) {
+  object *obj = malloc(sizeof(object));
+  obj->kind = OBJ_BOOL;
+#define SIMPLE_LOGIC(op) \
+  if (m == 1) { \
+    obj->value.b = strcmp(lp->value.str, rp->value.str) == 0; \
+  } \
+  if (m == 2) { \
+    obj->value.b = lp->value.c == rp->value.c; \
+  } \
+  if (m == 3) { \
+    obj->value.b = true; \
+  } \
+  if (m == 4) { \
+    obj->value.b = lp->value.b || rp->value.b; \
+  }
+  switch (op) {
+  case TO_EQ_EQ:
+    SIMPLE_LOGIC(==);
+    break;
+  case TO_NOT_EQ:
+    SIMPLE_LOGIC(!=);
     break;
   case TO_AND:
-    OP_B(a, b, je, &&);
-    if (a->kind == OBJ_INT && b->kind == OBJ_BOOL) {
-      if (b->value.boolean) {
-        EV_BOL(je, a->value.integer <= 0);
-      } else {
-        EV_BOL(je, a->value.integer > 0);
-      }
-    }
-    if (a->kind == OBJ_FLOAT && b->kind == OBJ_BOOL) {
-      if (b->value.boolean) {
-        EV_BOL(je, a->value.floating <= 0);
-      } else {
-        EV_BOL(je, a->value.floating > 0);
-      }
-    }
-    if (a->kind == OBJ_BOOL) {
-      if (b->kind == OBJ_INT) {
-        if (a->value.boolean) {
-          EV_BOL(je, b->value.integer <= 0);
-        } else {
-          EV_BOL(je, b->value.integer > 0);
-        }
-      }
-      if (b->kind == OBJ_FLOAT) {
-        if (a->value.boolean) {
-          EV_BOL(je, b->value.floating <= 0);
-        } else {
-          EV_BOL(je, b->value.floating > 0);
-        }
-      }
-      if (b->kind == OBJ_BOOL) {
-        EV_BOL(je, a->value.boolean == b->value.boolean);
-      }
-    }
+    if (m == 4)
+      obj->value.b = lp->value.b && rp->value.b;
     break;
   case TO_OR:
-    OP_B(a, b, je, ||);
-    if (a->kind == OBJ_INT && b->kind == OBJ_BOOL) {
-      EV_BOL(je, a->value.integer > 0 || b->value.boolean);
-    }
-    if (a->kind == OBJ_FLOAT && b->kind == OBJ_BOOL) {
-      EV_BOL(je, a->value.floating > 0 || b->value.boolean);
-    }
-    if (a->kind == OBJ_BOOL) {
-      if (a->value.boolean) {
-        EV_BOL(je, a->value.boolean);
-      } else {
-        if (b->kind == OBJ_INT) {
-          EV_BOL(je, b->value.integer > 0);
-        }
-        if (b->kind == OBJ_FLOAT) {
-          EV_BOL(je, b->value.floating > 0);
-        }
-        if (b->kind == OBJ_BOOL) {
-          EV_BOL(je, b->value.boolean);
-        }
-      }
-    }
+    if (m == 4)
+      obj->value.b = lp->value.b || rp->value.b;
     break;
   }
-  if (!je_ins) {
-    free(je);
-    return NULL;
+#undef SIMPLE_LOGIC
+  return obj;
+}
+
+eval_op_rule op_basic_rules[] = {
+    {OBJ_INT,    OBJ_INT,    1},
+    {OBJ_INT,    OBJ_FLOAT,  2},
+    {OBJ_FLOAT,  OBJ_INT,    3},
+    {OBJ_FLOAT,  OBJ_FLOAT,  4},
+    {OBJ_STRING, OBJ_STRING, 5}
+};
+
+eval_op_rule op_logic_rules[] = {
+    {OBJ_STRING, OBJ_STRING, 1},
+    {OBJ_CHAR,   OBJ_CHAR,   2},
+    {OBJ_NIL,    OBJ_NIL,    3},
+    {OBJ_BOOL,   OBJ_BOOL,   4}
+};
+
+object *binary_op(uint8_t op, object *a, object *b) {
+  int l = 5;
+  for (int i = 0, sec = false; i < l; i++) {
+    eval_op_rule rule = sec ? op_logic_rules[i] : op_basic_rules[i];
+    if (a->kind == rule.l && b->kind == rule.r) {
+      lp = a;
+      rp = b;
+      return sec ? op_logic(op, rule.m) : op_basic(op, rule.m);
+    }
+    if (i + 1 == l && !sec) {
+      l = 4;
+      i = 0;
+      sec = true;
+    }
   }
-  je_ins = false;
-  return je;
+  return NULL;
 }
 
 bool type_checker(type *tp, object *obj) {
@@ -492,24 +391,23 @@ bool obj_eq(object *a, object *b) {
   switch (a->kind) {
   case OBJ_INT:
     if (b->kind == OBJ_INT)
-      return a->value.integer == b->value.integer;
+      return a->value.num == b->value.num;
     break;
   case OBJ_FLOAT:
     if (b->kind == OBJ_FLOAT)
-      return a->value.floating == b->value.floating;
+      return a->value.f == b->value.f;
     break;
   case OBJ_CHAR:
     if (b->kind == OBJ_CHAR)
-      return a->value.ch == b->value.ch;
+      return a->value.c == b->value.c;
     break;
   case OBJ_STRING:
     if (b->kind == OBJ_STRING)
-      return strcmp(a->value.string, b->value.string) == 0;
+      return strcmp(a->value.str, b->value.str) == 0;
     break;
   case OBJ_BOOL:
     if (b->kind == OBJ_BOOL)
-      return a->value.boolean ? b->value.boolean == true
-                              : b->value.boolean == false;
+      return a->value.b ? b->value.b == true : b->value.b == false;
     break;
   default:
     return false;
@@ -563,7 +461,7 @@ const char *obj_type_string(object *obj) {
 int obj_len(object *obj) {
   switch (obj->kind) {
   case OBJ_STRING:
-    return strlen(obj->value.string);
+    return strlen(obj->value.str);
   case OBJ_ARRAY:
     return obj->value.arr.element->item;
   case OBJ_TUPLE:

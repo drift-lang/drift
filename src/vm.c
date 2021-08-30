@@ -121,37 +121,42 @@ void bt_put(frame *f, frame *m) {
 void bt_len(frame *f, frame *b) {
   object *len = malloc(sizeof(object));
   len->kind = OBJ_INT;
-  len->value.integer = obj_len(get_table(b->tb, "obj"));
+  len->value.num = obj_len(get_table(b->tb, "obj"));
   PUSH(len);
 }
 
-void bt_type(frame *f, frame *b) {
-  object *str = malloc(sizeof(object));
-  str->kind = OBJ_STRING;
-  str->value.string = (char *)obj_type_string(get_table(b->tb, "obj"));
-  PUSH(str);
+void bt_type(keg *arg) {
+  object *obj = malloc(sizeof(object));
+  obj->kind = OBJ_STRING;
+  if (arg->item == 0) {
+    obj->value.str = "nil";
+  } else {
+    object *pop = pop_back_keg(arg);
+    obj->value.str = (char *)obj_type_string(pop);
+  }
+  PUSH(obj);
 }
 
 void bt_sleep(frame *f, frame *m) {
   object *obj = get_table(m->tb, "milliseconds");
 #if defined(__linux__) || defined(__APPLE__)
-  sleep(obj->value.integer / 1000);
+  sleep(obj->value.num / 1000);
 #elif defined(_WIN32)
-  Sleep(obj->value.integer);
+  Sleep(obj->value.num);
 #endif
 }
 
 void bt_rand_int(frame *f, frame *m) {
   object *b = get_table(m->tb, "from");
   object *a = get_table(m->tb, "to");
-  int x = b->value.integer;
-  int y = a->value.integer;
+  int x = b->value.num;
+  int y = a->value.num;
 #include <time.h>
   static int r = 0;
   srand(r++);
   object *obj = malloc(sizeof(object));
   obj->kind = OBJ_INT;
-  obj->value.integer = rand() % y + x;
+  obj->value.num = rand() % y + x;
   PUSH(obj);
 }
 
@@ -165,7 +170,7 @@ void bt_append_entry(frame *f, frame *m) {
 
 void bt_remove_entry(frame *f, frame *m) {
   object *arr = get_table(m->tb, "a");
-  int idx = ((object *)get_table(m->tb, "b"))->value.integer;
+  int idx = ((object *)get_table(m->tb, "b"))->value.num;
   keg *elem = arr->value.arr.element;
   if (elem->item == 0) {
     error("empty array can not to remove entry");
@@ -182,8 +187,22 @@ void bt_input(frame *f, frame *m) {
   literal[strlen(literal) - 1] = '\0';
   object *obj = malloc(sizeof(object));
   obj->kind = OBJ_STRING;
-  obj->value.string = literal;
+  obj->value.str = literal;
   PUSH(obj);
+}
+
+object *bt_true() {
+  object *obj = malloc(sizeof(object));
+  obj->kind = OBJ_BOOL;
+  obj->value.b = true;
+  return obj;
+}
+
+object *bt_false() {
+  object *obj = malloc(sizeof(object));
+  obj->kind = OBJ_BOOL;
+  obj->value.b = false;
+  return obj;
 }
 
 builtin bts[BUILTIN_COUNT] = {
@@ -192,12 +211,14 @@ builtin bts[BUILTIN_COUNT] = {
   // {"putline", bt_putline     },
   // {"put",     bt_put         },
   // {"len",     bt_len         },
-  // {"type",    bt_type        },
-  // {"sleep",   bt_sleep       },
+    {"type",    BU_FUNCTION, bt_type   },
+ // {"sleep",   bt_sleep       },
   // {"rand",    bt_rand_int    },
   // {"append",  bt_append_entry},
   // {"remove",  bt_remove_entry},
   // {"input",   bt_input       },
+    {"true",    BU_NAME,     bt_true   },
+    {"false",   BU_NAME,     bt_false  },
     {"println", BU_FUNCTION, bt_println}
 };
 
@@ -228,7 +249,10 @@ object *get_builtin(char *name) {
     if (b.kind == BU_FUNCTION) {
       return new_builtin(name, b.kind, b.func);
     }
-    if (b.kind == BU_NAME) {}
+    if (b.kind == BU_NAME) {
+      object *(*call)() = b.func;
+      return call();
+    }
   }
   return NULL;
 }
@@ -374,11 +398,11 @@ void eval() {
       char *name = GET_NAME;
       object *obj = POP;
       if (T->kind == T_BOOL && obj->kind == OBJ_INT) {
-        obj->value.boolean = obj->value.integer > 0;
+        obj->value.b = obj->value.num > 0;
         obj->kind = OBJ_BOOL;
       }
       if (T->kind == T_USER) {
-        type *tp = get_table(TOP_TB, T->inner.name);
+        type *tp = get_table(TOP_TP, T->inner.name);
 
         if (tp != NULL && tp->kind == T_GENERIC) {
           check_generic((generic *)tp->inner.ge, obj);
@@ -471,8 +495,8 @@ void eval() {
       object *b = POP;
       object *a = POP;
       if (a->kind == OBJ_STRING && b->kind == OBJ_STRING) {
-        int la = strlen(a->value.string);
-        int lb = strlen(b->value.string);
+        int la = strlen(a->value.str);
+        int lb = strlen(b->value.str);
         if (la + lb > STRING_EVAL_MAX) {
           error("number of characters is greater "
                 "than 128-bit bytes");
@@ -552,10 +576,10 @@ void eval() {
         if (obj->value.arr.element->item == 0) {
           error("array entry is empty");
         }
-        if (p->value.integer >= obj->value.arr.element->item) {
+        if (p->value.num >= obj->value.arr.element->item) {
           error("index out of bounds");
         }
-        PUSH(obj->value.arr.element->data[p->value.integer]);
+        PUSH(obj->value.arr.element->data[p->value.num]);
       }
       if (obj->kind == OBJ_TUPLE) {
         if (p->kind != OBJ_INT) {
@@ -564,10 +588,10 @@ void eval() {
         if (obj->value.tup.element->item == 0) {
           error("tuple entry is empty");
         }
-        if (p->value.integer >= obj->value.tup.element->item) {
+        if (p->value.num >= obj->value.tup.element->item) {
           error("index out of bounds");
         }
-        PUSH(obj->value.tup.element->data[p->value.integer]);
+        PUSH(obj->value.tup.element->data[p->value.num]);
       }
       if (obj->kind == OBJ_MAP) {
         if (obj->value.map.k->item == 0) {
@@ -588,16 +612,16 @@ void eval() {
         if (p->kind != OBJ_INT) {
           error("get value using integer subscript");
         }
-        int len = strlen(obj->value.string);
+        int len = strlen(obj->value.str);
         if (len == 0) {
           error("empty string");
         }
-        if (p->value.integer >= len) {
+        if (p->value.num >= len) {
           error("index out of bounds");
         }
         object *ch = malloc(sizeof(object));
         ch->kind = OBJ_CHAR;
-        ch->value.ch = obj->value.string[p->value.integer];
+        ch->value.c = obj->value.str[p->value.num];
         PUSH(ch);
       }
       break;
@@ -614,7 +638,7 @@ void eval() {
           error("get value using integer subscript");
         }
         check_type(j->value.arr.T, obj);
-        int p = idx->value.integer;
+        int p = idx->value.num;
         if (j->value.arr.element->item == 0) {
           insert_keg(j->value.arr.element, 0, obj);
         } else {
@@ -648,22 +672,22 @@ void eval() {
       object *new = malloc(sizeof(object));
       switch (obj->kind) {
       case OBJ_INT:
-        new->value.boolean = !obj->value.integer;
+        new->value.b = !obj->value.num;
         break;
       case OBJ_FLOAT:
-        new->value.boolean = !obj->value.floating;
+        new->value.b = !obj->value.f;
         break;
       case OBJ_CHAR:
-        new->value.boolean = !obj->value.ch;
+        new->value.b = !obj->value.c;
         break;
       case OBJ_STRING:
-        new->value.boolean = !strlen(obj->value.string);
+        new->value.b = !strlen(obj->value.str);
         break;
       case OBJ_BOOL:
-        new->value.boolean = !obj->value.boolean;
+        new->value.b = !obj->value.b;
         break;
       default:
-        new->value.boolean = false;
+        new->value.b = false;
       }
       new->kind = OBJ_BOOL;
       PUSH(new);
@@ -673,13 +697,13 @@ void eval() {
       object *obj = POP;
       object *new = malloc(sizeof(object));
       if (obj->kind == OBJ_INT) {
-        new->value.integer = -obj->value.integer;
+        new->value.num = -obj->value.num;
         new->kind = OBJ_INT;
         PUSH(new);
         break;
       }
       if (obj->kind == OBJ_FLOAT) {
-        new->value.floating = -obj->value.floating;
+        new->value.f = -obj->value.f;
         new->kind = OBJ_FLOAT;
         PUSH(new);
         break;
@@ -695,7 +719,7 @@ void eval() {
         jump(off);
         break;
       }
-      bool ok = (POP)->value.boolean;
+      bool ok = (POP)->value.b;
       if (code == T_JUMP_TO && ok) {
         jump(off);
       }
@@ -843,10 +867,10 @@ void eval() {
 
         object *p = malloc(sizeof(object));
         p->kind = OBJ_INT;
-        p->value.integer = -1;
+        p->value.num = -1;
         for (int i = 0; i < elem->item; i++) {
           if (strcmp(name, (char *)elem->data[i]) == 0) {
-            p->value.integer = i;
+            p->value.num = i;
             break;
           }
         }
@@ -994,7 +1018,7 @@ void eval() {
 
       if (k != NULL) {
         for (int i = 0; i < k->item; i++) {
-          char *key = ((object *)k->data[i])->value.string;
+          char *key = ((object *)k->data[i])->value.str;
           object *obj = v->data[i];
           type *T = get_table(f->tp, key);
           if (T == NULL) {
@@ -1017,7 +1041,7 @@ void eval() {
       char *name = GET_NAME;
       object *n = malloc(sizeof(object));
       n->kind = OBJ_STRING;
-      n->value.string = name;
+      n->value.str = name;
       PUSH(n);
       break;
     }

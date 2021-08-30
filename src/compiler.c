@@ -254,19 +254,19 @@ void literal() {
   switch (tok.kind) {
   case NUMBER:
     obj->kind = OBJ_INT;
-    obj->value.integer = atoi(tok.literal);
+    obj->value.num = atoi(tok.literal);
     break;
   case FLOAT:
     obj->kind = OBJ_FLOAT;
-    obj->value.floating = atof(tok.literal);
+    obj->value.f = atof(tok.literal);
     break;
   case CHAR:
     obj->kind = OBJ_CHAR;
-    obj->value.ch = tok.literal[0];
+    obj->value.c = tok.literal[0];
     break;
   case STRING:
     obj->kind = OBJ_STRING;
-    obj->value.string = tok.literal;
+    obj->value.str = tok.literal;
     break;
   case NIL:
     obj->kind = OBJ_NIL;
