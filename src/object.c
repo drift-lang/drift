@@ -50,6 +50,9 @@ const char *obj_string(object *obj) {
   case OBJ_MODULE:
     sprintf(str, "module \"%s\"", obj->value.mod.name);
     return str;
+  case OBJ_BUILTIN:
+    sprintf(str, "builtin \"%s\"", obj->value.bu.name);
+    return str;
   }
 }
 
@@ -189,7 +192,7 @@ bool je_ins = false;
     } \
   }
 
-object *binary_op(u_int8_t op, object *a, object *b) {
+object *binary_op(uint8_t op, object *a, object *b) {
   object *je = malloc(sizeof(object));
   switch (op) {
   case TO_ADD:
@@ -471,11 +474,11 @@ bool type_checker(type *tp, object *obj) {
         const char *name = tp->inner.name;
 
         if ((obj->kind == OBJ_FUNCTION &&
-             strcmp(name, obj->value.fn.name) != 0) ||
+                strcmp(name, obj->value.fn.name) != 0) ||
             (obj->kind == OBJ_ENUMERATE &&
-             strcmp(name, obj->value.en.name) != 0) ||
+                strcmp(name, obj->value.en.name) != 0) ||
             (obj->kind == OBJ_INTERFACE &&
-             strcmp(name, obj->value.in.name) != 0)) {
+                strcmp(name, obj->value.in.name) != 0)) {
           return false;
         }
       }

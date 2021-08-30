@@ -40,7 +40,7 @@ void disassemble_table(table *t, const char *name) {
   printf("%s: %d item\n", name, count_table(t));
   for (int i = 0; i < count_table(t); i++) {
     printf("%20s -> (%x):%10c%s\n", (char *)t->name->data[i], t->value->data[i],
-           ' ', obj_string((object *)t->value->data[i]));
+        ' ', obj_string((object *)t->value->data[i]));
   }
 }
 

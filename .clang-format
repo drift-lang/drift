@@ -7,3 +7,4 @@ AlignEscapedNewlines: DontAlign
 AllowShortBlocksOnASingleLine: Empty
 IndentPPDirectives: BeforeHash
 AllowShortFunctionsOnASingleLine: None
+AlignAfterOpenBracket: DontAlign

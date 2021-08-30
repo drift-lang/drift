@@ -1,6 +1,0 @@
-# os.ft
-# 2021-08-13 11:48:56
-
-def (milliseconds int) sleep;
-
-def () input -> string;

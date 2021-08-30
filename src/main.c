@@ -25,7 +25,7 @@ void run(char *source, int fsize, char *filename) {
     for (int i = 0; i < tokens->item; i++) {
       token *t = tokens->data[i];
       printf("[%3d]\t%-5d %-5d %-5d %-30s\n", i, t->kind, t->line, t->off,
-             t->literal);
+          t->literal);
     }
     return;
   }
@@ -58,7 +58,7 @@ command: \n\
 version:  %s\n\
 license:  %s\n\
            @ bingxio - bingxio@qq.com\n",
-         COMPILER_VERSION, DRIFT_LICENSE);
+      COMPILER_VERSION, DRIFT_LICENSE);
   exit(EXIT_SUCCESS);
 }
 
@@ -82,9 +82,8 @@ int main(int argc, char **argv) {
   }
   FILE *fp = fopen(path, "r");
   if (fp == NULL) {
-    printf("\033[1;31merror:\033[0m failed to read buffer of file: "
-           "'%s'\n",
-           path);
+    printf(
+        "\033[1;31merror:\033[0m failed to read buffer of file: '%s'\n", path);
     exit(EXIT_SUCCESS);
   }
 

@@ -8,6 +8,7 @@
 
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdint.h>
 
 #include "code.h"
 #include "keg.h"
@@ -31,11 +32,17 @@ typedef enum {
   OBJ_TUPLE,
   OBJ_MAP,
   OBJ_MODULE,
-  OBJ_NIL
+  OBJ_NIL,
+  OBJ_BUILTIN
 } obj_kind;
 
+typedef enum {
+  BU_FUNCTION,
+  BU_NAME,
+} builtin_kind;
+
 typedef struct {
-  u_int8_t kind;
+  uint8_t kind;
   union {
     int integer;
     double floating;
@@ -53,7 +60,6 @@ typedef struct {
       type *mutiple;
       type *ret;
       code_object *code;
-      bool std;
       void *self;
       keg *gt;
     } fn;
@@ -88,6 +94,11 @@ typedef struct {
       char *name;
       struct table *tb;
     } mod;
+    struct {
+      builtin_kind kind;
+      char *name;
+      void *func;
+    } bu;
   } value;
 } object;
 
@@ -101,7 +112,7 @@ const char *obj_string(object *);
 
 const char *obj_raw_string(object *, bool);
 
-object *binary_op(u_int8_t, object *, object *);
+object *binary_op(uint8_t, object *, object *);
 
 bool type_checker(type *, object *);
 

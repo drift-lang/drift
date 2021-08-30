@@ -16,7 +16,6 @@ typedef struct {
   keg *types;
   keg *objects;
   keg *lines;
-  keg *jumps;
 } code_object;
 
 #endif

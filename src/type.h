@@ -9,6 +9,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdint.h>
 
 #include "keg.h"
 
@@ -30,7 +31,7 @@ typedef enum {
 } type_kind;
 
 typedef struct {
-  u_int8_t kind;
+  uint8_t kind;
   union {
     struct type *single;
     char *name;

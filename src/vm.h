@@ -23,6 +23,7 @@
 #endif
 
 #define STRING_EVAL_MAX 128
+#define BUILTIN_COUNT   1
 
 typedef struct {
   code_object *code;
@@ -43,11 +44,10 @@ typedef struct {
 
 vm_state evaluate(code_object *, char *);
 
-typedef void (*built)(frame *, frame *);
-
 typedef struct {
   char *name;
-  built func;
+  builtin_kind kind;
+  void *func;
 } builtin;
 
 char *get_filename(const char *p);
@@ -55,14 +55,5 @@ char *get_filename(const char *p);
 void free_frame(frame *f);
 
 void free_tokens(keg *);
-
-typedef void (*fn_impl)(vm_state *);
-
-typedef struct {
-  const char *name;
-  fn_impl fn;
-} reg;
-
-void reg_module(reg *);
 
 #endif

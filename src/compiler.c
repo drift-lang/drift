@@ -4,6 +4,7 @@
  *
  * GPL v3 License - bingxio <bingxio@qq.com> */
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 
 #include "keg.h"
@@ -33,7 +34,6 @@ code_object *new_code(char *des) {
   code->objects = NULL;
   code->offsets = NULL;
   code->types = NULL;
-  code->jumps = NULL;
   return code;
 }
 
@@ -61,16 +61,11 @@ void clear_state() {
   cst.itf = 0;
 }
 
-void push_code_keg(code_object *code) {
-  cst.codes = append_keg(cst.codes, code);
-}
-
-code_object *back_code() {
-  return back_keg(cst.codes);
-}
+#define PUSH_CODE(code) cst.codes = append_keg(cst.codes, code)
+#define BACK_CODE       (code_object *)back_keg(cst.codes)
 
 void replace_holder(int16_t place, int16_t off) {
-  code_object *code = back_code();
+  code_object *code = BACK_CODE;
   if (code->offsets == NULL) {
     return;
   }
@@ -84,14 +79,14 @@ void replace_holder(int16_t place, int16_t off) {
 }
 
 int16_t *get_offset_p() {
-  code_object *code = back_code();
+  code_object *code = BACK_CODE;
   int16_t *f = malloc(sizeof(int16_t));
   *f = code->offsets->item;
   return f;
 }
 
 int get_code_len() {
-  code_object *code = back_code();
+  code_object *code = BACK_CODE;
   if (code->codes == NULL) {
     return 0;
   }
@@ -99,7 +94,7 @@ int get_code_len() {
 }
 
 void insert_offset(int p, int16_t off) {
-  code_object *code = back_code();
+  code_object *code = BACK_CODE;
   int16_t *f = malloc(sizeof(int16_t));
   *f = off;
   if (p == -1) {
@@ -107,18 +102,17 @@ void insert_offset(int p, int16_t off) {
   } else {
     insert_keg(code->offsets, p, f);
   }
-  code->jumps = append_keg(code->jumps, f);
 }
 
 void emit_offset(int16_t off) {
-  code_object *code = back_code();
+  code_object *code = BACK_CODE;
   int16_t *f = malloc(sizeof(int16_t));
   *f = off;
   code->offsets = append_keg(code->offsets, f);
 }
 
 void emit_name(char *name) {
-  code_object *code = back_code();
+  code_object *code = BACK_CODE;
   if (code->names != NULL) {
     for (int i = 0; i < code->names->item; i++) {
       if (strcmp((char *)code->names->data[i], name) == 0) {
@@ -132,7 +126,7 @@ void emit_name(char *name) {
 }
 
 void emit_type(type *t) {
-  code_object *code = back_code();
+  code_object *code = BACK_CODE;
   for (int i = 0; code->types != NULL && i < code->types->item; i++) {
     type *x = code->types->data[i];
     if (x->kind <= 4 && t->kind <= 4 && x->kind == t->kind) {
@@ -146,7 +140,7 @@ void emit_type(type *t) {
 }
 
 void emit_obj(object *obj) {
-  code_object *code = back_code();
+  code_object *code = BACK_CODE;
   code->objects = append_keg(code->objects, obj);
   emit_offset(cst.iof++);
 }
@@ -154,8 +148,8 @@ void emit_obj(object *obj) {
 int l = 0;
 int t = -1;
 
-void emit_code(u_int8_t op) {
-  op_code *c = malloc(sizeof(u_int8_t));
+void emit_code(uint8_t op) {
+  op_code *c = malloc(sizeof(uint8_t));
   *c = op;
   int *n = malloc(sizeof(int));
   if (t != -1) {
@@ -164,7 +158,7 @@ void emit_code(u_int8_t op) {
   } else {
     *n = l;
   }
-  code_object *code = back_code();
+  code_object *code = BACK_CODE;
   code->codes = append_keg(code->codes, c);
   code->lines = append_keg(code->lines, n);
 }
@@ -205,15 +199,15 @@ typedef struct {
 rule get_rule(token_kind kind);
 void set_precedence(int prec);
 
-int get_pre_prec() {
+static inline int get_pre_prec() {
   return get_rule(cst.pre.kind).precedence;
 }
 
-int get_cur_prec() {
+static inline int get_cur_prec() {
   return get_rule(cst.cur.kind).precedence;
 }
 
-void both_iter() {
+static inline void both_iter() {
   iter();
   iter();
 }
@@ -222,8 +216,8 @@ enum expect_kind { PRE, CUR };
 
 void expect_error(token_kind kind) {
   fprintf(stderr,
-          "\033[1;31mcompiler %d:\033[0m unexpected '%s' but found '%s'.\n",
-          cst.pre.line, token_string[kind], cst.pre.literal);
+      "\033[1;31mcompiler %d:\033[0m unexpected '%s' but found '%s'.\n",
+      cst.pre.line, token_string[kind], cst.pre.literal);
   exit(EXIT_SUCCESS);
 }
 
@@ -242,14 +236,14 @@ void debug() {
 }
 
 void syntax_error() {
-  fprintf(stderr, "\033[1;31mcompiler %d:\033[0m syntax error.\n",
-          cst.pre.line);
+  fprintf(
+      stderr, "\033[1;31mcompiler %d:\033[0m syntax error.\n", cst.pre.line);
   exit(EXIT_SUCCESS);
 }
 
 void no_block_error() {
   fprintf(stderr, "\033[1;31mcompiler %d:\033[0m no block statement.\n",
-          cst.pre.line);
+      cst.pre.line);
   exit(EXIT_SUCCESS);
 }
 
@@ -495,7 +489,9 @@ void get_in() {
   emit_code(GET_IN_OF);
 }
 
-rule rules[] = {
+#define RULE_COUNT 26
+
+rule rules[RULE_COUNT] = {
     {EOH,       NULL,    NULL,    P_LOWEST },
     {LITERAL,   name,    NULL,    P_LOWEST },
     {NUMBER,    literal, NULL,    P_LOWEST },
@@ -525,7 +521,7 @@ rule rules[] = {
 };
 
 rule get_rule(token_kind kind) {
-  for (int i = 1; i < sizeof(rules) / sizeof(rules[0]); i++) {
+  for (int i = 1; i < RULE_COUNT; i++) {
     if (rules[i].kind == kind) {
       return rules[i];
     }
@@ -537,10 +533,9 @@ void set_precedence(int precedence) {
   rule prefix = get_rule(cst.pre.kind);
   if (prefix.prefix == NULL) {
     fprintf(stderr,
-            "\033[1;31mcompiler %d:\033[0m not found prefix "
-            "function of token "
-            "'%s'.\n",
-            cst.pre.line, cst.pre.literal);
+        "\033[1;31mcompiler %d:\033[0m not found prefix function of token "
+        "'%s'.\n",
+        cst.pre.line, cst.pre.literal);
     exit(EXIT_SUCCESS);
   }
   prefix.prefix();
@@ -622,7 +617,7 @@ type *set_type() {
     break;
   default:
     fprintf(stderr, "\033[1;31mcompiler %d:\033[0m unknown '%s' type.\n",
-            cst.pre.line, cst.pre.literal);
+        cst.pre.line, cst.pre.literal);
     exit(EXIT_SUCCESS);
   }
   return T;
@@ -784,9 +779,9 @@ void def_function(keg *gt) {
           iter();
           if (cst.pre.kind != R_PAREN) {
             fprintf(stderr,
-                    "\033[1;31mcompiler %d:\033[0m multiple "
-                    "parameters can only be at the end.\n",
-                    cst.pre.line);
+                "\033[1;31mcompiler %d:\033[0m multiple "
+                "parameters can only be at the end.\n",
+                cst.pre.line);
             exit(EXIT_SUCCESS);
           }
           break;
@@ -817,25 +812,19 @@ void def_function(keg *gt) {
   } else {
     obj->value.fn.ret = NULL;
   }
-  if (cst.pre.kind == SEMICOLON) {
-    obj->value.fn.std = true;
-    obj->value.fn.name = name.literal;
-    obj->value.fn.code = NULL;
-  } else {
-    compile_state up_state = backup_state();
-    clear_state();
+  compile_state up_state = backup_state();
+  clear_state();
 
-    code_object *code = new_code(name.literal);
-    push_code_keg(code);
-    block();
+  code_object *code = new_code(name.literal);
+  PUSH_CODE(code);
+  block();
 
-    reset_state(&cst, up_state);
+  reset_state(&cst, up_state);
 
-    code_object *ptr = pop_back_keg(cst.codes);
-    obj->value.fn.std = false;
-    obj->value.fn.name = ptr->description;
-    obj->value.fn.code = ptr;
-  }
+  code_object *ptr = pop_back_keg(cst.codes);
+  obj->value.fn.name = ptr->description;
+  obj->value.fn.code = ptr;
+
   t = name.line;
   emit_code(FUNCTION);
   emit_obj(obj);
@@ -848,7 +837,7 @@ void def_class(token name, keg *gt) {
   clear_state();
 
   code_object *code = new_code(name.literal);
-  push_code_keg(code);
+  PUSH_CODE(code);
   block();
 
   reset_state(&cst, up_state);
@@ -1060,7 +1049,7 @@ void stmt() {
     if (!cst.loop) {
       fprintf(stderr, "\033[1;31mcompiler %d:\033[0m Loop control \
 statement cannot be used outside loop.\n",
-              cst.pre.line);
+          cst.pre.line);
       exit(EXIT_SUCCESS);
     }
     token_kind kind = cst.pre.kind;
@@ -1128,7 +1117,7 @@ extern keg *compile(keg *t) {
   both_iter();
 
   code_object *code = new_code("main");
-  push_code_keg(code);
+  PUSH_CODE(code);
 
   while (cst.pre.kind != EOH) {
     stmt();
@@ -1140,20 +1129,16 @@ extern keg *compile(keg *t) {
 }
 
 extern void disassemble_code(code_object *code) {
-  printf("%s: %d code, %d name, %d type, %d object, %d offset, %d jump\n",
-         code->description, code->codes == NULL ? 0 : code->codes->item,
-         code->names == NULL ? 0 : code->names->item,
-         code->types == NULL ? 0 : code->types->item,
-         code->objects == NULL ? 0 : code->objects->item,
-         code->offsets == NULL ? 0 : code->offsets->item,
-         code->jumps == NULL ? 0 : code->jumps->item);
+  printf("%s: %d code, %d name, %d type, %d object, %d offset\n",
+      code->description, code->codes == NULL ? 0 : code->codes->item,
+      code->names == NULL ? 0 : code->names->item,
+      code->types == NULL ? 0 : code->types->item,
+      code->objects == NULL ? 0 : code->objects->item,
+      code->offsets == NULL ? 0 : code->offsets->item);
 
   for (int b = 0, p = 0, pl = -1; b < code->codes->item; b++) {
     int line = *(int *)code->lines->data[b];
     if (line != pl) {
-      if (pl != -1) {
-        printf("\n");
-      }
       printf("L%-4d", *(int *)code->lines->data[b]);
       pl = line;
     } else {
@@ -1161,16 +1146,9 @@ extern void disassemble_code(code_object *code) {
     }
 
     op_code *inner = code->codes->data[b];
-    for (int i = 0; code->jumps != NULL && i < code->jumps->item; i++) {
-      int16_t off = *(int16_t *)code->jumps->data[i];
-      if (b == off) {
-        printf("%3s %5d %10s", ">>", b, code_string[*inner]);
-        goto next;
-      }
-    }
-    printf("%9d %10s", b, code_string[*inner]);
-  next:
-    printf("%-2c", ' ');
+    printf("[%2d] %10s", b, code_string[*inner]);
+    printf("%-1c", ' ');
+
     switch (*inner) {
     case CONST_OF:
     case ENUMERATE:
@@ -1211,7 +1189,7 @@ extern void disassemble_code(code_object *code) {
       int16_t *x = code->offsets->data[p];
       int16_t *y = code->offsets->data[p + 1];
       printf("%d %s %d '%s'\n", *x, type_string(code->types->data[*x]), *y,
-             code->names->data[*y]);
+          code->names->data[*y]);
       p += 2;
       break;
     }
