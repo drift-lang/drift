@@ -21,7 +21,7 @@ const char *obj_string(object *obj) {
     sprintf(str, "char '%c'", obj->value.c);
     return str;
   case OBJ_BOOL:
-    sprintf(str, "bool %s", obj->value.b ? "T" : "F");
+    sprintf(str, "bool %s", obj->value.b ? "true" : "false");
     return str;
   case OBJ_NIL:
     sprintf(str, "nil");
@@ -72,7 +72,7 @@ const char *obj_raw_string(object *obj, bool multiple) {
     sprintf(str, "'%c'", obj->value.c);
     return str;
   case OBJ_BOOL:
-    sprintf(str, "%s", obj->value.b ? "T" : "F");
+    sprintf(str, "%s", obj->value.b ? "true" : "false");
     return str;
   case OBJ_ARRAY: {
     keg *elem = obj->value.arr.element;
@@ -231,23 +231,24 @@ object *op_logic(uint8_t op, int m) {
   obj->kind = OBJ_BOOL;
 #define SIMPLE_LOGIC(op) \
   if (m == 1) { \
-    obj->value.b = strcmp(lp->value.str, rp->value.str) == 0; \
+    obj->value.b = strcmp(lp->value.str, rp->value.str) op 0; \
   } \
   if (m == 2) { \
-    obj->value.b = lp->value.c == rp->value.c; \
-  } \
-  if (m == 3) { \
-    obj->value.b = true; \
+    obj->value.b = lp->value.c op rp->value.c; \
   } \
   if (m == 4) { \
-    obj->value.b = lp->value.b || rp->value.b; \
+    obj->value.b = lp->value.b op rp->value.b; \
   }
   switch (op) {
   case TO_EQ_EQ:
     SIMPLE_LOGIC(==);
+    if (m == 3)
+      obj->value.b = true;
     break;
   case TO_NOT_EQ:
     SIMPLE_LOGIC(!=);
+    if (m == 3)
+      obj->value.b = false;
     break;
   case TO_AND:
     if (m == 4)

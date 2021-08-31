@@ -23,7 +23,7 @@
 #endif
 
 #define STRING_EVAL_MAX 128
-#define BUILTIN_COUNT   4
+#define BUILTIN_COUNT   13
 
 typedef struct {
   code_object *code;

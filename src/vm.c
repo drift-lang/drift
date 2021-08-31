@@ -88,6 +88,13 @@ void error(const char *msg) {
   exit(EXIT_SUCCESS);
 }
 
+void bt_simple_error(const char *param) {
+  fprintf(stderr,
+      "\033[1;31mvm %d:\033[0m wrong parameter of built-in function \"%s\".\n",
+      GET_LINE, param);
+  exit(EXIT_SUCCESS);
+}
+
 void bt_println(keg *arg) {
   for (int i = arg->item - 1; i >= 0; i--) {
     object *p = arg->data[i];
@@ -96,49 +103,55 @@ void bt_println(keg *arg) {
   printf("\n");
 }
 
-void bt_print(frame *f, frame *b) {
-  object *obj = get_table(b->tb, "arg");
-  keg *elem = obj->value.arr.element;
-  for (int i = 0; i < elem->item; i++) {
-    object *p = elem->data[i];
-    printf("%s\t", obj_raw_string(p, elem->item > 1));
+void bt_print(keg *arg) {
+  for (int i = arg->item - 1; i >= 0; i--) {
+    object *p = arg->data[i];
+    printf("%s\t", obj_raw_string(p, arg->item > 1));
   }
 }
 
-void bt_putline(frame *f, frame *b) {
-  object *obj = get_table(b->tb, "arg");
-  keg *elem = obj->value.arr.element;
-  for (int i = 0; i < elem->item; i++) {
-    object *p = elem->data[i];
-    printf("%s\n", obj_raw_string(p, elem->item > 1));
+void bt_putline(keg *arg) {
+  for (int i = arg->item - 1; i >= 0; i--) {
+    object *p = arg->data[i];
+    printf("%s\n", obj_raw_string(p, arg->item > 1));
   }
 }
 
-void bt_put(frame *f, frame *m) {
-  printf("%s", obj_raw_string(get_table(m->tb, "obj"), false));
+void bt_put(keg *arg) {
+  object *obj = pop_back_keg(arg);
+  if (obj == NULL || arg->item != 0) {
+    bt_simple_error("put(obj any)");
+  }
+  printf("%s", obj_raw_string(obj, false));
 }
 
-void bt_len(frame *f, frame *b) {
+void bt_len(keg *arg) {
+  object *obj = pop_back_keg(arg);
+  if (obj == NULL || arg->item != 0) {
+    bt_simple_error("len(obj any)");
+  }
   object *len = malloc(sizeof(object));
   len->kind = OBJ_INT;
-  len->value.num = obj_len(get_table(b->tb, "obj"));
+  len->value.num = obj_len(obj);
   PUSH(len);
 }
 
 void bt_type(keg *arg) {
-  object *obj = malloc(sizeof(object));
-  obj->kind = OBJ_STRING;
-  if (arg->item == 0) {
-    obj->value.str = "nil";
-  } else {
-    object *pop = pop_back_keg(arg);
-    obj->value.str = (char *)obj_type_string(pop);
+  object *obj = pop_back_keg(arg);
+  if (obj == NULL || arg->item != 0) {
+    bt_simple_error("type(obj any)");
   }
-  PUSH(obj);
+  object *str = malloc(sizeof(object));
+  str->kind = OBJ_STRING;
+  str->value.str = (char *)obj_type_string(obj);
+  PUSH(str);
 }
 
-void bt_sleep(frame *f, frame *m) {
-  object *obj = get_table(m->tb, "milliseconds");
+void bt_sleep(keg *arg) {
+  object *obj = pop_back_keg(arg);
+  if (obj == NULL || obj->kind != OBJ_INT || arg->item != 0) {
+    bt_simple_error("sleep(milliseconds int)");
+  }
 #if defined(__linux__) || defined(__APPLE__)
   sleep(obj->value.num / 1000);
 #elif defined(_WIN32)
@@ -146,42 +159,59 @@ void bt_sleep(frame *f, frame *m) {
 #endif
 }
 
-void bt_rand_int(frame *f, frame *m) {
-  object *b = get_table(m->tb, "from");
-  object *a = get_table(m->tb, "to");
+void bt_rand_int(keg *arg) {
+  object *b = pop_back_keg(arg);
+  object *a = pop_back_keg(arg);
+  if (a == NULL || b == NULL || a->kind != OBJ_INT || b->kind != OBJ_INT ||
+      arg->item != 0) {
+    bt_simple_error("rand(start, end int)");
+  }
   int x = b->value.num;
   int y = a->value.num;
+#include <sys/time.h>
 #include <time.h>
-  static int r = 0;
-  srand(r++);
+  struct timeval stamp;
+  gettimeofday(&stamp, NULL);
+  srand(stamp.tv_usec);
   object *obj = malloc(sizeof(object));
   obj->kind = OBJ_INT;
   obj->value.num = rand() % y + x;
   PUSH(obj);
 }
 
-void bt_append_entry(frame *f, frame *m) {
-  object *arr = get_table(m->tb, "a");
-  object *val = get_table(m->tb, "b");
+void bt_append_entry(keg *arg) {
+  object *arr = pop_back_keg(arg);
+  object *val = pop_back_keg(arg);
+  if (arr == NULL || arr->kind != OBJ_ARRAY || val == NULL || arg->item != 0) {
+    bt_simple_error("append(arr []any, new any)");
+  }
   type *T = arr->value.arr.T;
   check_type(T, val);
   append_keg(arr->value.arr.element, val);
 }
 
-void bt_remove_entry(frame *f, frame *m) {
-  object *arr = get_table(m->tb, "a");
-  int idx = ((object *)get_table(m->tb, "b"))->value.num;
+void bt_remove_entry(keg *arg) {
+  object *arr = pop_back_keg(arg);
+  object *idx = pop_back_keg(arg);
+  if (arr == NULL || arr->kind != OBJ_ARRAY || idx == NULL ||
+      idx->kind != OBJ_INT || arg->item != 0) {
+    bt_simple_error("remove(arr []any, index int)");
+  }
+  int p = idx->value.num;
   keg *elem = arr->value.arr.element;
   if (elem->item == 0) {
     error("empty array can not to remove entry");
   }
-  if (idx < 0 || idx > elem->item - 1) {
+  if (p < 0 || p > elem->item - 1) {
     error("index out of bounds");
   }
-  remove_keg(elem, idx);
+  remove_keg(elem, p);
 }
 
-void bt_input(frame *f, frame *m) {
+void bt_input(keg *arg) {
+  if (arg->item != 0) {
+    bt_simple_error("input()");
+  }
   char *literal = malloc(sizeof(char) * 32);
   fgets(literal, 32, stdin);
   literal[strlen(literal) - 1] = '\0';
@@ -206,20 +236,19 @@ object *bt_false() {
 }
 
 builtin bts[BUILTIN_COUNT] = {
-  // {"println", bt_println     },
-  // {"print",   bt_print       },
-  // {"putline", bt_putline     },
-  // {"put",     bt_put         },
-  // {"len",     bt_len         },
-    {"type",    BU_FUNCTION, bt_type   },
- // {"sleep",   bt_sleep       },
-  // {"rand",    bt_rand_int    },
-  // {"append",  bt_append_entry},
-  // {"remove",  bt_remove_entry},
-  // {"input",   bt_input       },
-    {"true",    BU_NAME,     bt_true   },
-    {"false",   BU_NAME,     bt_false  },
-    {"println", BU_FUNCTION, bt_println}
+    {"println", BU_FUNCTION, bt_println     },
+    {"print",   BU_FUNCTION, bt_print       },
+    {"putline", BU_FUNCTION, bt_putline     },
+    {"put",     BU_FUNCTION, bt_put         },
+    {"len",     BU_FUNCTION, bt_len         },
+    {"type",    BU_FUNCTION, bt_type        },
+    {"sleep",   BU_FUNCTION, bt_sleep       },
+    {"rand",    BU_FUNCTION, bt_rand_int    },
+    {"append",  BU_FUNCTION, bt_append_entry},
+    {"remove",  BU_FUNCTION, bt_remove_entry},
+    {"input",   BU_FUNCTION, bt_input       },
+    {"true",    BU_NAME,     bt_true        },
+    {"false",   BU_NAME,     bt_false       }
 };
 
 object *new_builtin(char *name, builtin_kind kind, void *p) {
