@@ -90,7 +90,7 @@ void error(const char *msg) {
 
 void bt_simple_error(const char *param) {
   fprintf(stderr,
-      "\033[1;31mvm %d:\033[0m wrong parameter of built-in function \"%s\".\n",
+      "\033[1;31mvm %d:\033[0m wrong parameter of built-in function '%s'.\n",
       GET_LINE, param);
   exit(EXIT_SUCCESS);
 }
@@ -305,6 +305,7 @@ void jump(int16_t to) {
     case CALL_FUNC:
     case SET_NAME:
     case USE_MOD:
+    case USE_IN_MOD:
     case BUILD_ARR:
     case BUILD_TUP:
     case BUILD_MAP:
@@ -350,7 +351,7 @@ void *lookup(char *name) {
   return NULL;
 }
 
-void load_module(char *, bool);
+void load_module(char *, char *, bool);
 
 void check_interface(object *in, object *cl) {
   if (cl->value.cl.init == false) {
@@ -412,6 +413,15 @@ generic *exist_generic(keg *gt, char *tpname) {
     }
   }
   return NULL;
+}
+
+void check_set(object *origin, object *new) {
+  if (new->kind != origin->kind && origin->kind != OBJ_NIL) {
+    error("wrong type set");
+  }
+  if (!obj_kind_eq(new, origin)) {
+    error("inconsistent type");
+  }
 }
 
 void eval() {
@@ -887,9 +897,8 @@ void eval() {
       char *name = GET_NAME;
       object *obj = POP;
       if (obj->kind != OBJ_ENUMERATE && obj->kind != OBJ_CLASS &&
-          obj->kind != OBJ_INTERFACE && obj->kind != OBJ_MODULE) {
-        error("only enum, interface, module, and class type are "
-              "supported");
+          obj->kind != OBJ_INTERFACE) {
+        error("only enum, interface and class type are supported");
       }
       if (obj->kind == OBJ_ENUMERATE) {
         keg *elem = obj->value.en.element;
@@ -941,13 +950,6 @@ void eval() {
         }
         error("nonexistent member");
       }
-      if (obj->kind == OBJ_MODULE) {
-        void *p = get_table((table *)obj->value.mod.tb, name);
-        if (p == NULL) {
-          undefined_error(name);
-        }
-        PUSH(p);
-      }
       break;
     }
     case GET_IN_OF: {
@@ -966,28 +968,44 @@ void eval() {
       char *name = GET_NAME;
       object *val = POP;
       object *obj = POP;
-      if (obj->kind != OBJ_CLASS && obj->kind != OBJ_MODULE) {
-        error("only members of class and module can be set");
+      if (obj->kind != OBJ_CLASS) {
+        error("only members of class can be set");
       }
-      table *tb = NULL;
-      if (obj->kind == OBJ_CLASS) {
-        frame *fr = (frame *)obj->value.cl.fr;
-        tb = fr->tb;
-      }
-      if (obj->kind == OBJ_MODULE) {
-        tb = (table *)obj->value.mod.tb;
-      }
-      void *ptr = get_table(tb, name);
+      frame *fr = (frame *)obj->value.cl.fr;
+      object *ptr = get_table(fr->tb, name);
       if (ptr == NULL) {
         error("nonexistent member");
       }
-      object *j = ptr;
-      if (val->kind != j->kind && j->kind != OBJ_NIL) {
-        error("wrong type set");
+      check_set(ptr, val);
+      add_table(fr->tb, name, val);
+      break;
+    }
+    case REF_MODULE: {
+      char *name = GET_NAME;
+      object *obj = POP;
+      if (obj->kind != OBJ_MODULE) {
+        error("can only be used as a member reference of a module");
       }
-      if (!obj_kind_eq(obj, val)) {
-        error("inconsistent type");
+      void *ptr = get_table((table *)obj->value.mod.tb, name);
+      if (ptr == NULL) {
+        undefined_error(name);
       }
+      PUSH(ptr);
+      break;
+    }
+    case REF_SET: {
+      char *name = GET_NAME;
+      object *val = POP;
+      object *obj = POP;
+      if (obj->kind != OBJ_MODULE) {
+        error("module members can only be set");
+      }
+      table *tb = (table *)obj->value.mod.tb;
+      object *ptr = get_table(tb, name);
+      if (ptr == NULL) {
+        error("nonexistent member");
+      }
+      check_set(ptr, val);
       add_table(tb, name, val);
       break;
     }
@@ -1089,7 +1107,24 @@ void eval() {
     }
     case USE_MOD:
     case USE_IN_MOD: {
-      load_module(GET_NAME, code == USE_IN_MOD);
+      int16_t count = GET_OFF;
+      keg *cap = new_keg();
+      bool internal = code == USE_IN_MOD;
+      while (count > 0) {
+        insert_keg(cap, 0, (POP)->value.str);
+        count--;
+      }
+      if (cap->item == 1) {
+        load_module(cap->data[0], NULL, internal);
+      } else {
+        char *path = malloc(sizeof(char) * STRING_PATH_MAX);
+        memset(path, 0, STRING_PATH_MAX);
+        for (int i = 0; i < cap->item - 1; i++) {
+          strcat(path, cap->data[i]);
+          strcat(path, "/");
+        }
+        load_module(cap->data[cap->item - 1], path, internal);
+      }
       break;
     }
     default: {
@@ -1140,11 +1175,12 @@ bool filename_eq(char *a, char *b) {
   return i == strlen(b);
 }
 
-keg *read_path(keg *pl, char *path) {
+keg *read_path(char *path) {
   DIR *dir;
   struct dirent *p;
+  keg *pl = new_keg();
   if ((dir = opendir(path)) == NULL) {
-    error("failed to open the std library or current directory");
+    error("failed to open the directory in module path");
   }
   while ((p = readdir(dir)) != NULL) {
     if (p->d_type == 4 && strcmp(p->d_name, ".") != 0 &&
@@ -1213,17 +1249,12 @@ void load_eval(const char *path, char *name, bool internal) {
   free_tokens(tokens);
 }
 
-void load_module(char *name, bool internal) {
+void load_module(char *name, char *path, bool internal) {
   bool ok = false;
   if (filename_eq(vst.filename, name)) {
-    error("cannot reference itself");
+    error("cannot reference itself as a module");
   }
-  keg *pl = new_keg();
-  void *path = getenv("FTPATH");
-  if (path != NULL) {
-    pl = read_path(pl, path);
-  }
-  pl = read_path(pl, ".");
+  keg *pl = read_path(path == NULL ? "." : path);
   for (int i = 0; i < pl->item; i++) {
     char *addr = pl->data[i];
     if (filename_eq(get_filename(addr), name)) {

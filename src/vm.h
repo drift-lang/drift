@@ -23,6 +23,7 @@
 #endif
 
 #define STRING_EVAL_MAX 128
+#define STRING_PATH_MAX 64
 #define BUILTIN_COUNT   13
 
 typedef struct {

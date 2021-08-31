@@ -22,7 +22,7 @@ static inline bool is_ident(char c) {
 }
 
 token_kind to_keyword(const char *literal) {
-  for (int i = 35; i < 47; i++) {
+  for (int i = 36; i < 48; i++) {
     if (strcmp(literal, token_string[i]) == 0) {
       return i;
     }
@@ -239,9 +239,13 @@ extern keg *lexer(const char *buf, int fsize) {
       t.literal = ",";
       break;
     case ':':
-      i++;
-      t.kind = COLON;
-      t.literal = ":";
+      if (next(buf, &i, ':')) {
+        t.kind = REF;
+        t.literal = "::";
+      } else {
+        t.kind = COLON;
+        t.literal = ":";
+      }
       break;
     case '=':
       if (next(buf, &i, '=')) {

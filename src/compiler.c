@@ -461,9 +461,7 @@ void tnew() {
   expect(PRE, L_BRACE);
   int item = 0;
   while (cst.pre.kind != R_BRACE) {
-    if (cst.pre.kind != LITERAL) {
-      syntax_error();
-    }
+    expect(PRE, LITERAL);
     emit_code(SET_NAME);
     emit_name(cst.pre.literal);
     iter();
@@ -480,7 +478,7 @@ void tnew() {
   emit_offset(item);
 }
 
-void get_in() {
+void gcin() {
   iter();
   if (cst.pre.kind != LITERAL) {
     syntax_error();
@@ -489,7 +487,20 @@ void get_in() {
   emit_code(GET_IN_OF);
 }
 
-#define RULE_COUNT 26
+void gmod() {
+  iter();
+  token name = cst.pre;
+  if (cst.cur.kind == EQ) {
+    both_iter();
+    set_precedence(P_LOWEST);
+    emit_code(REF_SET);
+  } else {
+    emit_code(REF_MODULE);
+  }
+  emit_name(name.literal);
+}
+
+#define RULE_COUNT 27
 
 rule rules[RULE_COUNT] = {
     {EOH,       NULL,    NULL,    P_LOWEST },
@@ -515,7 +526,8 @@ rule rules[RULE_COUNT] = {
     {LESS,      NULL,    binary,  P_COMPARE},
     {LE_EQ,     NULL,    binary,  P_COMPARE},
     {L_PAREN,   group,   call,    P_CALL   },
-    {DOT,       get_in,  get,     P_CALL   },
+    {DOT,       gcin,    get,     P_CALL   },
+    {REF,       NULL,    gmod,    P_CALL   },
     {L_BRACKET, array,   indexes, P_CALL   },
     {L_BRACE,   map,     NULL,    P_CALL   },
 };
@@ -1081,8 +1093,20 @@ statement cannot be used outside loop.\n",
     if (cst.pre.kind != LITERAL) {
       syntax_error();
     }
+    emit_code(SET_NAME);
     emit_name(cst.pre.literal);
+    int count = 1;
+    while (cst.cur.kind == SLASH) {
+      both_iter();
+      if (cst.pre.kind != LITERAL) {
+        syntax_error();
+      }
+      emit_code(SET_NAME);
+      emit_name(cst.pre.literal);
+      count++;
+    }
     emit_code(internal ? USE_IN_MOD : USE_MOD);
+    emit_offset(count);
     break;
   }
   default:
@@ -1166,11 +1190,11 @@ extern void disassemble_code(code_object *code) {
     case SET_OF:
     case ASSIGN_TO:
     case SET_NAME:
-    case USE_MOD:
-    case USE_IN_MOD: {
+    case REF_MODULE:
+    case REF_SET: {
       int16_t *off = code->offsets->data[p++];
       char *name = code->names->data[*off];
-      if (*inner == SET_NAME || *inner == USE_MOD)
+      if (*inner == SET_NAME)
         printf("%d '%s'\n", *off, name);
       else
         printf("%d #%s\n", *off, name);
@@ -1195,7 +1219,9 @@ extern void disassemble_code(code_object *code) {
     }
     case BUILD_ARR:
     case BUILD_TUP:
-    case BUILD_MAP: {
+    case BUILD_MAP:
+    case USE_MOD:
+    case USE_IN_MOD: {
       int16_t *item = code->offsets->data[p++];
       printf("%d\n", *item);
       break;
