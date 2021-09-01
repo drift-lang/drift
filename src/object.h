@@ -33,7 +33,8 @@ typedef enum {
   OBJ_MAP,
   OBJ_MODULE,
   OBJ_NIL,
-  OBJ_BUILTIN
+  OBJ_BUILTIN,
+  OBJ_CFUNC
 } obj_kind;
 
 typedef enum {
@@ -99,6 +100,10 @@ typedef struct {
       char *name;
       void *func;
     } bu;
+    struct {
+      const char *name;
+      void (*func)(keg *);
+    } cf;
   } value;
 } object;
 

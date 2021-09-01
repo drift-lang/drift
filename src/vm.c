@@ -10,6 +10,24 @@ extern keg *compile(keg *);
 
 vm_state vst;
 
+static void *dl_handle = NULL;
+static char *dl_error = NULL;
+
+static keg *c_func = NULL;
+
+object *get_cfunc(char *name) {
+  if (c_func == NULL) {
+    return NULL;
+  }
+  for (int i = 0; i < c_func->item; i++) {
+    object *obj = c_func->data[i];
+    if (strcmp(obj->value.cf.name, name) == 0) {
+      return obj;
+    }
+  }
+  return NULL;
+}
+
 frame *new_frame(code_object *code) {
   frame *f = malloc(sizeof(frame));
   f->code = code;
@@ -345,6 +363,10 @@ void *lookup(char *name) {
     return p;
   }
   p = get_builtin(name);
+  if (p != NULL) {
+    return p;
+  }
+  p = get_cfunc(name);
   if (p != NULL) {
     return p;
   }
@@ -785,6 +807,10 @@ void eval() {
 
       object *fn = POP;
 
+      if (fn->kind == OBJ_CFUNC) {
+        fn->value.cf.func(arg);
+        goto next;
+      }
       if (fn->kind == OBJ_BUILTIN) {
         void (*call)(keg *) = fn->value.bu.func;
         call(arg);
@@ -1138,6 +1164,18 @@ void eval() {
   }
 }
 
+void load_dl(const char *path) {
+  dl_handle = dlopen(path, RTLD_NOW | RTLD_GLOBAL);
+  if (!dl_handle || (dl_error = dlerror()) != NULL) {
+    printf("%s\n", dl_error);
+  }
+  void (*init)() = dlsym(dl_handle, "init");
+  if ((dl_error = dlerror()) != NULL) {
+    printf("%s\n", dl_error);
+  }
+  init();
+}
+
 vm_state evaluate(code_object *code, char *filename) {
   vst.frame = new_keg();
   vst.ip = 0;
@@ -1149,7 +1187,9 @@ vm_state evaluate(code_object *code, char *filename) {
   vst.frame = append_keg(vst.frame, main);
   vst.call = append_keg(vst.call, main);
 
+  load_dl("./lib.so");
   eval();
+
   return vst;
 }
 
@@ -1215,6 +1255,7 @@ void load_eval(const char *path, char *name, bool internal) {
 
   int16_t ip_up = vst.ip;
   int16_t op_up = vst.op;
+
   keg *fr_up = vst.frame;
   keg *cl_up = vst.call;
 
@@ -1270,4 +1311,24 @@ void load_module(char *name, char *path, bool internal) {
   } else {
     free_keg(pl);
   }
+}
+
+void reg_c_func(const char *fns[]) {
+  for (int i = 0; fns[i] != NULL && i < C_MOD_MEMCOUNT; i++) {
+    const char *name = fns[i];
+    void (*fn)(keg *) = dlsym(dl_handle, name);
+
+    object *obj = malloc(sizeof(object));
+    obj->kind = OBJ_CFUNC;
+    obj->value.cf.name = name;
+    obj->value.cf.func = fn;
+
+    c_func = append_keg(c_func, obj);
+  }
+}
+
+void reg_c_class(const void *cls[]) {
+}
+
+void reg_c_mod(const void *mods[]) {
 }

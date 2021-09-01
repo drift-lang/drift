@@ -53,6 +53,9 @@ const char *obj_string(object *obj) {
   case OBJ_BUILTIN:
     sprintf(str, "builtin \"%s\"", obj->value.bu.name);
     return str;
+  case OBJ_CFUNC:
+    sprintf(str, "cfunc \"%s\"", obj->value.cf.name);
+    return str;
   }
 }
 

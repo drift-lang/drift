@@ -8,3 +8,4 @@ drift.exe
 node_modules
 gcc
 *.ft
+lib*
