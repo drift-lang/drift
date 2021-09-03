@@ -71,6 +71,7 @@ void emit_member(reg_mod *, char *, enum mem_kind);
 
 void reg_c_func(const char *[]);
 void reg_c_mod(const char *[]);
+void reg_name(char *, object *);
 
 void push_stack(object *);
 

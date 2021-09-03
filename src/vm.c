@@ -1228,6 +1228,8 @@ void load_dl(const char *path) {
   init();
 }
 
+keg *read_path(char *path, char b, char a);
+
 vm_state evaluate(code_object *code, char *filename) {
   vst.frame = new_keg();
   vst.ip = 0;
@@ -1239,7 +1241,11 @@ vm_state evaluate(code_object *code, char *filename) {
   vst.frame = append_keg(vst.frame, main);
   vst.call = append_keg(vst.call, main);
 
-  load_dl("./lib.so");
+  keg *pl = read_path(".", 's', 'o');
+  for (int i = 0; i < pl->item; i++) {
+    load_dl(pl->data[i]);
+  }
+  
   eval();
 
   return vst;
@@ -1267,7 +1273,7 @@ bool filename_eq(char *a, char *b) {
   return i == strlen(b);
 }
 
-keg *read_path(char *path) {
+keg *read_path(char *path, char a, char b) {
   DIR *dir;
   struct dirent *p;
   keg *pl = new_keg();
@@ -1280,7 +1286,7 @@ keg *read_path(char *path) {
     if (p->d_type == 8) {
       char *name = p->d_name;
       int len = strlen(name) - 1;
-      if (name[len] == 't' && name[len - 1] == 'f' && name[len - 2] == '.') {
+      if (name[len] == b && name[len - 1] == a && name[len - 2] == '.') {
         char *addr = malloc(sizeof(char) * 64);
         sprintf(addr, "%s/%s", path, name);
         pl = append_keg(pl, addr);
@@ -1347,7 +1353,7 @@ void load_module(char *name, char *path, bool internal) {
   if (filename_eq(vst.filename, name)) {
     error("cannot reference itself as a module");
   }
-  keg *pl = read_path(path == NULL ? "." : path);
+  keg *pl = read_path(path == NULL ? "." : path, 'f', 't');
   for (int i = 0; i < pl->item; i++) {
     char *addr = pl->data[i];
     if (filename_eq(get_filename(addr), name)) {
@@ -1420,6 +1426,10 @@ void reg_c_mod(const char *mods[]) {
     }
     c_mods = append_keg(c_mods, obj);
   }
+}
+
+void reg_name(char *name, object *obj) {
+  add_table(TOP_TB, name, obj);
 }
 
 void push_stack(object *obj) {
