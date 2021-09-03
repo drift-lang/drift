@@ -56,6 +56,12 @@ const char *obj_string(object *obj) {
   case OBJ_CFUNC:
     sprintf(str, "cfunc \"%s\"", obj->value.cf.name);
     return str;
+  case OBJ_CMODS:
+    sprintf(str, "cmods \"%s\"", obj->value.cm.name);
+    return str;
+  case OBJ_CUSER:
+    sprintf(str, "cuserdata");
+    return str;
   }
 }
 
@@ -475,4 +481,46 @@ int obj_len(object *obj) {
   default:
     return -1;
   }
+}
+
+object *new_num(int num) {
+  object *obj = malloc(sizeof(object));
+  obj->kind = OBJ_INT;
+  obj->value.num = num;
+  return obj;
+}
+
+object *new_float(double fl) {
+  object *obj = malloc(sizeof(object));
+  obj->kind = OBJ_FLOAT;
+  obj->value.f = fl;
+  return obj;
+}
+
+object *new_string(char *str) {
+  object *obj = malloc(sizeof(object));
+  obj->kind = OBJ_STRING;
+  obj->value.str = str;
+  return obj;
+}
+
+object *new_char(char c) {
+  object *obj = malloc(sizeof(object));
+  obj->kind = OBJ_CHAR;
+  obj->value.c = c;
+  return obj;
+}
+
+object *new_bool(bool b) {
+  object *obj = malloc(sizeof(object));
+  obj->kind = OBJ_BOOL;
+  obj->value.b = b;
+  return obj;
+}
+
+object *new_userdata(void *ptr) {
+  object *obj = malloc(sizeof(object));
+  obj->kind = OBJ_CUSER;
+  obj->value.cu.ptr = ptr;
+  return obj;
 }

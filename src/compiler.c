@@ -216,7 +216,7 @@ enum expect_kind { PRE, CUR };
 
 void expect_error(token_kind kind) {
   fprintf(stderr,
-      "\033[1;31mcompiler %d:\033[0m unexpected '%s' but found '%s'.\n",
+      "\033[1;31mcompiler %d:\033[0m unexpected '%s' but it's '%s'.\n",
       cst.pre.line, token_string[kind], cst.pre.literal);
   exit(EXIT_SUCCESS);
 }

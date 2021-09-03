@@ -26,9 +26,7 @@
 #define STRING_PATH_MAX 64
 #define BUILTIN_COUNT   13
 
-#define C_MOD_MEMCOUNT  64
-
-static void *pp = NULL;
+#define C_MOD_MEMCOUNT  32
 
 typedef struct {
   code_object *code;
@@ -55,42 +53,33 @@ typedef struct {
   void *func;
 } builtin;
 
-typedef struct {
-  char *name;
-  void (*ptr)(keg *);
-} reg_fn;
-
-enum mem_kind { C_VAR, C_METHOD, C_CLASS };
+enum mem_kind { C_VAR, C_METHOD };
 
 typedef struct {
   char *name;
   enum mem_kind kind;
-  void *ptr;
 } reg_mem;
 
 typedef struct {
   char *name;
   reg_mem member[C_MOD_MEMCOUNT];
-} reg_multiple;
+  int i;
+} reg_mod;
+
+reg_mod *new_mod(char *);
+void emit_member(reg_mod *, char *, enum mem_kind);
 
 void reg_c_func(const char *[]);
-void reg_c_class(const void *[]);
-void reg_c_mod(const void *[]);
+void reg_c_mod(const char *[]);
 
-void push_num();
-void push_float();
-void push_string();
-void push_char();
-void push_bool();
+void push_stack(object *);
 
-void set_var();
-void set_mod();
-
-object *new_num(int);
-object *new_float(double);
-object *new_string(char *);
-object *new_char(char);
-object *new_bool(bool);
+int check_num(keg *, int);
+double check_float(keg *, int);
+char *check_str(keg *, int);
+char check_char(keg *, int);
+bool check_bool(keg *, int);
+void *check_userdata(keg *, int);
 
 char *get_filename(const char *p);
 

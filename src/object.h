@@ -34,7 +34,9 @@ typedef enum {
   OBJ_MODULE,
   OBJ_NIL,
   OBJ_BUILTIN,
-  OBJ_CFUNC
+  OBJ_CFUNC,
+  OBJ_CMODS,
+  OBJ_CUSER
 } obj_kind;
 
 typedef enum {
@@ -104,6 +106,14 @@ typedef struct {
       const char *name;
       void (*func)(keg *);
     } cf;
+    struct {
+      const char *name;
+      keg *var;
+      keg *met;
+    } cm;
+    struct {
+      void *ptr;
+    } cu;
   } value;
 } object;
 
@@ -118,6 +128,11 @@ typedef struct {
   obj_kind r;
   int m;
 } eval_op_rule;
+
+typedef struct {
+  char *name;
+  void *ptr;
+} addr_kv;
 
 const char *obj_string(object *);
 
@@ -134,5 +149,12 @@ bool obj_kind_eq(object *, object *);
 const char *obj_type_string(object *);
 
 int obj_len(object *);
+
+object *new_num(int);
+object *new_float(double);
+object *new_string(char *);
+object *new_char(char);
+object *new_bool(bool);
+object *new_userdata(void *);
 
 #endif

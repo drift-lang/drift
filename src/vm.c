@@ -14,6 +14,9 @@ static void *dl_handle = NULL;
 static char *dl_error = NULL;
 
 static keg *c_func = NULL;
+static keg *c_mods = NULL;
+
+bool find_cmod_var = false;
 
 object *get_cfunc(char *name) {
   if (c_func == NULL) {
@@ -21,6 +24,41 @@ object *get_cfunc(char *name) {
   }
   for (int i = 0; i < c_func->item; i++) {
     object *obj = c_func->data[i];
+    if (strcmp(obj->value.cf.name, name) == 0) {
+      return obj;
+    }
+  }
+  return NULL;
+}
+
+object *get_cmods(char *name) {
+  if (c_mods == NULL) {
+    return NULL;
+  }
+  for (int i = 0; i < c_mods->item; i++) {
+    object *obj = c_mods->data[i];
+    if (strcmp(obj->value.cm.name, name) == 0) {
+      return obj;
+    }
+  }
+  return NULL;
+}
+
+object *get_cmods_member(object *mod, char *name) {
+  keg *a = mod->value.cm.var;
+  keg *b = mod->value.cm.met;
+
+  for (int i = 0; i < a->item; i++) {
+    addr_kv *kv = a->data[i];
+
+    if (strcmp(kv->name, name) == 0) {
+      void (*fn)() = kv->ptr;
+      fn();
+      find_cmod_var = true;
+    }
+  }
+  for (int i = 0; i < b->item; i++) {
+    object *obj = b->data[i];
     if (strcmp(obj->value.cf.name, name) == 0) {
       return obj;
     }
@@ -78,7 +116,7 @@ void free_tokens(keg *g) {
       ->data[(*(int16_t *)TOP_CODE->offsets->data[vst.op - 1])]
 
 void type_error(type *T, object *obj) {
-  fprintf(stderr, "\033[1;31mvm %d:\033[0m expect type %s, but found %s.\n",
+  fprintf(stderr, "\033[1;31mvm %d:\033[0m expect type %s, but it's %s.\n",
       GET_LINE, type_string(T), obj_string(obj));
   exit(EXIT_SUCCESS);
 }
@@ -367,6 +405,10 @@ void *lookup(char *name) {
     return p;
   }
   p = get_cfunc(name);
+  if (p != NULL) {
+    return p;
+  }
+  p = get_cmods(name);
   if (p != NULL) {
     return p;
   }
@@ -1009,10 +1051,20 @@ void eval() {
     case REF_MODULE: {
       char *name = GET_NAME;
       object *obj = POP;
-      if (obj->kind != OBJ_MODULE) {
+      if (obj->kind != OBJ_MODULE && obj->kind != OBJ_CMODS) {
         error("can only be used as a member reference of a module");
       }
-      void *ptr = get_table((table *)obj->value.mod.tb, name);
+      void *ptr = NULL;
+      if (obj->kind == OBJ_MODULE) {
+        ptr = get_table((table *)obj->value.mod.tb, name);
+      }
+      if (obj->kind == OBJ_CMODS) {
+        ptr = get_cmods_member(obj, name);
+      }
+      if (find_cmod_var) {
+        find_cmod_var = false;
+        break;
+      }
       if (ptr == NULL) {
         undefined_error(name);
       }
@@ -1327,8 +1379,144 @@ void reg_c_func(const char *fns[]) {
   }
 }
 
-void reg_c_class(const void *cls[]) {
+void reg_c_mod(const char *mods[]) {
+  for (int i = 0; mods[i] != NULL && i < C_MOD_MEMCOUNT; i++) {
+    const char *name = mods[i];
+    reg_mod *(*fn)() = dlsym(dl_handle, name);
+    reg_mod *mod = fn();
+
+    object *obj = malloc(sizeof(object));
+    obj->kind = OBJ_CMODS;
+    obj->value.cm.name = mod->name;
+
+    obj->value.cm.var = new_keg();
+    obj->value.cm.met = new_keg();
+
+    keg *var = obj->value.cm.var;
+    keg *met = obj->value.cm.met;
+
+    for (int j = 0; j < mod->i; j++) {
+      reg_mem m = mod->member[j];
+
+      if (m.kind == C_VAR) {
+        void (*fn)() = dlsym(dl_handle, m.name);
+
+        addr_kv *kv = malloc(sizeof(addr_kv));
+        kv->name = m.name;
+        kv->ptr = fn;
+
+        var = append_keg(var, kv);
+      }
+      if (m.kind == C_METHOD) {
+        void (*fn)(keg *) = dlsym(dl_handle, m.name);
+
+        object *cf = malloc(sizeof(object));
+        cf->kind = OBJ_CFUNC;
+        cf->value.cf.name = m.name;
+        cf->value.cf.func = fn;
+
+        met = append_keg(met, cf);
+      }
+    }
+    c_mods = append_keg(c_mods, obj);
+  }
 }
 
-void reg_c_mod(const void *mods[]) {
+void push_stack(object *obj) {
+  PUSH(obj);
+}
+
+void check_c_func_empty(keg *arg, int i) {
+  if (arg->item == 0) {
+    error("c extension parameter empty");
+  }
+  if (i >= arg->item) {
+    error("index out of bounds arguments");
+  }
+}
+
+void check_c_func_error(char *require, object *obj) {
+  fprintf(stderr,
+      "\033[1;31mvm %d:\033[0m c extension parameter require %s but it's %s.\n",
+      GET_LINE, require, obj_string(obj));
+  exit(EXIT_SUCCESS);
+}
+
+enum check_c_type { CC_INT, CC_FLOAT, CC_STR, CC_CHAR, CC_BOOL, CC_USER };
+
+object *check_c_func(keg *arg, int i, enum check_c_type t) {
+  check_c_func_empty(arg, i);
+  object *obj = arg->data[i];
+  switch (t) {
+  case CC_INT:
+    if (obj->kind != OBJ_INT) {
+      check_c_func_error("int", obj);
+    }
+    break;
+  case CC_FLOAT:
+    if (obj->kind != OBJ_FLOAT) {
+      check_c_func_error("float", obj);
+    }
+    break;
+  case CC_STR:
+    if (obj->kind != OBJ_STRING) {
+      check_c_func_error("string", obj);
+    }
+    break;
+  case CC_CHAR:
+    if (obj->kind != OBJ_CHAR) {
+      check_c_func_error("char", obj);
+    }
+    break;
+  case CC_BOOL:
+    if (obj->kind != OBJ_BOOL) {
+      check_c_func_error("bool", obj);
+    }
+    break;
+  case CC_USER:
+    if (obj->kind != OBJ_CUSER) {
+      check_c_func_error("userdata", obj);
+    }
+    break;
+  }
+  return obj;
+}
+
+int check_num(keg *arg, int i) {
+  return check_c_func(arg, i, CC_INT)->value.num;
+}
+
+double check_float(keg *arg, int i) {
+  return check_c_func(arg, i, CC_FLOAT)->value.f;
+}
+
+char *check_str(keg *arg, int i) {
+  return check_c_func(arg, i, CC_STR)->value.str;
+}
+
+char check_char(keg *arg, int i) {
+  return check_c_func(arg, i, CC_CHAR)->value.c;
+}
+
+bool check_bool(keg *arg, int i) {
+  return check_c_func(arg, i, CC_BOOL)->value.b;
+}
+
+void *check_userdata(keg *arg, int i) {
+  return check_c_func(arg, i, CC_USER)->value.cu.ptr;
+}
+
+reg_mod *new_mod(char *name) {
+  reg_mod *m = malloc(sizeof(reg_mod));
+  m->name = name;
+  m->i = 0;
+  return m;
+}
+
+void emit_member(reg_mod *m, char *name, enum mem_kind k) {
+  if (m == NULL) {
+    return;
+  }
+  reg_mem mem = {.name = name, .kind = k};
+  m->member[m->i++] = mem;
 }
