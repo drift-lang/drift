@@ -1,6 +1,6 @@
 Language: Cpp
 ColumnLimit: 80
-IndentWidth: 2
+IndentWidth: 4
 AlignArrayOfStructures: Left
 AlignConsecutiveMacros: AcrossEmptyLinesAndComments
 AlignEscapedNewlines: DontAlign

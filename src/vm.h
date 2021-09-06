@@ -17,9 +17,9 @@
 #include "token.h"
 
 #if defined(__linux__) || defined(__APPLE__)
-  #include <unistd.h>
+    #include <unistd.h>
 #elif defined(_WIN32)
-  #include <windows.h>
+    #include <windows.h>
 #endif
 
 #define STRING_EVAL_MAX 128
@@ -29,41 +29,41 @@
 #define C_MOD_MEMCOUNT  32
 
 typedef struct {
-  code_object *code;
-  table *tb;
-  keg *data;
-  object *ret;
-  table *tp;
+    code_object *code;
+    table *tb;
+    keg *data;
+    object *ret;
+    table *tp;
 } frame;
 
 typedef struct {
-  keg *frame;
-  int16_t op;
-  int16_t ip;
-  bool loop_ret;
-  char *filename;
-  keg *call;
+    keg *frame;
+    int16_t op;
+    int16_t ip;
+    bool loop_ret;
+    char *filename;
+    keg *call;
 } vm_state;
 
 vm_state evaluate(code_object *, char *);
 
 typedef struct {
-  char *name;
-  builtin_kind kind;
-  void *func;
+    char *name;
+    builtin_kind kind;
+    void *func;
 } builtin;
 
 enum mem_kind { C_VAR, C_METHOD };
 
 typedef struct {
-  char *name;
-  enum mem_kind kind;
+    char *name;
+    enum mem_kind kind;
 } reg_mem;
 
 typedef struct {
-  char *name;
-  reg_mem member[C_MOD_MEMCOUNT];
-  int i;
+    char *name;
+    reg_mem member[C_MOD_MEMCOUNT];
+    int i;
 } reg_mod;
 
 reg_mod *new_mod(char *);
