@@ -62,7 +62,12 @@ license:  %s\n\
     exit(EXIT_SUCCESS);
 }
 
+int code_argc = 0;
+char **code_argv = NULL;
+
 int main(int argc, char **argv) {
+    code_argc = argc;
+    code_argv = argv;
     if (argc < 2) {
         usage();
     }

@@ -224,14 +224,20 @@ void bt_rand_int(keg *arg) {
     }
     int x = b->value.num;
     int y = a->value.num;
-#include <sys/time.h>
-#include <time.h>
-    struct timeval stamp;
-    gettimeofday(&stamp, NULL);
-    srand(stamp.tv_usec);
+
     object *obj = malloc(sizeof(object));
     obj->kind = OBJ_INT;
-    obj->value.num = rand() % y + x;
+
+    if (x == 0 && y == 0) {
+        obj->value.num = -1;
+    } else {
+#include <sys/time.h>
+#include <time.h>
+        struct timeval stamp;
+        gettimeofday(&stamp, NULL);
+        srand(stamp.tv_usec);
+        obj->value.num = rand() % y + x;
+    }
     PUSH(obj);
 }
 
@@ -370,6 +376,7 @@ void jump(int16_t to) {
         case T_JUMP_TO:
         case F_JUMP_TO:
         case NEW_OBJ:
+        case REF_MODULE:
             reverse ? vst.op-- : vst.op++;
             break;
         case STORE_NAME:
@@ -859,6 +866,9 @@ void eval() {
                 call(arg);
                 goto next;
             }
+            if (fn->kind != OBJ_FUNCTION) {
+                error("i don't known what was called");
+            }
 
             keg *k = fn->value.fn.k;
             keg *v = fn->value.fn.v;
@@ -1243,11 +1253,6 @@ vm_state evaluate(code_object *code, char *filename) {
     vst.frame = append_keg(vst.frame, main);
     vst.call = append_keg(vst.call, main);
 
-    keg *pl = read_path(".", 's', 'o');
-    for (int i = 0; i < pl->item; i++) {
-        load_dl(pl->data[i]);
-    }
-
     eval();
 
     return vst;
@@ -1365,6 +1370,20 @@ void load_module(char *name, char *path, bool internal) {
         }
     }
     if (!ok) {
+        char *fname = malloc(sizeof(char) * STRING_CAP_MAX);
+        sprintf(fname, "%s.so", name);
+        keg *pl = read_path(".", 's', 'o');
+
+        for (int i = 0; i < pl->item; i++) {
+            if (strcmp(get_filename(pl->data[i]), fname) == 0) {
+                load_dl(pl->data[i]);
+                ok = true;
+                break;
+            }
+        }
+        free(fname);
+    }
+    if (!ok) {
         fprintf(stderr, "\033[1;31mvm %d:\033[0m undefined module '%s'.\n",
             GET_LINE, name);
         exit(EXIT_SUCCESS);
@@ -1462,34 +1481,28 @@ object *check_c_func(keg *arg, int i, enum check_c_type t) {
     object *obj = arg->data[i];
     switch (t) {
     case CC_INT:
-        if (obj->kind != OBJ_INT) {
+        if (obj->kind != OBJ_INT)
             check_c_func_error("int", obj);
-        }
         break;
     case CC_FLOAT:
-        if (obj->kind != OBJ_FLOAT) {
+        if (obj->kind != OBJ_FLOAT)
             check_c_func_error("float", obj);
-        }
         break;
     case CC_STR:
-        if (obj->kind != OBJ_STRING) {
+        if (obj->kind != OBJ_STRING)
             check_c_func_error("string", obj);
-        }
         break;
     case CC_CHAR:
-        if (obj->kind != OBJ_CHAR) {
+        if (obj->kind != OBJ_CHAR)
             check_c_func_error("char", obj);
-        }
         break;
     case CC_BOOL:
-        if (obj->kind != OBJ_BOOL) {
+        if (obj->kind != OBJ_BOOL)
             check_c_func_error("bool", obj);
-        }
         break;
     case CC_USER:
-        if (obj->kind != OBJ_CUSER) {
+        if (obj->kind != OBJ_CUSER)
             check_c_func_error("userdata", obj);
-        }
         break;
     }
     return obj;
@@ -1519,6 +1532,22 @@ void *check_userdata(keg *arg, int i) {
     return check_c_func(arg, i, CC_USER)->value.cu.ptr;
 }
 
+object *check_front(keg *arg) {
+    if (arg->item == 0) {
+        error("arguments is empty");
+    }
+    if (arg->item > 1) {
+        error("arguments count just recevie one");
+    }
+    return arg->data[0];
+}
+
+void check_empty(keg *arg) {
+    if (arg->item > 1) {
+        error("only empty parameters are received");
+    }
+}
+
 reg_mod *new_mod(char *name) {
     reg_mod *m = malloc(sizeof(reg_mod));
     m->name = name;
@@ -1532,4 +1561,9 @@ void emit_member(reg_mod *m, char *name, enum mem_kind k) {
     }
     reg_mem mem = {.name = name, .kind = k};
     m->member[m->i++] = mem;
+}
+
+void throw_error(const char *message) {
+    fprintf(stderr, "\033[1;31mvm %d:\033[0m %s.\n", GET_LINE, message);
+    exit(EXIT_SUCCESS);
 }

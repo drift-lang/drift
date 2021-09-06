@@ -1,0 +1,22 @@
+# build.ft
+use os
+use list
+use str
+use sys
+
+def DEBUG bool =
+    len(sys::argv) != 1 & sys::argv[1] == "-bug"
+
+println(sys::argv)
+
+def dir string = "./src"
+def fp []string
+    = os::listdir("./src")
+def cp []string = []
+for def i int = 0; i < len(fp); i = i + 1
+    def name string = fp[i]
+
+    if str::end_with(name, ".c")
+        append(cp, name)
+def sl string = list::to_string(cp)
+println(sys::argv)

@@ -81,6 +81,10 @@ char *check_str(keg *, int);
 char check_char(keg *, int);
 bool check_bool(keg *, int);
 void *check_userdata(keg *, int);
+object *check_front(keg *);
+void check_empty(keg *);
+
+void throw_error(const char *);
 
 char *get_filename(const char *p);
 

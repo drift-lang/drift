@@ -78,7 +78,7 @@ const char *obj_raw_string(object *obj, bool multiple) {
         sprintf(str, "%s", obj->value.str);
         return str;
     case OBJ_CHAR:
-        sprintf(str, "'%c'", obj->value.c);
+        sprintf(str, "%c", obj->value.c);
         return str;
     case OBJ_BOOL:
         sprintf(str, "%s", obj->value.b ? "true" : "false");
@@ -175,40 +175,31 @@ void eval_obj_num(double *lv, double *rv, int m) {
 }
 
 object *op_basic(uint8_t op, int m) {
-    double lv, rv;
+    double lv, rv, ev;
     eval_obj_num(&lv, &rv, m);
+    bool integer = m == 1;
 
     object *obj = malloc(sizeof(object));
-    if (op == TO_ADD || op == TO_SUB || op == TO_MUL || op == TO_DIV ||
-        op == TO_SUR) {
-        obj->kind = OBJ_FLOAT;
-    }
-    if (op == TO_GR || op == TO_GR_EQ || op == TO_LE || op == TO_LE_EQ ||
-        op == TO_EQ_EQ || op == TO_NOT_EQ) {
-        obj->kind = OBJ_BOOL;
-    }
+
     switch (op) {
     case TO_ADD:
-        if (m == 1) {
-            obj->kind = OBJ_INT;
-            obj->value.num = lv + rv;
-        } else if (m == 5) {
+        if (m == 5) {
             obj->kind = OBJ_STRING;
             char *cp = malloc(sizeof(char) * STRING_CAP_MAX);
             sprintf(cp, "%s%s", lp->value.str, rp->value.str);
             obj->value.str = cp;
         } else {
-            obj->value.f = lv + rv;
+            ev = lv + rv;
         }
         break;
     case TO_SUB:
-        obj->value.f = lv - rv;
+        ev = lv - rv;
         break;
     case TO_MUL:
-        obj->value.f = lv * rv;
+        ev = lv * rv;
         break;
     case TO_DIV:
-        obj->value.f = lv / rv;
+        ev = lv / rv;
         break;
     case TO_SUR:
         obj->value.f = (int)lv % (int)rv;
@@ -231,6 +222,19 @@ object *op_basic(uint8_t op, int m) {
     case TO_NOT_EQ:
         obj->value.b = lv != rv;
         break;
+    }
+    if ((op == TO_ADD || op == TO_SUB || op == TO_MUL || op == TO_DIV) &&
+        integer) {
+        obj->kind = OBJ_INT;
+        obj->value.num = (int)ev;
+    } else if (m == 5 && op == TO_ADD) {
+        obj->kind = OBJ_STRING;
+    } else {
+        obj->kind = OBJ_FLOAT;
+    }
+    if (op == TO_GR || op == TO_GR_EQ || op == TO_LE || op == TO_LE_EQ ||
+        op == TO_EQ_EQ || op == TO_NOT_EQ) {
+        obj->kind = OBJ_BOOL;
     }
     return obj;
 }
