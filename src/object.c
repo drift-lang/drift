@@ -181,6 +181,10 @@ object *op_basic(uint8_t op, int m) {
 
     object *obj = malloc(sizeof(object));
 
+#define STRING_EQ(op) \
+    obj->kind = OBJ_BOOL; \
+    obj->value.b = strcmp(lp->value.str, rp->value.str) op 0;
+
     switch (op) {
     case TO_ADD:
         if (m == 5) {
@@ -217,10 +221,18 @@ object *op_basic(uint8_t op, int m) {
         obj->value.b = lv <= rv;
         break;
     case TO_EQ_EQ:
-        obj->value.b = lv == rv;
+        if (m == 5) {
+            STRING_EQ(==);
+        } else {
+            obj->value.b = lv == rv;
+        }
         break;
     case TO_NOT_EQ:
-        obj->value.b = lv != rv;
+        if (m == 5) {
+            STRING_EQ(!=);
+        } else {
+            obj->value.b = lv != rv;
+        }
         break;
     }
     if ((op == TO_ADD || op == TO_SUB || op == TO_MUL || op == TO_DIV) &&
@@ -236,6 +248,7 @@ object *op_basic(uint8_t op, int m) {
         op == TO_EQ_EQ || op == TO_NOT_EQ) {
         obj->kind = OBJ_BOOL;
     }
+#undef STRING_EQ
     return obj;
 }
 
@@ -244,12 +257,9 @@ object *op_logic(uint8_t op, int m) {
     obj->kind = OBJ_BOOL;
 #define SIMPLE_LOGIC(op) \
     if (m == 1) { \
-        obj->value.b = strcmp(lp->value.str, rp->value.str) op 0; \
-    } \
-    if (m == 2) { \
         obj->value.b = lp->value.c op rp->value.c; \
     } \
-    if (m == 4) { \
+    if (m == 3) { \
         obj->value.b = lp->value.b op rp->value.b; \
     }
     switch (op) {
@@ -260,15 +270,15 @@ object *op_logic(uint8_t op, int m) {
         break;
     case TO_NOT_EQ:
         SIMPLE_LOGIC(!=);
-        if (m == 3)
+        if (m == 2)
             obj->value.b = false;
         break;
     case TO_AND:
-        if (m == 4)
+        if (m == 3)
             obj->value.b = lp->value.b && rp->value.b;
         break;
     case TO_OR:
-        if (m == 4)
+        if (m == 3)
             obj->value.b = lp->value.b || rp->value.b;
         break;
     }
@@ -285,11 +295,27 @@ eval_op_rule op_basic_rules[] = {
 };
 
 eval_op_rule op_logic_rules[] = {
-    {OBJ_STRING, OBJ_STRING, 1},
-    {OBJ_CHAR,   OBJ_CHAR,   2},
-    {OBJ_NIL,    OBJ_NIL,    3},
-    {OBJ_BOOL,   OBJ_BOOL,   4}
+    {OBJ_CHAR, OBJ_CHAR, 1},
+    {OBJ_NIL,  OBJ_NIL,  2},
+    {OBJ_BOOL, OBJ_BOOL, 3}
 };
+
+object *op_default(uint8_t op) {
+    object *obj = malloc(sizeof(object));
+    switch (op) {
+    case TO_ADD:
+    case TO_SUB:
+    case TO_MUL:
+    case TO_DIV:
+    case TO_SUR:
+        obj->kind = OBJ_NIL;
+        return obj;
+    default:
+        obj->kind = OBJ_BOOL;
+        obj->value.b = false;
+        return obj;
+    }
+}
 
 object *binary_op(uint8_t op, object *a, object *b) {
     int l = 5;
@@ -301,12 +327,12 @@ object *binary_op(uint8_t op, object *a, object *b) {
             return sec ? op_logic(op, rule.m) : op_basic(op, rule.m);
         }
         if (i + 1 == l && !sec) {
-            l = 4;
+            l = 3;
             i = 0;
             sec = true;
         }
     }
-    return NULL;
+    return op_default(op);
 }
 
 bool type_checker(type *tp, object *obj) {
@@ -521,6 +547,14 @@ object *new_bool(bool b) {
     object *obj = malloc(sizeof(object));
     obj->kind = OBJ_BOOL;
     obj->value.b = b;
+    return obj;
+}
+
+object *new_array(type_kind kind) {
+    object *obj = malloc(sizeof(object));
+    obj->kind = OBJ_ARRAY;
+    obj->value.arr.T = new_type(kind);
+    obj->value.arr.element = new_keg();
     return obj;
 }
 

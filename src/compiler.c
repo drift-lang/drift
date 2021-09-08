@@ -461,7 +461,9 @@ void tnew() {
     expect(PRE, L_BRACE);
     int item = 0;
     while (cst.pre.kind != R_BRACE) {
-        expect(PRE, LITERAL);
+        if (cst.pre.kind != LITERAL) {
+            syntax_error();
+        }
         emit_code(SET_NAME);
         emit_name(cst.pre.literal);
         iter();

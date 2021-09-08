@@ -62,4 +62,6 @@ bool type_eq(type *, type *);
 
 bool copy_type(type *);
 
+type *new_type(type_kind);
+
 #endif

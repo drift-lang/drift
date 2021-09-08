@@ -15,26 +15,13 @@ void argc() {
 }
 
 void argv() {
-    object *list = malloc(sizeof(object));
-    list->kind = OBJ_ARRAY;
-    list->value.arr.element = new_keg();
-
-    type *T = malloc(sizeof(type));
-    T->kind = T_STRING;
-    list->value.arr.T = T;
-
+    object *list = new_array(T_STRING);
     keg *elem = list->value.arr.element;
-    *code_argv++;
 
-    while (*code_argv) {
-        object *str = malloc(sizeof(object));
-
-        str->kind = OBJ_STRING;
-        str->value.str = *code_argv++;
-
-        elem = append_keg(elem, str);
+    for (int i = 1; i < code_argc; i++) {
+        char *str = code_argv[i];
+        elem = append_keg(elem, new_string(str));
     }
-    printf("%s\n", obj_string(list));
     push_stack(list);
 }
 

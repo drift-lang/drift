@@ -155,6 +155,7 @@ object *new_float(double);
 object *new_string(char *);
 object *new_char(char);
 object *new_bool(bool);
+object *new_array(type_kind);
 object *new_userdata(void *);
 
 #endif

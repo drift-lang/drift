@@ -133,3 +133,9 @@ bool type_eq(type *a, type *b) {
 bool copy_type(type *t) {
     return t->kind < 5;
 }
+
+type *new_type(type_kind kind) {
+    type *T = malloc(sizeof(type));
+    T->kind = kind;
+    return T;
+}

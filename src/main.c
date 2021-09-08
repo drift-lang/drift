@@ -72,14 +72,14 @@ int main(int argc, char **argv) {
         usage();
     }
     if (argc == 3) {
-        if (strcmp(argv[1], "token") == 0)
+        if (strcmp(argv[2], "token") == 0)
             show_tokens = true;
-        if (strcmp(argv[1], "op") == 0)
+        if (strcmp(argv[2], "op") == 0)
             show_bytes = true;
-        if (strcmp(argv[1], "tb") == 0)
+        if (strcmp(argv[2], "tb") == 0)
             show_tb = true;
     }
-    const char *path = argc == 3 ? argv[2] : argv[1];
+    const char *path = argv[1];
     int len = strlen(path) - 1;
     if (path[len] != 't' || path[len - 1] != 'f' || path[len - 2] != '.') {
         fprintf(stderr, "\033[1;31merror:\033[0m no input file.\n");

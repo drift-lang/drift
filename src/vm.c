@@ -55,6 +55,7 @@ object *get_cmods_member(object *mod, char *name) {
             void (*fn)() = kv->ptr;
             fn();
             find_cmod_var = true;
+            return NULL;
         }
     }
     for (int i = 0; i < b->item; i++) {
@@ -613,11 +614,7 @@ void eval() {
                           "than 128-bit bytes");
                 }
             }
-            void *r = binary_op(code, a, b);
-            if (r == NULL) {
-                unsupport_operand_error(code_string[code]);
-            }
-            PUSH(r);
+            PUSH(binary_op(code, a, b));
             break;
         }
         case BUILD_ARR: {
@@ -684,23 +681,23 @@ void eval() {
                 if (p->kind != OBJ_INT) {
                     error("get value using integer subscript");
                 }
-                if (obj->value.arr.element->item == 0) {
-                    error("array entry is empty");
+                keg *elem = obj->value.arr.element;
+
+                if (elem->item == 0 || p->value.num >= elem->item) {
+                    PUSH(make_nil());
+                    break;
                 }
-                if (p->value.num >= obj->value.arr.element->item) {
-                    error("index out of bounds");
-                }
-                PUSH(obj->value.arr.element->data[p->value.num]);
+                PUSH(elem->data[p->value.num]);
             }
             if (obj->kind == OBJ_TUPLE) {
                 if (p->kind != OBJ_INT) {
                     error("get value using integer subscript");
                 }
-                if (obj->value.tup.element->item == 0) {
-                    error("tuple entry is empty");
-                }
-                if (p->value.num >= obj->value.tup.element->item) {
-                    error("index out of bounds");
+                keg *elem = obj->value.tup.element;
+
+                if (elem->item == 0 || p->value.num >= elem->item) {
+                    PUSH(make_nil());
+                    break;
                 }
                 PUSH(obj->value.tup.element->data[p->value.num]);
             }
@@ -724,11 +721,9 @@ void eval() {
                     error("get value using integer subscript");
                 }
                 int len = strlen(obj->value.str);
-                if (len == 0) {
-                    error("empty string");
-                }
-                if (p->value.num >= len) {
-                    error("index out of bounds");
+                if (len == 0 || p->value.num >= len) {
+                    PUSH(make_nil());
+                    break;
                 }
                 object *ch = malloc(sizeof(object));
                 ch->kind = OBJ_CHAR;
@@ -1372,8 +1367,15 @@ void load_module(char *name, char *path, bool internal) {
     if (!ok) {
         char *fname = malloc(sizeof(char) * STRING_CAP_MAX);
         sprintf(fname, "%s.so", name);
-        keg *pl = read_path(".", 's', 'o');
 
+        keg *pl = NULL;
+
+        char *env = getenv("FTPATH");
+        if (env != NULL) {
+            pl = read_path(env, 's', 'o');
+        } else {
+            error("cannot open FTPATH of environment");
+        }
         for (int i = 0; i < pl->item; i++) {
             if (strcmp(get_filename(pl->data[i]), fname) == 0) {
                 load_dl(pl->data[i]);
