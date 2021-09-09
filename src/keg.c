@@ -43,7 +43,7 @@ void insert_keg(keg *g, int p, void *ptr) {
     if (p < 0) {
         return;
     }
-    if (p != 0 && p > g->item - 1) {
+    if (p != 0 && p > g->item) {
         p = g->item - 1;
     }
     g = append_keg(g, ptr);
