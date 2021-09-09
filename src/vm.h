@@ -22,7 +22,7 @@
     #include <windows.h>
 #endif
 
-#define STRING_EVAL_MAX 128
+#define STRING_EVAL_MAX 1024
 #define STRING_PATH_MAX 64
 #define BUILTIN_COUNT   13
 

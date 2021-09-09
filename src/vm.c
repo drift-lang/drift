@@ -611,7 +611,7 @@ void eval() {
                 int lb = strlen(b->value.str);
                 if (la + lb > STRING_EVAL_MAX) {
                     error("number of characters is greater "
-                          "than 128-bit bytes");
+                          "than 1024-bit bytes");
                 }
             }
             PUSH(binary_op(code, a, b));

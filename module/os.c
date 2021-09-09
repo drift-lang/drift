@@ -1,5 +1,6 @@
 #include <dirent.h>
 #include <stdlib.h>
+#include <sys/stat.h>
 
 #include "../src/vm.h"
 
@@ -7,6 +8,9 @@ reg_mod *os() {
     reg_mod *m = new_mod("os");
     emit_member(m, "command", C_METHOD);
     emit_member(m, "listdir", C_METHOD);
+    emit_member(m, "filename", C_METHOD);
+    emit_member(m, "rm", C_METHOD);
+    emit_member(m, "filesize", C_METHOD);
     return m;
 }
 
@@ -26,32 +30,52 @@ void listdir(keg *arg) {
         throw_error("cannot open this dir");
     }
 
-    object *list = malloc(sizeof(object));
-    list->kind = OBJ_ARRAY;
-    list->value.arr.element = new_keg();
-
-    type *T = malloc(sizeof(type));
-    T->kind = T_STRING;
-    list->value.arr.T = T;
-
+    object *list = new_array(T_STRING);
     keg *elem = list->value.arr.element;
 
     while (true) {
         dt = readdir(dir);
         if (dt != NULL) {
             if (dt->d_type == 8) {
-                object *str = malloc(sizeof(object));
-                
-                str->kind = OBJ_STRING;
-                str->value.str = dt->d_name;
-
-                elem = append_keg(elem, str);
+                elem = append_keg(elem, new_string(dt->d_name));
             }
         } else {
             break;
         }
     }
     push_stack(list);
+}
+
+void filename(keg *arg) {
+    const char *str = check_str(arg, 0);
+    char *d = malloc(sizeof(char) * 32);
+
+    memset(d, 0, sizeof(char) * 32);
+
+    for (int i = 0; i < strlen(str); i++) {
+        if (str[i] != '.') {
+            d[i] = str[i];
+        }
+    }
+    push_stack(new_string(d));
+}
+
+void rm(keg *arg) {
+    const char *path = check_str(arg, 0);
+    int status = remove(path);
+    push_stack(new_num(status));
+}
+
+void filesize(keg *arg) {
+    const char *path = check_str(arg, 0);
+
+    struct stat sb;
+    int ret = stat(path, &sb);
+    int n = 0;
+    if (ret == 0) {
+        n = sb.st_size;
+    }
+    push_stack(new_num(n));
 }
 
 static const char *mods[] = {"os", NULL};

@@ -235,14 +235,16 @@ object *op_basic(uint8_t op, int m) {
         }
         break;
     }
-    if ((op == TO_ADD || op == TO_SUB || op == TO_MUL || op == TO_DIV) &&
-        integer) {
-        obj->kind = OBJ_INT;
-        obj->value.num = (int)ev;
-    } else if (m == 5 && op == TO_ADD) {
-        obj->kind = OBJ_STRING;
-    } else {
-        obj->kind = OBJ_FLOAT;
+    if (op == TO_ADD || op == TO_SUB || op == TO_MUL || op == TO_DIV) {
+        if (integer) {
+            obj->kind = OBJ_INT;
+            obj->value.num = (int)ev;
+        } else if (m == 5 && op == TO_ADD) {
+            obj->kind = OBJ_STRING;
+        } else {
+            obj->kind = OBJ_FLOAT;
+            obj->value.f = ev;
+        }
     }
     if (op == TO_GR || op == TO_GR_EQ || op == TO_LE || op == TO_LE_EQ ||
         op == TO_EQ_EQ || op == TO_NOT_EQ) {

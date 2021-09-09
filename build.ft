@@ -7,14 +7,35 @@ use sys
 def DEBUG bool =
     len(sys::argv) != 1 & sys::argv[1] == "-bug"
 
+def CC string = "gcc"
+def PREFIX string = " "
+
+if DEBUG
+    PREFIX = " -fsanitize=address "
+
 def dir string = "./src"
-def fp []string
-    = os::listdir("./src")
-def cp []string = []
+def fp []string = os::listdir(dir)
+def op []string = []
+
+def n int = 1
 for def i int = 0; i < len(fp); i = i + 1
     def name string = fp[i]
 
     if str::end_with(name, ".c")
-        append(cp, name)
-def sl string = list::to_string(cp)
-println(sl, DEBUG)
+        os::command(
+            CC + " -std=c99 -c -g " + dir + "/" + name)
+        append(op, os::filename(name) + ".o")
+
+        println(n, name)
+        n = n + 1
+
+os::command(
+    CC + PREFIX + list::to_string(op)
+        + "-Wl,-E -ldl -o drift")
+os::command("rm -f *.o")
+
+println(
+    "Done!",
+    os::filesize("drift") / 1000.0,
+    "KB"
+)
