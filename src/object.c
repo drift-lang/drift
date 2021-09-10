@@ -206,7 +206,7 @@ object *op_basic(uint8_t op, int m) {
         ev = lv / rv;
         break;
     case TO_SUR:
-        obj->value.f = (int)lv % (int)rv;
+        ev = (int)lv % (int)rv;
         break;
     case TO_GR:
         obj->value.b = lv > rv;
@@ -235,8 +235,9 @@ object *op_basic(uint8_t op, int m) {
         }
         break;
     }
-    if (op == TO_ADD || op == TO_SUB || op == TO_MUL || op == TO_DIV) {
-        if (integer) {
+    if (op == TO_ADD || op == TO_SUB || op == TO_MUL || op == TO_DIV ||
+        op == TO_SUR) {
+        if (integer || op == TO_SUR) {
             obj->kind = OBJ_INT;
             obj->value.num = (int)ev;
         } else if (m == 5 && op == TO_ADD) {

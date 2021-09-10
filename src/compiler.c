@@ -709,7 +709,7 @@ void check_generic_type(keg *gt, enum generic_type t) {
 }
 
 void def_interface(token name, keg *gt, int off, int poff) {
-    if (off < poff) {
+    if (off <= poff) {
         no_block_error();
     }
     check_generic_type(gt, NONE_TYPE);
@@ -919,7 +919,7 @@ void stmt() {
                 if (T->kind != T_USER) {
                     syntax_error();
                 }
-                if (off < poff) {
+                if (off <= poff) {
                     no_block_error();
                 }
                 keg *elem = new_keg();
@@ -1120,7 +1120,7 @@ statement cannot be used outside loop.\n",
 void block() {
     token *tok = cst.tokens->data[cst.p - 1];
     int off = cst.pre.off;
-    if (off < tok->off) {
+    if (off <= tok->off) {
         no_block_error();
     }
     while (true) {
