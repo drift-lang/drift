@@ -34,6 +34,7 @@ typedef struct {
     keg *data;
     object *ret;
     table *tp;
+    keg *range;
 } frame;
 
 typedef struct {
@@ -91,5 +92,11 @@ char *get_filename(const char *p);
 void free_frame(frame *f);
 
 void free_tokens(keg *);
+
+typedef struct {
+    char *name;
+    int p;
+    keg *arr;
+} range_iter;
 
 #endif

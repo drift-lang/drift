@@ -74,6 +74,7 @@ frame *new_frame(code_object *code) {
     f->ret = NULL;
     f->tb = new_table();
     f->tp = new_table();
+    f->range = new_keg();
     return f;
 }
 
@@ -100,6 +101,7 @@ void free_tokens(keg *g) {
 #define TOP_TP      (BACK_FRAME)->tp
 #define TOP_CODE    (BACK_FRAME)->code
 #define TOP_DATA    (BACK_FRAME)->data
+#define TOP_ITER    (BACK_FRAME)->range
 
 #define PUSH(obj)   TOP_DATA = append_keg(TOP_DATA, obj)
 #define POP         (object *)pop_back_keg(TOP_DATA)
@@ -350,6 +352,16 @@ object *get_builtin(char *name) {
     return NULL;
 }
 
+range_iter *get_iter(char *name) {
+    for (int i = 0; i < TOP_ITER->item; i++) {
+        range_iter *iter = TOP_ITER->data[i];
+        if (strcmp(iter->name, name) == 0) {
+            return iter;
+        }
+    }
+    return NULL;
+}
+
 void jump(int16_t to) {
     vst.op--;
     bool reverse = vst.ip > to;
@@ -381,6 +393,8 @@ void jump(int16_t to) {
             reverse ? vst.op-- : vst.op++;
             break;
         case STORE_NAME:
+        case RANGE_OF:
+        case RANGE_GO:
             if (reverse)
                 vst.op -= 2;
             else
@@ -1175,6 +1189,58 @@ void eval() {
             n->kind = OBJ_STRING;
             n->value.str = name;
             PUSH(n);
+            break;
+        }
+        case RANGE_OF: {
+            char *name = GET_NAME;
+            char *list =
+                TOP_CODE->names
+                    ->data[*(int16_t *)TOP_CODE->offsets->data[vst.op - 2]];
+            object *obj = get_table(TOP_TB, list);
+            int16_t out = GET_OFF;
+
+            if (obj->kind != OBJ_ARRAY) {
+                error("receive a array object to range it");
+            }
+
+            keg *elem = obj->value.arr.element;
+            if (elem->item == 0) {
+                jump(out);
+                break;
+            }
+
+            range_iter *iter = get_iter(name);
+            if (iter != NULL) {
+                iter->p += 1;
+            } else {
+                iter = malloc(sizeof(range_iter));
+                iter->p = 0;
+                iter->arr = elem;
+                iter->name = name;
+
+                TOP_ITER = append_keg(TOP_ITER, iter);
+            }
+
+            add_table(TOP_TB, name, iter->arr->data[iter->p]);
+            break;
+        }
+        case RANGE_GO: {
+            char *name = GET_NAME;
+            int16_t go = GET_OFF;
+
+            range_iter *iter = get_iter(name);
+            keg *arr = iter->arr;
+
+            if (iter->p + 1 == arr->item) {
+                pop_back_keg(TOP_ITER);
+                break;
+            }
+
+            iter->p++;
+            add_table(TOP_TB, name, iter->arr->data[iter->p]);
+
+            vst.op -= 1;
+            jump(go);
             break;
         }
         case TO_RET:

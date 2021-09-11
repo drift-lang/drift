@@ -1026,6 +1026,33 @@ void stmt() {
         cst.loop = true;
         iter();
 
+        if (cst.pre.kind == LITERAL && cst.cur.kind == L_ARROW) {
+            token name = cst.pre;
+
+            both_iter();
+            stmt();
+
+            int begin_p = get_code_len() + 1;
+
+            emit_code(RANGE_OF);
+            emit_name(name.literal);
+            int16_t begin_of = *get_offset_p();
+            int begin = get_code_len();
+
+            iter();
+            block();
+
+            emit_code(RANGE_GO);
+            emit_name(name.literal);
+            emit_offset(begin_p);
+
+            insert_offset(begin_of, get_code_len());
+
+            replace_holder(-1, get_code_len());
+            replace_holder(-2, begin - 1);
+            break;
+        }
+
         stmt();
         iter();
         expect(PRE, SEMICOLON);
@@ -1217,6 +1244,14 @@ extern void disassemble_code(code_object *code) {
             int16_t *y = code->offsets->data[p + 1];
             printf("%d %s %d '%s'\n", *x, type_string(code->types->data[*x]),
                 *y, code->names->data[*y]);
+            p += 2;
+            break;
+        }
+        case RANGE_OF:
+        case RANGE_GO: {
+            int16_t *x = code->offsets->data[p];
+            int16_t *y = code->offsets->data[p + 1];
+            printf("%d #%s %d\n", *x, code->names->data[*x], *y);
             p += 2;
             break;
         }
