@@ -38,6 +38,7 @@ code_object *new_code(char *des) {
 }
 
 compile_state cst;
+void block();
 
 compile_state backup_state() {
     compile_state up;
@@ -278,14 +279,47 @@ void literal() {
 
 void name() {
     token name = cst.pre;
-    if (cst.cur.kind == EQ) {
+    token_kind kind = cst.cur.kind;
+
+    switch (kind) {
+    case EQ:
         both_iter();
         set_precedence(P_LOWEST);
+
         emit_code(ASSIGN_TO);
-    } else {
+        emit_name(name.literal);
+        break;
+    case R_ARROW:
+        both_iter();
+
+        compile_state up_state = backup_state();
+        clear_state();
+
+        code_object *code = new_code(name.literal);
+        PUSH_CODE(code);
+        block();
+
+        reset_state(&cst, up_state);
+
+        code_object *ptr = pop_back_keg(cst.codes);
+        object *obj = malloc(sizeof(object));
+        obj->kind = OBJ_EBLOCK;
+        obj->value.eb.name = name.literal;
+        obj->value.eb.code = ptr;
+
+        emit_code(SET_EB);
+        emit_obj(obj);
+        break;
+    default:
         emit_code(LOAD_OF);
+        emit_name(name.literal);
     }
-    emit_name(name.literal);
+}
+
+void recv_eb() {
+    iter();
+    set_precedence(P_LOWEST);
+    emit_code(RECV_EB);
 }
 
 void unary() {
@@ -502,7 +536,7 @@ void gmod() {
     emit_name(name.literal);
 }
 
-#define RULE_COUNT 27
+#define RULE_COUNT 28
 
 rule rules[RULE_COUNT] = {
     {EOH,       NULL,    NULL,    P_LOWEST },
@@ -532,6 +566,7 @@ rule rules[RULE_COUNT] = {
     {REF,       NULL,    gmod,    P_CALL   },
     {L_BRACKET, array,   indexes, P_CALL   },
     {L_BRACE,   map,     NULL,    P_CALL   },
+    {L_ARROW,   NULL,    recv_eb, P_CALL   },
 };
 
 rule get_rule(token_kind kind) {
@@ -636,8 +671,6 @@ type *set_type() {
     }
     return T;
 }
-
-void block();
 
 keg *parse_generic() {
     keg *gt = new_keg();
@@ -1208,7 +1241,8 @@ extern void disassemble_code(code_object *code) {
         case ENUMERATE:
         case FUNCTION:
         case INTERFACE:
-        case CLASS: {
+        case CLASS:
+        case SET_EB: {
             int16_t *off = code->offsets->data[p++];
             object *obj = code->objects->data[*off];
             printf("%d %s\n", *off, obj_string(obj));
@@ -1272,10 +1306,16 @@ extern void disassemble_code(code_object *code) {
     if (code->objects != NULL) {
         for (int i = 0; i < code->objects->item; i++) {
             object *obj = code->objects->data[i];
-            if (obj->kind == OBJ_FUNCTION) {
+            switch (obj->kind) {
+            case OBJ_FUNCTION:
                 disassemble_code(obj->value.fn.code);
-            } else if (obj->kind == OBJ_CLASS) {
+                break;
+            case OBJ_CLASS:
                 disassemble_code(obj->value.cl.code);
+                break;
+            case OBJ_EBLOCK:
+                disassemble_code(obj->value.eb.code);
+                break;
             }
         }
     }

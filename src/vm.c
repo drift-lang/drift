@@ -952,16 +952,24 @@ void eval() {
             vst.frame = append_keg(vst.frame, f);
             eval();
 
-            frame *p = pop_back_keg(vst.frame);
+            frame *p = back_keg(vst.frame);
 
             if (fn->value.fn.ret != NULL) {
-                if (p->ret == NULL || !type_checker(fn->value.fn.ret, p->ret)) {
-                    if (p->ret == NULL) {
-                        error("function missing return value");
+                if (f != p) {
+                    PUSH(make_nil());
+                } else {
+                    if (p->ret == NULL ||
+                        !type_checker(fn->value.fn.ret, p->ret)) {
+                        if (p->ret == NULL) {
+                            error("function missing return value");
+                        }
+                        type_error(fn->value.fn.ret, p->ret);
                     }
-                    type_error(fn->value.fn.ret, p->ret);
+                    PUSH(p->ret);
                 }
-                PUSH(p->ret);
+            }
+            if (f == p) {
+                pop_back_keg(vst.frame);
             }
 
             vst.op = op_up;
@@ -1241,6 +1249,38 @@ void eval() {
 
             vst.op -= 1;
             jump(go);
+            break;
+        }
+        case SET_EB: {
+            object *obj = GET_OBJ;
+            add_table(TOP_TB, obj->value.eb.name, obj);
+            break;
+        }
+        case RECV_EB: {
+            object *val = POP;
+            object *obj = POP;
+
+            if (obj->kind != OBJ_EBLOCK) {
+                error("not and exception code block");
+            }
+
+            char *name = obj->value.eb.name;
+            code_object *code = obj->value.eb.code;
+
+            frame *f = new_frame(code);
+            add_table(f->tb, name, val);
+
+            vst.op = 0;
+            vst.ip = 0;
+            vst.frame = append_keg(vst.frame, f);
+            eval();
+            pop_back_keg(vst.frame);
+
+            vst.ip = TOP_CODE->codes->item;
+
+            if (vst.frame->item - 1 >= 1) {
+                pop_back_keg(vst.frame);
+            }
             break;
         }
         case TO_RET:

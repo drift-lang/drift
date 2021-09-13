@@ -18,9 +18,7 @@ def fp []string = os::listdir(dir)
 def op []string = []
 
 def n int = 1
-for def i int = 0; i < len(fp); i = i + 1
-    def name string = fp[i]
-
+for name <- fp
     if str::end_with(name, ".c")
         os::command(
             CC + " -std=c99 -c -g " + dir + "/" + name)
@@ -28,7 +26,6 @@ for def i int = 0; i < len(fp); i = i + 1
 
         println(n, name)
         n = n + 1
-
 os::command(
     CC + PREFIX + list::to_string(op)
         + "-Wl,-E -ldl -o drift")

@@ -34,6 +34,7 @@ typedef enum {
     OBJ_MODULE,
     OBJ_NIL,
     OBJ_BUILTIN,
+    OBJ_EBLOCK,
     OBJ_CFUNC,
     OBJ_CMODS,
     OBJ_CUSER
@@ -114,6 +115,10 @@ typedef struct {
         struct {
             void *ptr;
         } cu;
+        struct {
+            char *name;
+            code_object *code;
+        } eb;
     } value;
 } object;
 
