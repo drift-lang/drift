@@ -17,6 +17,7 @@ static keg *c_func = NULL;
 static keg *c_mods = NULL;
 
 bool find_cmod_var = false;
+bool recv_excep = false;
 
 object *get_cfunc(char *name) {
     if (c_func == NULL) {
@@ -390,6 +391,7 @@ void jump(int16_t to) {
         case F_JUMP_TO:
         case NEW_OBJ:
         case REF_MODULE:
+        case SET_EB:
             reverse ? vst.op-- : vst.op++;
             break;
         case STORE_NAME:
@@ -952,12 +954,15 @@ void eval() {
             vst.frame = append_keg(vst.frame, f);
             eval();
 
-            frame *p = back_keg(vst.frame);
+            frame *p = pop_back_keg(vst.frame);
 
-            if (fn->value.fn.ret != NULL) {
-                if (f != p) {
+            if (recv_excep) {
+                if (fn->value.fn.ret != NULL) {
                     PUSH(make_nil());
-                } else {
+                }
+                recv_excep = false;
+            } else {
+                if (fn->value.fn.ret != NULL) {
                     if (p->ret == NULL ||
                         !type_checker(fn->value.fn.ret, p->ret)) {
                         if (p->ret == NULL) {
@@ -967,9 +972,6 @@ void eval() {
                     }
                     PUSH(p->ret);
                 }
-            }
-            if (f == p) {
-                pop_back_keg(vst.frame);
             }
 
             vst.op = op_up;
@@ -1270,17 +1272,18 @@ void eval() {
             frame *f = new_frame(code);
             add_table(f->tb, name, val);
 
+            int16_t bop = vst.op;
+            int16_t bip = vst.ip;
+
             vst.op = 0;
             vst.ip = 0;
             vst.frame = append_keg(vst.frame, f);
             eval();
             pop_back_keg(vst.frame);
 
+            vst.op = bop;
             vst.ip = TOP_CODE->codes->item;
-
-            if (vst.frame->item - 1 >= 1) {
-                pop_back_keg(vst.frame);
-            }
+            recv_excep = true;
             break;
         }
         case TO_RET:
