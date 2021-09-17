@@ -1297,6 +1297,9 @@ void eval() {
                     (BACK_FRAME)->ret = POP;
                 }
             }
+            if (repl_mode && TOP_DATA->item >= 1) {
+                printf("%s\n", obj_raw_string(back_keg(TOP_DATA), false));
+            }
             break;
         }
         case USE_MOD:
@@ -1347,11 +1350,21 @@ void load_dl(const char *path) {
 keg *read_path(char *path, char b, char a);
 
 vm_state evaluate(code_object *code, char *filename) {
-    vst.frame = new_keg();
+    if (repl_mode) {
+        if (vst.frame == NULL) {
+            vst.frame = new_keg();
+        }
+        if (vst.call == NULL) {
+            vst.call = new_keg();
+        }
+    } else {
+        vst.frame = new_keg();
+        vst.call = new_keg();
+    }
+
     vst.ip = 0;
     vst.op = 0;
     vst.filename = filename;
-    vst.call = new_keg();
 
     frame *main = new_frame(code);
     vst.frame = append_keg(vst.frame, main);

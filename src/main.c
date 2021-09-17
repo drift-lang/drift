@@ -6,27 +6,26 @@
 #include "token.h"
 #include "vm.h"
 
-#define COMPILER_VERSION "Drift 0.0.1 (MADE AT Jul 2021 29, 15:40:45)"
+#define COMPILER_VERSION "Drift 0.0.1 (MADE AT Sep 2021 17, 09:38:45)"
 #define DRIFT_LICENSE    "GNU General Public License GPL v3.0"
 
 bool show_tokens;
 bool show_bytes;
 bool show_tb;
+bool repl_mode;
 
 extern keg *lexer(const char *, int);
 extern keg *compile(keg *);
+
 extern void disassemble_code(code_object *);
+extern void disassemble_token(keg *);
 
 void run(char *source, int fsize, char *filename) {
     keg *tokens = lexer(source, fsize);
     free(source);
 
     if (show_tokens) {
-        for (int i = 0; i < tokens->item; i++) {
-            token *t = tokens->data[i];
-            printf("[%3d]\t%-5d %-5d %-5d %-30s\n", i, t->kind, t->line, t->off,
-                t->literal);
-        }
+        disassemble_token(tokens);
         return;
     }
 
@@ -48,10 +47,24 @@ void run(char *source, int fsize, char *filename) {
     free_tokens(tokens);
 }
 
+static vm_state state;
+
+void run_repl(char *line, int size) {
+    keg *tokens = lexer(line, size);
+    keg *codes = compile(tokens);
+
+    state = evaluate(codes->data[0], "REPL");
+
+    free(line);
+    free_tokens(tokens);
+    free_keg(codes);
+}
+
 void usage() {
-    printf("usage: drift <option> FILE(.ft)\n \
+    printf("usage: drift FILE(.ft) <option>\n \
 \n\
 command: \n\
+  repl        enter read-eval-print-loop mode\n\
   token       show lexical token list\n\
   op          show bytecode\n\
   tb          after exec, show environment mapping\n\n\
@@ -62,6 +75,48 @@ license:  %s\n\
     exit(EXIT_SUCCESS);
 }
 
+char *rp_line = NULL;
+
+void repl() {
+    repl_mode = true;
+    printf("%s\n", COMPILER_VERSION);
+
+    while (true) {
+        printf("> ");
+        rp_line = malloc(sizeof(char) * 128);
+
+        if (fgets(rp_line, 128, stdin) == NULL) {
+            printf("get input error\n");
+            goto out;
+        }
+
+        int len = strlen(rp_line);
+
+        if (len <= 0) {
+            goto out;
+        } else {
+            bool allspace = true;
+
+            for (int i = 0; i < len; i++) {
+                char c = rp_line[i];
+
+                if (c != ' ' && c != '\n' && c != '\r' && c != '\t') {
+                    allspace = false;
+                }
+            }
+            if (allspace) {
+                goto out;
+            }
+        }
+
+        rp_line[len - 1] = '\0';
+        run_repl(rp_line, len);
+        continue;
+    out:
+        free(rp_line);
+    }
+}
+
 int code_argc = 0;
 char **code_argv = NULL;
 
@@ -70,6 +125,10 @@ int main(int argc, char **argv) {
     code_argv = argv;
     if (argc < 2) {
         usage();
+    }
+    if (argc == 2 && strcmp(argv[1], "repl") == 0) {
+        repl();
+        return 0;
     }
     if (argc == 3) {
         if (strcmp(argv[2], "token") == 0)

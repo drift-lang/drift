@@ -28,6 +28,8 @@
 
 #define C_MOD_MEMCOUNT  32
 
+extern bool repl_mode;
+
 typedef struct {
     code_object *code;
     table *tb;
@@ -67,6 +69,12 @@ typedef struct {
     int i;
 } reg_mod;
 
+typedef struct {
+    char *name;
+    int p;
+    keg *arr;
+} range_iter;
+
 reg_mod *new_mod(char *);
 void emit_member(reg_mod *, char *, enum mem_kind);
 
@@ -92,11 +100,5 @@ char *get_filename(const char *p);
 void free_frame(frame *f);
 
 void free_tokens(keg *);
-
-typedef struct {
-    char *name;
-    int p;
-    keg *arr;
-} range_iter;
 
 #endif

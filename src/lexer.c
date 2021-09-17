@@ -10,7 +10,7 @@
 #include "token.h"
 
 static inline bool is_space(char c) {
-    return c == ' ' || c == '\t' || c == '\n' || c == '\r';
+    return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\0';
 }
 
 static inline bool is_digit(char c) {
@@ -334,4 +334,12 @@ extern keg *lexer(const char *buf, int fsize) {
         tokens = append_keg(tokens, new_token(EOH, "EOF", 0, 0));
     }
     return tokens;
+}
+
+extern void disassemble_token(keg *tokens) {
+    for (int i = 0; i < tokens->item; i++) {
+        token *t = tokens->data[i];
+        printf("[%3d]\t%-5d %-5d %-5d %-30s\n", i, t->kind, t->line, t->off,
+            t->literal);
+    }
 }
