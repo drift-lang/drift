@@ -61,7 +61,7 @@ void run_repl(char *line, int size) {
 }
 
 void usage() {
-    printf("usage: drift FILE(.ft) <option>\n \
+    printf("usage: drift [FILE(.ft)] <option>\n \
 \n\
 command: \n\
   repl        enter read-eval-print-loop mode\n\
