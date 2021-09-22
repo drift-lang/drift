@@ -11,6 +11,7 @@
 #include "object.h"
 #include "opcode.h"
 #include "token.h"
+#include "trace.h"
 #include "type.h"
 
 typedef struct {
@@ -216,10 +217,8 @@ static inline void both_iter() {
 enum expect_kind { PRE, CUR };
 
 void expect_error(token_kind kind) {
-    fprintf(stderr,
-        "\033[1;31mcompiler %d:\033[0m unexpected '%s' but it's '%s'.\n",
-        cst.pre.line, token_string[kind], cst.pre.literal);
-    exit(EXIT_SUCCESS);
+    TRACE("\033[1;31mcompiler %d:\033[0m unexpected '%s' but it's '%s'.\n",
+        cst.pre.line, token_string[kind], cst.pre.literal)
 }
 
 void expect(enum expect_kind exp, token_kind kind) {
@@ -237,15 +236,11 @@ void debug() {
 }
 
 void syntax_error() {
-    fprintf(
-        stderr, "\033[1;31mcompiler %d:\033[0m syntax error.\n", cst.pre.line);
-    exit(EXIT_SUCCESS);
+    TRACE("\033[1;31mcompiler %d:\033[0m syntax error.\n", cst.pre.line)
 }
 
 void no_block_error() {
-    fprintf(stderr, "\033[1;31mcompiler %d:\033[0m no block statement.\n",
-        cst.pre.line);
-    exit(EXIT_SUCCESS);
+    TRACE("\033[1;31mcompiler %d:\033[0m no block statement.\n", cst.pre.line)
 }
 
 void literal() {
@@ -581,11 +576,11 @@ rule get_rule(token_kind kind) {
 void set_precedence(int precedence) {
     rule prefix = get_rule(cst.pre.kind);
     if (prefix.prefix == NULL) {
-        fprintf(stderr,
+        TRACE(
             "\033[1;31mcompiler %d:\033[0m not found prefix function of token "
             "'%s'.\n",
-            cst.pre.line, cst.pre.literal);
-        exit(EXIT_SUCCESS);
+            cst.pre.line, cst.pre.literal)
+        return;
     }
     prefix.prefix();
     while (precedence <= get_cur_prec()) {
@@ -665,9 +660,8 @@ type *set_type() {
         T->inner.fn.ret = (struct type *)ret;
         break;
     default:
-        fprintf(stderr, "\033[1;31mcompiler %d:\033[0m unknown '%s' type.\n",
+        TRACE("\033[1;31mcompiler %d:\033[0m unknown '%s' type.\n",
             cst.pre.line, cst.pre.literal);
-        exit(EXIT_SUCCESS);
     }
     return T;
 }
@@ -1206,7 +1200,7 @@ extern keg *compile(keg *t) {
     code_object *code = new_code("main");
     PUSH_CODE(code);
 
-    while (cst.pre.kind != EOH) {
+    while (cst.pre.kind != EOH && !trace) {
         stmt();
         iter();
         cst.loop = false;

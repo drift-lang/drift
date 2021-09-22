@@ -20,6 +20,8 @@ extern keg *compile(keg *);
 extern void disassemble_code(code_object *);
 extern void disassemble_token(keg *);
 
+bool trace;
+
 void run(char *source, int fsize, char *filename) {
     keg *tokens = lexer(source, fsize);
     free(source);
@@ -51,7 +53,14 @@ static vm_state state;
 
 void run_repl(char *line, int size) {
     keg *tokens = lexer(line, size);
+    if (trace) {
+        return;
+    }
+
     keg *codes = compile(tokens);
+    if (trace) {
+        return;
+    }
 
     state = evaluate(codes->data[0], "REPL");
 

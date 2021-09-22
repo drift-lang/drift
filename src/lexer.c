@@ -8,6 +8,7 @@
 
 #include "keg.h"
 #include "token.h"
+#include "trace.h"
 
 static inline bool is_space(char c) {
     return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\0';
@@ -188,12 +189,10 @@ extern keg *lexer(const char *buf, int fsize) {
             literal[0] = buf[i++];
             c = buf[i];
             if (c != '\'') {
-                fprintf(stderr,
-                    "\033[1;31mlexer %d:\033[0m missing single quotation mark "
-                    "to the "
-                    "right.\n",
-                    line);
-                exit(EXIT_SUCCESS);
+                TRACE("\033[1;31mlexer %d:\033[0m missing single quotation "
+                      "mark to the right.\n",
+                    line)
+                goto out;
             } else {
                 i += 1;
             }
@@ -207,11 +206,10 @@ extern keg *lexer(const char *buf, int fsize) {
                 c = buf[++i];
                 p++;
                 if (i == fsize) {
-                    fprintf(stderr,
-                        "\033[1;31mlexer %d:\033[0m missing closing double "
-                        "quote.\n",
-                        line);
-                    exit(EXIT_SUCCESS);
+                    TRACE("\033[1;31mlexer %d:\033[0m missing closing double "
+                          "quote.\n",
+                        line)
+                    goto out;
                 }
             }
             char *literal;
@@ -318,10 +316,10 @@ extern keg *lexer(const char *buf, int fsize) {
             t.literal = "\\";
             break;
         default:
-            fprintf(stderr,
+            TRACE(
                 "\033[1;31mlexer %d:\033[0m unknown character '%c' ASCII %d.\n",
-                line, c, c);
-            exit(EXIT_SUCCESS);
+                line, c, c)
+            goto out;
         }
         tokens =
             append_keg(tokens, new_token(t.kind, t.literal, t.line, t.off));
@@ -333,6 +331,7 @@ extern keg *lexer(const char *buf, int fsize) {
     } else {
         tokens = append_keg(tokens, new_token(EOH, "EOF", 0, 0));
     }
+out:
     return tokens;
 }
 
