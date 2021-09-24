@@ -1349,6 +1349,11 @@ void load_dl(const char *path) {
 
 keg *read_path(char *path, char b, char a);
 
+static inline void new_env(frame *f) {
+    vst.frame = append_keg(vst.frame, f);
+    vst.call = append_keg(vst.call, f);
+}
+
 vm_state evaluate(code_object *code, char *filename) {
     if (repl_mode) {
         if (vst.frame == NULL) {
@@ -1367,8 +1372,16 @@ vm_state evaluate(code_object *code, char *filename) {
     vst.filename = filename;
 
     frame *main = new_frame(code);
-    vst.frame = append_keg(vst.frame, main);
-    vst.call = append_keg(vst.call, main);
+    if (repl_mode) {
+        if (vst.frame->item == 0) {
+            new_env(main);
+        }
+        frame *top = vst.frame->data[0];
+        top->code = code;
+        top->data = new_keg();
+    } else {
+        new_env(main);
+    }
 
     eval();
 

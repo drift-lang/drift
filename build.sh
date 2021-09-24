@@ -10,7 +10,8 @@ gcc -std=c99 -c -g src/vm.c
 
 echo "2(3): build execution file.."
 OUT="compiler.o keg.o lexer.o main.o object.o table.o type.o vm.o"
-gcc -fsanitize=address $OUT -Wl,-E -ldl -o drift
+#gcc -fsanitize=address $OUT -Wl,-E -ldl -o drift
+gcc $OUT -Wl,-E -ldl -o drift
 
 echo "3(3): build standard library.."
 gcc -fPIC -shared module/list.c -o list.so
