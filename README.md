@@ -13,8 +13,14 @@ The official website is https://drift-lang.fun/, the document is being prepared.
 
 ### Build
 
-The number of source files for the drift compiler is small, building them is also very simple. Make sure the [GCC](https://www.gnu.org/software/gcc/) compiler and [Python](https://www.python.org/) interpreter are installed. My GCC version is 11.2.0
+The number of source files for the drift compiler is small, building them is also very simple.
 
-Then use the <code>python</code> command to execute the <code>build.py</code> file in the directory to compile. The directory will generate the executable file of drift. Execute it without parameters and get the prompt information.
+Please ensure that the [GCC](https://www.gnu.org/software/gcc/) compiler is installed on your system. My GCC version is 11.2.0.
 
-Accessing the **-bug** parameter at the back indicates the GCC parameter **-fsanitize=address**, which is used for memory and bug detection.
+Execute the **build.sh** file using a UNIX like system. You can add **-bug** parameter to generate debugging information, which will build the **-fsanitize=address** parameter into the drift compiler.
+
+1. Build the C file in the **src** directory as the target file.
+2. Build the target file as an executable.
+3. Build the C file under the **module** folder as the dynamic library file.
+
+Now get the drift compiler and some dynamic standard libraries.
