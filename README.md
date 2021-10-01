@@ -6,7 +6,7 @@ I like all simple things, simple and beautiful, simple and strong. I know that a
 
 - Written in pure c99 language version.
 - Bytecode execution.
-- After optimization, the size is only about 30 kb.
+- After optimization, the size is only about 100 kb.
 - Provide external interfaces to access languages libraries that support links.
 
 The official website is https://drift-lang.fun/, the document is being prepared.
