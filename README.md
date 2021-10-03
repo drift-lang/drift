@@ -17,7 +17,9 @@ The number of source files for the drift compiler is small, building them is als
 
 Please ensure that the [GCC](https://www.gnu.org/software/gcc/) compiler is installed on your system. My GCC version is 11.2.0.
 
-Execute the **build.sh** file using a UNIX like system. You can add **-bug** parameter to generate debugging information, which will build the **-fsanitize=address** parameter into the drift compiler.
+Execute the **build.sh** file using a UNIX like system. You can add **-bug** parameter to generate debugging information, which will build the **-fsanitize=address** parameter into the drift compiler. Add the **-mod** parameter to compile only dynamic libraries.
+
+No parameters added:
 
 1. Build the C file in the **src** directory as the target file.
 2. Build the target file as an executable.

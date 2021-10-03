@@ -1,6 +1,17 @@
 # build.sh
 # @bingxio - https://drift-lang.fun/
 CC=gcc
+
+if [ -n "$1" ]; then
+	if [ $1 == "-mod" ]; then
+		for f in `ls ./module/*.c`; do
+			$CC -fPIC -shared $f -o `basename $f .c`.so
+		done
+		echo "Done!"
+		exit;
+	fi
+fi
+
 OUT=""
 
 for f in `ls ./src/*.c`; do
@@ -19,10 +30,6 @@ if [ -n "$1" ]; then
 fi
 
 $CC $BUG $OUT -Wl,-E -ldl -o drift
-
-for f in `ls ./module/*.c`; do
-	$CC -fPIC -shared $f -o `basename $f .c`.so
-done
 
 rm -f *.o
 echo "Done!"
