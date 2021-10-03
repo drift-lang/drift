@@ -1,6 +1,7 @@
 # build.sh
 # @bingxio - https://drift-lang.fun/
 CC=gcc
+BUG=""
 
 if [ -n "$1" ]; then
 	if [ $1 == "-mod" ]; then
@@ -8,6 +9,11 @@ if [ -n "$1" ]; then
 			$CC -fPIC -shared $f -o `basename $f .c`.so
 		done
 		echo "Done!"
+		exit;
+	elif [ $1 == "-bug" ]; then
+		BUG="-fsanitize=address"
+	else
+		echo "unknown arg: $1"
 		exit;
 	fi
 fi
@@ -18,16 +24,6 @@ for f in `ls ./src/*.c`; do
 	$CC -std=c99 -c -g $f
 	OUT="$OUT `basename $f .c`.o"
 done
-
-BUG=""
-
-if [ -n "$1" ]; then
-	if [ $1 == "-bug" ]; then
-		BUG="-fsanitize=address"
-	else
-		echo "unknown arg: $1"
-	fi
-fi
 
 $CC $BUG $OUT -Wl,-E -ldl -o drift
 
