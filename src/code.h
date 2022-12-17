@@ -9,13 +9,13 @@
 #include "keg.h"
 
 typedef struct {
-    char *description;
-    keg *names;
-    keg *codes;
-    keg *offsets;
-    keg *types;
-    keg *objects;
-    keg *lines;
+  char *description;
+  keg *names;
+  keg *codes;
+  keg *offsets;
+  keg *types;
+  keg *objects;
+  keg *lines;
 } code_object;
 
 #endif

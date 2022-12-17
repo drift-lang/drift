@@ -1,6 +1,6 @@
 # build.sh
 # @bingxio - https://drift-lang.fun/
-CC=gcc
+CC=/usr/local/Cellar/gcc/12.2.0/bin/gcc-12
 BUG=""
 
 if [ -n "$1" ]; then
@@ -24,8 +24,9 @@ for f in `ls ./src/*.c`; do
 	$CC -std=c99 -c -g $f
 	OUT="$OUT `basename $f .c`.o"
 done
+echo $OUT
 
-$CC $BUG $OUT -Wl,-E -ldl -o drift
+$CC $BUG $OUT -W -ldl -o drift
 
 rm -f *.o
 echo "Done!"
