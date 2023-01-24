@@ -50,82 +50,82 @@ typedef struct {
   union {
     int num;
     double f;
-    char *str;
+    char* str;
     char c;
     bool b;
     struct {
-      char *name;
-      keg *element;
+      char* name;
+      keg* element;
     } en;
     struct {
-      char *name;
-      keg *k;
-      keg *v;
-      type *mutiple;
-      type *ret;
-      code_object *code;
-      void *self;
-      keg *gt;
+      char* name;
+      keg* k;
+      keg* v;
+      type* mutiple;
+      type* ret;
+      code_object* code;
+      void* self;
+      keg* gt;
     } fn;
     struct {
-      char *name;
-      keg *element;
-      struct object *class;
-      keg *gt;
+      char* name;
+      keg* element;
+      struct object* class;
+      keg* gt;
     } in;
     struct {
-      char *name;
-      code_object *code;
-      struct frame *fr;
+      char* name;
+      code_object* code;
+      struct frame* fr;
       bool init;
-      keg *gt;
+      keg* gt;
     } cl;
     struct {
-      keg *element;
-      type *T;
+      keg* element;
+      type* T;
     } arr;
     struct {
-      keg *element;
-      type *T;
+      keg* element;
+      type* T;
     } tup;
     struct {
-      keg *k;
-      keg *v;
-      type *T1;
-      type *T2;
+      keg* k;
+      keg* v;
+      type* T1;
+      type* T2;
     } map;
     struct {
-      char *name;
-      struct table *tb;
+      char* name;
+      struct table* tb;
     } mod;
     struct {
       builtin_kind kind;
-      char *name;
-      void *func;
+      char* name;
+      void* func;
     } bu;
     struct {
-      const char *name;
-      void (*func)(keg *);
+      const char* name;
+      void (*func)(keg*);
     } cf;
     struct {
-      const char *name;
-      keg *var;
-      keg *met;
+      const char* name;
+      keg* var;
+      keg* met;
     } cm;
     struct {
-      void *ptr;
+      void* ptr;
     } cu;
     struct {
-      char *name;
-      code_object *code;
+      char* name;
+      code_object* code;
     } eb;
   } value;
 } object;
 
 typedef struct {
-  char *name;
-  keg *arg;
-  type *ret;
+  char* name;
+  keg* arg;
+  type* ret;
 } method;
 
 typedef struct {
@@ -135,32 +135,32 @@ typedef struct {
 } eval_op_rule;
 
 typedef struct {
-  char *name;
-  void *ptr;
+  char* name;
+  void* ptr;
 } addr_kv;
 
-const char *obj_string(object *);
+const char* obj_string(object*);
 
-const char *obj_raw_string(object *, bool);
+const char* obj_raw_string(object*, bool);
 
-object *binary_op(uint8_t, object *, object *);
+object* binary_op(uint8_t, object*, object*);
 
-bool type_checker(type *, object *);
+bool type_checker(type*, object*);
 
-bool obj_eq(object *, object *);
+bool obj_eq(object*, object*);
 
-bool obj_kind_eq(object *, object *);
+bool obj_kind_eq(object*, object*);
 
-const char *obj_type_string(object *);
+const char* obj_type_string(object*);
 
-int obj_len(object *);
+int obj_len(object*);
 
-object *new_num(int);
-object *new_float(double);
-object *new_string(char *);
-object *new_char(char);
-object *new_bool(bool);
-object *new_array(type_kind);
-object *new_userdata(void *);
+object* new_num(int);
+object* new_float(double);
+object* new_string(char*);
+object* new_char(char);
+object* new_bool(bool);
+object* new_array(type_kind);
+object* new_userdata(void*);
 
 #endif

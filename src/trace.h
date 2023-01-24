@@ -9,11 +9,11 @@
 extern bool repl_mode;
 extern bool trace;
 
-#define TRACE(fmt, ...)                                                        \
-  fprintf(stderr, fmt, __VA_ARGS__);                                           \
-  trace = true;                                                                \
-  if (!repl_mode) {                                                            \
-    exit(EXIT_SUCCESS);                                                        \
+#define TRACE(fmt, ...)              \
+  fprintf(stderr, fmt, __VA_ARGS__); \
+  trace = true;                      \
+  if (!repl_mode) {                  \
+    exit(EXIT_SUCCESS);              \
   }
 
 #endif

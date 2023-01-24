@@ -1,11 +1,1 @@
-Language: Cpp
-BasedOnStyle: LLVM
-# ColumnLimit: 80
-# IndentWidth: 2
-# AlignArrayOfStructures: Left
-# AlignConsecutiveMacros: AcrossEmptyLinesAndComments
-# AlignEscapedNewlines: DontAlign
-# AllowShortBlocksOnASingleLine: Empty
-# IndentPPDirectives: BeforeHash
-# AllowShortFunctionsOnASingleLine: None
-# AlignAfterOpenBracket: DontAlign
+BasedOnStyle: Chromium

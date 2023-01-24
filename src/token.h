@@ -60,7 +60,7 @@ typedef enum {
   NIL
 } token_kind;
 
-static const char *token_string[] = {
+static const char* token_string[] = {
     "EOF", "LITERAL", "NUMBER", "STRING", "CHAR", "FLOAT", "+",   "-",
     "*",   "/",       "%",      "->",     "<-",   ".",     ",",   ":",
     "=",   ";",       ">",      "<",      ">=",   "<=",    "&",   "|",
@@ -71,7 +71,7 @@ static const char *token_string[] = {
 
 typedef struct {
   token_kind kind;
-  char *literal;
+  char* literal;
   int line;
   int off;
 } token;

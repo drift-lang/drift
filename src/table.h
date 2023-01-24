@@ -12,20 +12,20 @@
 #include "object.h"
 
 typedef struct {
-  keg *name;
-  keg *value;
+  keg* name;
+  keg* value;
 } table;
 
-table *new_table();
+table* new_table();
 
-int count_table(table *);
+int count_table(table*);
 
-void add_table(table *, char *, void *);
+void add_table(table*, char*, void*);
 
-void *get_table(table *, char *);
+void* get_table(table*, char*);
 
-void disassemble_table(table *, const char *);
+void disassemble_table(table*, const char*);
 
-void free_table(table *);
+void free_table(table*);
 
 #endif

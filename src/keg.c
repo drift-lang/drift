@@ -5,41 +5,41 @@
  * GPL v3 License - bingxio <bingxio@qq.com> */
 #include "keg.h"
 
-keg *new_keg() {
-  keg *g = malloc(sizeof(keg));
+keg* new_keg() {
+  keg* g = malloc(sizeof(keg));
   g->data = NULL;
   g->item = 0;
   g->cap = 0;
   return g;
 }
 
-keg *append_keg(keg *g, void *ptr) {
+keg* append_keg(keg* g, void* ptr) {
   if (g == NULL) {
     g = new_keg();
   }
   if (g->cap == 0 || g->item + 1 > g->cap) {
     g->cap = g->cap == 0 ? 4 : g->cap * 2;
-    g->data = realloc(g->data, sizeof(void *) * g->cap);
+    g->data = realloc(g->data, sizeof(void*) * g->cap);
   }
   g->data[g->item++] = ptr;
   return g;
 }
 
-void *back_keg(keg *g) {
+void* back_keg(keg* g) {
   if (g->item == 0) {
     return NULL;
   }
   return g->data[g->item - 1];
 }
 
-void *pop_back_keg(keg *g) {
+void* pop_back_keg(keg* g) {
   if (g->item == 0) {
     return NULL;
   }
   return g->data[--g->item];
 }
 
-void insert_keg(keg *g, int p, void *ptr) {
+void insert_keg(keg* g, int p, void* ptr) {
   if (p < 0) {
     return;
   }
@@ -55,14 +55,14 @@ void insert_keg(keg *g, int p, void *ptr) {
   g->data[p] = ptr;
 }
 
-void replace_keg(keg *g, int p, void *ptr) {
+void replace_keg(keg* g, int p, void* ptr) {
   if (p < 0) {
     return;
   }
   g->data[p] = ptr;
 }
 
-void remove_keg(keg *g, int i) {
+void remove_keg(keg* g, int i) {
   if (i < 0 || i > g->item - 1) {
     return;
   }
@@ -72,7 +72,7 @@ void remove_keg(keg *g, int i) {
   g->item--;
 }
 
-void free_keg(keg *g) {
+void free_keg(keg* g) {
   if (g->data != NULL) {
     free(g->data);
   }

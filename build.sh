@@ -1,6 +1,6 @@
 # build.sh
 # @bingxio - https://drift-lang.fun/
-CC=/usr/local/Cellar/gcc/12.2.0/bin/gcc-12
+CC=gcc
 BUG=""
 
 if [ -n "$1" ]; then

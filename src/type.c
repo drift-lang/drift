@@ -5,74 +5,74 @@
  * GPL v3 License - bingxio <bingxio@qq.com> */
 #include "type.h"
 
-const char *type_string(type *t) {
-  char *str = malloc(sizeof(char) * DEBUG_TYPE_STR_CAP);
+const char* type_string(type* t) {
+  char* str = malloc(sizeof(char) * DEBUG_TYPE_STR_CAP);
   switch (t->kind) {
-  case T_INT:
-    free(str);
-    return "<int>";
-  case T_FLOAT:
-    free(str);
-    return "<float>";
-  case T_CHAR:
-    free(str);
-    return "<char>";
-  case T_STRING:
-    free(str);
-    return "<string>";
-  case T_BOOL:
-    free(str);
-    return "<bool>";
-  case T_ARRAY:
-    sprintf(str, "[]%s", type_string((type *)t->inner.single));
-    return str;
-  case T_TUPLE:
-    sprintf(str, "()%s", type_string((type *)t->inner.single));
-    return str;
-  case T_MAP:
-    sprintf(str, "{}<%s : %s>", type_string((type *)t->inner.both.T1),
-            type_string((type *)t->inner.both.T2));
-    return str;
-  case T_FUNCTION:
-    if (t->inner.fn.arg == NULL && t->inner.fn.ret == NULL) {
+    case T_INT:
       free(str);
-      return "<|| -> none>";
-    }
-    if (t->inner.fn.arg != NULL) {
-      sprintf(str, "<|");
-      for (int i = 0; i < t->inner.fn.arg->item; i++) {
-        strcat(str, type_string((type *)t->inner.fn.arg->data[i]));
-        if (i + 1 != t->inner.fn.arg->item) {
-          strcat(str, ", ");
+      return "<int>";
+    case T_FLOAT:
+      free(str);
+      return "<float>";
+    case T_CHAR:
+      free(str);
+      return "<char>";
+    case T_STRING:
+      free(str);
+      return "<string>";
+    case T_BOOL:
+      free(str);
+      return "<bool>";
+    case T_ARRAY:
+      sprintf(str, "[]%s", type_string((type*)t->inner.single));
+      return str;
+    case T_TUPLE:
+      sprintf(str, "()%s", type_string((type*)t->inner.single));
+      return str;
+    case T_MAP:
+      sprintf(str, "{}<%s : %s>", type_string((type*)t->inner.both.T1),
+              type_string((type*)t->inner.both.T2));
+      return str;
+    case T_FUNCTION:
+      if (t->inner.fn.arg == NULL && t->inner.fn.ret == NULL) {
+        free(str);
+        return "<|| -> none>";
+      }
+      if (t->inner.fn.arg != NULL) {
+        sprintf(str, "<|");
+        for (int i = 0; i < t->inner.fn.arg->item; i++) {
+          strcat(str, type_string((type*)t->inner.fn.arg->data[i]));
+          if (i + 1 != t->inner.fn.arg->item) {
+            strcat(str, ", ");
+          }
         }
+        strcat(str, "|>");
+        if (t->inner.fn.ret != NULL) {
+          strcat(str, " -> ");
+          strcat(str, type_string((type*)t->inner.fn.ret));
+        }
+        return str;
       }
-      strcat(str, "|>");
-      if (t->inner.fn.ret != NULL) {
-        strcat(str, " -> ");
-        strcat(str, type_string((type *)t->inner.fn.ret));
+      if (t->inner.fn.arg == NULL && t->inner.fn.ret != NULL) {
+        sprintf(str, "<|| -> %s>", type_string((type*)t->inner.fn.ret));
+        return str;
       }
       return str;
-    }
-    if (t->inner.fn.arg == NULL && t->inner.fn.ret != NULL) {
-      sprintf(str, "<|| -> %s>", type_string((type *)t->inner.fn.ret));
+    case T_USER:
+      sprintf(str, "<%s>", t->inner.name);
+      return str;
+    case T_ANY:
+      free(str);
+      return "<any>";
+    case T_GENERIC: {
+      generic* g = (generic*)t->inner.ge;
+      sprintf(str, "<%s:%d>", g->name, g->count);
       return str;
     }
-    return str;
-  case T_USER:
-    sprintf(str, "<%s>", t->inner.name);
-    return str;
-  case T_ANY:
-    free(str);
-    return "<any>";
-  case T_GENERIC: {
-    generic *g = (generic *)t->inner.ge;
-    sprintf(str, "<%s:%d>", g->name, g->count);
-    return str;
-  }
   }
 }
 
-bool type_eq(type *a, type *b) {
+bool type_eq(type* a, type* b) {
   if (a == NULL && b == NULL)
     return true;
   if (a == NULL && b != NULL)
@@ -89,19 +89,19 @@ bool type_eq(type *a, type *b) {
   if (a->kind == T_ARRAY) {
     if (b->kind != T_ARRAY)
       return false;
-    return type_eq((type *)a->inner.single, (type *)b->inner.single);
+    return type_eq((type*)a->inner.single, (type*)b->inner.single);
   }
   if (a->kind == T_TUPLE) {
     if (b->kind != T_TUPLE)
       return false;
-    return type_eq((type *)a->inner.single, (type *)b->inner.single);
+    return type_eq((type*)a->inner.single, (type*)b->inner.single);
   }
   if (a->kind == T_MAP) {
     if (b->kind != T_MAP)
       return false;
-    if (!type_eq((type *)a->inner.both.T1, (type *)b->inner.both.T1))
+    if (!type_eq((type*)a->inner.both.T1, (type*)b->inner.both.T1))
       return false;
-    if (!type_eq((type *)a->inner.both.T2, (type *)b->inner.both.T2))
+    if (!type_eq((type*)a->inner.both.T2, (type*)b->inner.both.T2))
       return false;
   }
   if (a->kind == T_FUNCTION) {
@@ -110,7 +110,7 @@ bool type_eq(type *a, type *b) {
     if (a->inner.fn.ret != NULL) {
       if (b->inner.fn.ret == NULL)
         return false;
-      if (!type_eq((type *)a->inner.fn.ret, (type *)b->inner.fn.ret))
+      if (!type_eq((type*)a->inner.fn.ret, (type*)b->inner.fn.ret))
         return false;
     }
     if (a->inner.fn.ret == NULL) {
@@ -120,8 +120,8 @@ bool type_eq(type *a, type *b) {
     if (a->inner.fn.arg->item != b->inner.fn.arg->item)
       return false;
     for (int i = 0; i < a->inner.fn.arg->item; i++) {
-      type *A = a->inner.fn.arg->data[i];
-      type *B = b->inner.fn.arg->data[i];
+      type* A = a->inner.fn.arg->data[i];
+      type* B = b->inner.fn.arg->data[i];
       if (!type_eq(A, B)) {
         return false;
       }
@@ -130,10 +130,12 @@ bool type_eq(type *a, type *b) {
   return true;
 }
 
-bool copy_type(type *t) { return t->kind < 5; }
+bool copy_type(type* t) {
+  return t->kind < 5;
+}
 
-type *new_type(type_kind kind) {
-  type *T = malloc(sizeof(type));
+type* new_type(type_kind kind) {
+  type* T = malloc(sizeof(type));
   T->kind = kind;
   return T;
 }

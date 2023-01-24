@@ -14,16 +14,16 @@ bool show_bytes;
 bool show_tb;
 bool repl_mode;
 
-extern keg *lexer(const char *, int);
-extern keg *compile(keg *);
+extern keg* lexer(const char*, int);
+extern keg* compile(keg*);
 
-extern void disassemble_code(code_object *);
-extern void disassemble_token(keg *);
+extern void disassemble_code(code_object*);
+extern void disassemble_token(keg*);
 
 bool trace;
 
-void run(char *source, int fsize, char *filename) {
-  keg *tokens = lexer(source, fsize);
+void run(char* source, int fsize, char* filename) {
+  keg* tokens = lexer(source, fsize);
   free(source);
 
   if (show_tokens) {
@@ -31,7 +31,7 @@ void run(char *source, int fsize, char *filename) {
     return;
   }
 
-  keg *codes = compile(tokens);
+  keg* codes = compile(tokens);
   if (show_bytes) {
     disassemble_code(codes->data[0]);
     return;
@@ -39,7 +39,7 @@ void run(char *source, int fsize, char *filename) {
 
   vm_state state = evaluate(codes->data[0], filename);
   if (show_tb) {
-    frame *main = state.frame->data[0];
+    frame* main = state.frame->data[0];
     disassemble_table(main->tb, main->code->description);
   }
 
@@ -51,13 +51,13 @@ void run(char *source, int fsize, char *filename) {
 
 static vm_state state;
 
-void run_repl(char *line, int size) {
-  keg *tokens = lexer(line, size);
+void run_repl(char* line, int size) {
+  keg* tokens = lexer(line, size);
   if (trace) {
     return;
   }
 
-  keg *codes = compile(tokens);
+  keg* codes = compile(tokens);
   if (trace) {
     return;
   }
@@ -70,7 +70,8 @@ void run_repl(char *line, int size) {
 }
 
 void usage() {
-  printf("usage: drift [FILE(.ft)] <option>\n \
+  printf(
+      "usage: drift [FILE(.ft)] <option>\n \
 \n\
 command: \n\
   repl        enter read-eval-print-loop mode\n\
@@ -80,11 +81,11 @@ command: \n\
 version:  %s\n\
 license:  %s\n\
            @ bingxio - bingxio@qq.com\n",
-         COMPILER_VERSION, DRIFT_LICENSE);
+      COMPILER_VERSION, DRIFT_LICENSE);
   exit(EXIT_SUCCESS);
 }
 
-char *rp_line = NULL;
+char* rp_line = NULL;
 
 void repl() {
   repl_mode = true;
@@ -127,9 +128,9 @@ void repl() {
 }
 
 int code_argc = 0;
-char **code_argv = NULL;
+char** code_argv = NULL;
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   code_argc = argc;
   code_argv = argv;
   if (argc < 2) {
@@ -147,13 +148,13 @@ int main(int argc, char **argv) {
     if (strcmp(argv[2], "tb") == 0)
       show_tb = true;
   }
-  const char *path = argv[1];
+  const char* path = argv[1];
   int len = strlen(path) - 1;
   if (path[len] != 't' || path[len - 1] != 'f' || path[len - 2] != '.') {
     fprintf(stderr, "\033[1;31merror:\033[0m no input file.\n");
     exit(EXIT_SUCCESS);
   }
-  FILE *fp = fopen(path, "r");
+  FILE* fp = fopen(path, "r");
   if (fp == NULL) {
     printf("\033[1;31merror:\033[0m failed to read buffer of file: '%s'\n",
            path);
@@ -163,7 +164,7 @@ int main(int argc, char **argv) {
   fseek(fp, 0, SEEK_END);
   int fsize = ftell(fp);
   rewind(fp);
-  char *buf = malloc(fsize + 1);
+  char* buf = malloc(fsize + 1);
 
   fread(buf, sizeof(char), fsize, fp);
   buf[fsize] = '\0';

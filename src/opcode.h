@@ -56,7 +56,7 @@ typedef enum {
   RET_OF,
 } op_code;
 
-static const char *code_string[] = {
+static const char* code_string[] = {
     "CONST_OF",  "LOAD_OF",   "ENUMERATE",  "CLASS",      "FUNCTION",
     "INTERFACE", "ASSIGN_TO", "STORE_NAME", "TO_INDEX",   "TO_REPLACE",
     "RANGE_OF",  "RANGE_GO",  "GET_OF",     "GET_IN_OF",  "SET_OF",
